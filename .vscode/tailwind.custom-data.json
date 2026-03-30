@@ -1,0 +1,55 @@
+{
+  "version": 1.1,
+  "atDirectives": [
+    {
+      "name": "@tailwind",
+      "description": "Inject Tailwind's base, components, utilities, or screens styles into the stylesheet.",
+      "references": [
+        {
+          "name": "Tailwind CSS directives",
+          "url": "https://tailwindcss.com/docs/functions-and-directives#tailwind"
+        }
+      ]
+    },
+    {
+      "name": "@apply",
+      "description": "Inline existing Tailwind utility classes into a custom CSS rule.",
+      "references": [
+        {
+          "name": "Tailwind CSS directives",
+          "url": "https://tailwindcss.com/docs/functions-and-directives#apply"
+        }
+      ]
+    },
+    {
+      "name": "@layer",
+      "description": "Place custom styles into Tailwind's base, components, or utilities layer.",
+      "references": [
+        {
+          "name": "Tailwind CSS directives",
+          "url": "https://tailwindcss.com/docs/functions-and-directives#layer"
+        }
+      ]
+    },
+    {
+      "name": "@config",
+      "description": "Load a specific Tailwind configuration file for the current stylesheet.",
+      "references": [
+        {
+          "name": "Tailwind CSS directives",
+          "url": "https://tailwindcss.com/docs/functions-and-directives#config"
+        }
+      ]
+    },
+    {
+      "name": "@screen",
+      "description": "Generate styles at a configured Tailwind breakpoint.",
+      "references": [
+        {
+          "name": "Tailwind CSS directives",
+          "url": "https://tailwindcss.com/docs/functions-and-directives#screen"
+        }
+      ]
+    }
+  ]
+}

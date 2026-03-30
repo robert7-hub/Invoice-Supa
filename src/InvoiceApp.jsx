@@ -1,0 +1,4638 @@
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  FileText,
+  Users,
+  Package,
+  BarChart3,
+  Settings,
+  Plus,
+  Search,
+  ChevronLeft,
+  Trash2,
+  Edit,
+  ArrowRightLeft,
+  MoreVertical,
+  Check,
+  X,
+  Phone,
+  Mail,
+  MapPin,
+  Building2,
+  CreditCard,
+  FileSignature,
+  Printer,
+  Palette,
+} from 'lucide-react';
+
+// ============================================================================
+// DATABASE LAYER - localStorage
+// ============================================================================
+
+const DB_KEYS = {
+  settings: 'invoiceapp_settings',
+  clients: 'invoiceapp_clients',
+  items: 'invoiceapp_items',
+  invoices: 'invoiceapp_invoices',
+  estimates: 'invoiceapp_estimates',
+};
+
+// Migration function to fix old document numbers
+const migrateDocumentNumbers = (invoices = [], estimates = []) => {
+  let invoiceCounter = 1;
+  let estimateCounter = 1;
+
+  const fixedInvoices = invoices.map((inv) => {
+    if (String(inv.number || '').startsWith('EST')) {
+      return {
+        ...inv,
+        number: `INV${String(invoiceCounter++).padStart(5, '0')}`,
+      };
+    }
+    return inv;
+  });
+
+  const fixedEstimates = estimates.map((est) => {
+    if (!String(est.number || '').startsWith('EST')) {
+      return {
+        ...est,
+        number: `EST${String(estimateCounter++).padStart(5, '0')}`,
+      };
+    }
+    return est;
+  });
+
+  return { fixedInvoices, fixedEstimates };
+};
+
+const useDatabase = () => {
+  const [data, setData] = useState({
+    settings: null,
+    clients: [],
+    items: [],
+    invoices: [],
+    estimates: [],
+  });
+  const [loading, setLoading] = useState(true);
+
+  const loadAll = useCallback(async () => {
+    try {
+      const results = {};
+      for (const [key, dbKey] of Object.entries(DB_KEYS)) {
+        try {
+          const raw = localStorage.getItem(dbKey);
+          results[key] = raw ? JSON.parse(raw) : key === 'settings' ? null : [];
+        } catch {
+          results[key] = key === 'settings' ? null : [];
+        }
+      }
+
+      // Apply migration to fix old document numbers
+      const { fixedInvoices, fixedEstimates } = migrateDocumentNumbers(
+        results.invoices || [],
+        results.estimates || []
+      );
+
+      // Update results with migrated data
+      results.invoices = fixedInvoices;
+      results.estimates = fixedEstimates;
+
+      // Save migrated data back to localStorage
+      localStorage.setItem(DB_KEYS.invoices, JSON.stringify(fixedInvoices));
+      localStorage.setItem(DB_KEYS.estimates, JSON.stringify(fixedEstimates));
+
+      if (results.settings) {
+        const normalizedSettings = {
+          ...SAMPLE_SETTINGS,
+          ...results.settings,
+          defaultInvoiceNotes: String(results.settings.defaultInvoiceNotes || '').trim()
+            ? results.settings.defaultInvoiceNotes
+            : SAMPLE_SETTINGS.defaultInvoiceNotes,
+          defaultEstimateNotes: String(results.settings.defaultEstimateNotes || '').trim()
+            ? results.settings.defaultEstimateNotes
+            : SAMPLE_SETTINGS.defaultEstimateNotes,
+        };
+
+        results.settings = normalizedSettings;
+        localStorage.setItem(DB_KEYS.settings, JSON.stringify(normalizedSettings));
+      }
+
+      setData(results);
+    } catch (error) {
+      console.error('Load error:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  const save = async (key, value) => {
+    try {
+      localStorage.setItem(DB_KEYS[key], JSON.stringify(value));
+      setData((prev) => ({ ...prev, [key]: value }));
+      return true;
+    } catch (error) {
+      console.error('Save error:', error);
+      return false;
+    }
+  };
+
+  return { data, save, loading, reload: loadAll };
+};
+
+// ============================================================================
+// SAMPLE DATA
+// ============================================================================
+
+const SAMPLE_SETTINGS = {
+  businessName: 'RECORD PRODUCTIONS',
+  businessNumber: '2021/160719/07',
+  address: '240 Waterberry Heights\n1 Waterberry Street, Potchefstroom 2531\nNorth West',
+  phone: '0760200509',
+  email: 'recordproductions777@gmail.com',
+  bankName: 'FNB',
+  accountNumber: '62929725101',
+  accountType: 'FNB GOLD BUSINESS ACCOUNT',
+  branchCode: '240438',
+  branchName: 'POTCHEFSTROOM',
+  swiftCode: 'FIRNZAJJ',
+  taxRate: 15,
+  taxLabel: 'VAT',
+  customBlock1:
+    'Event ends at 24:00/Formal arrangement.\n50% deposit required to book the event.\nFull payment due before the event starts.',
+  customBlock2:
+    'Events must be cancelled 15 days prior to reclaim the deposit.\nIf hired equipment is not returned or is damaged, charges will apply.',
+  defaultInvoiceNotes:
+    "Kindly observe the following formal arrangements for our events:\n\n1. The event will conclude promptly at midnight./Formal arrangement\n2. Any additional hours requested beyond midnight will incur an additional charge of R700 per hour./Formal arrangement\n3. A 50% deposit is mandatory to secure a booking. The remaining balance must be settled in full before the event commences.\n4. In the event of cancellation, 15 days' notice is required to be eligible for a deposit refund. Failure to provide timely notice will result in forfeiture of the deposit.\n\nHiring Equipment:\n\n1. If hired equipment is not returned, the client will be charged the full price.\n2. If equipment is damaged, the client will be charged for the damages.",
+  defaultEstimateNotes:
+    '• Event ends at 24:00/Formal arrangement.\n• 50% deposit required to book the event/Formal arrangement.\n• Full payment due before the event starts.\n• Events must be cancelled 15 days prior to reclaim the deposit; otherwise, the deposit is non-refundable.\n• If hired equipment is not returned or is damaged, charges will apply.',
+  nextInvoiceNumber: '00000',
+  nextEstimateNumber: '00000',
+  logo: null,
+  appTheme: 'default',
+};
+
+// ============================================================================
+// THEMES
+// ============================================================================
+
+const THEMES = {
+  default: {
+    appBg: 'bg-slate-100',
+    panelBg: 'bg-white',
+    cardBg: 'bg-white',
+    sidebarBg: 'bg-white',
+    sidebarActive: 'bg-slate-900 text-white',
+    sidebarInactive: 'text-slate-600 hover:bg-slate-100',
+    border: 'border-slate-200',
+    textPrimary: 'text-slate-900',
+    textSecondary: 'text-slate-600',
+    textMuted: 'text-slate-500',
+    accent: 'bg-slate-900 text-white',
+    accentHover: 'hover:bg-slate-800',
+    inputBg: 'bg-white',
+    inputBorder: 'border-slate-300',
+    modalBg: 'bg-white',
+    badgePending: 'bg-yellow-100 text-yellow-800',
+    badgeAccepted: 'bg-emerald-100 text-emerald-800',
+    badgeDeclined: 'bg-red-100 text-red-800',
+    badgeOutstanding: 'bg-slate-100 text-slate-800',
+    subtleBg: 'bg-slate-50',
+    cardHover: 'hover:bg-slate-50',
+    buttonHover: 'hover:bg-slate-100',
+    iconColor: 'text-slate-400',
+    labelColor: 'text-slate-700',
+    toggleInactive: 'bg-slate-200',
+    tableHeaderBg: 'bg-slate-50',
+    tableRowHover: 'hover:bg-slate-50',
+    mobileNavBg: 'bg-white border-t border-slate-200',
+    mobileNavActive: 'text-slate-900 bg-slate-100',
+    mobileNavInactive: 'text-slate-400',
+    sectionHeaderBg: 'bg-slate-50',
+    spinner: 'border-slate-200 border-t-slate-900',
+  },
+  'crimson-dusk': {
+    appBg: 'bg-[#06141B]',
+    panelBg: 'bg-[#11212D]',
+    cardBg: 'bg-[#253745]',
+    sidebarBg: 'bg-[#11212D]',
+    sidebarActive: 'bg-[#4A5C6A] text-[#CCD0CF]',
+    sidebarInactive: 'text-[#9BA8AB] hover:bg-[#253745]',
+    border: 'border-[#4A5C6A]',
+    textPrimary: 'text-[#CCD0CF]',
+    textSecondary: 'text-[#9BA8AB]',
+    textMuted: 'text-[#9BA8AB]/70',
+    accent: 'bg-[#4A5C6A] text-[#CCD0CF]',
+    accentHover: 'hover:bg-[#253745]',
+    inputBg: 'bg-[#253745]',
+    inputBorder: 'border-[#4A5C6A]',
+    modalBg: 'bg-[#11212D]',
+    badgePending: 'bg-[#9BA8AB]/20 text-[#9BA8AB]',
+    badgeAccepted: 'bg-[#CCD0CF]/20 text-[#CCD0CF]',
+    badgeDeclined: 'bg-[#4A5C6A]/20 text-[#4A5C6A]',
+    badgeOutstanding: 'bg-[#253745] text-[#9BA8AB]',
+    subtleBg: 'bg-[#06141B]',
+    cardHover: 'hover:bg-[#253745]/80',
+    buttonHover: 'hover:bg-[#253745]',
+    iconColor: 'text-[#9BA8AB]',
+    labelColor: 'text-[#9BA8AB]',
+    toggleInactive: 'bg-[#4A5C6A]',
+    tableHeaderBg: 'bg-[#4A5C6A]',
+    tableRowHover: 'hover:bg-[#253745]/60',
+    mobileNavBg: 'bg-[#11212D] border-t border-[#4A5C6A]',
+    mobileNavActive: 'text-[#CCD0CF] bg-[#4A5C6A]',
+    mobileNavInactive: 'text-[#9BA8AB]/70',
+    sectionHeaderBg: 'bg-[#06141B]',
+    spinner: 'border-[#4A5C6A] border-t-[#CCD0CF]',
+  },
+  'aurora-teal': {
+    appBg: 'bg-[#061A1F]',
+    panelBg: 'bg-[#072E33]',
+    cardBg: 'bg-[#0A3D44]',
+    sidebarBg: 'bg-[#072E33]',
+    sidebarActive: 'bg-[#0F969C] text-white',
+    sidebarInactive: 'text-[#6DA5C0]/80 hover:bg-[#0C7075]/30',
+    border: 'border-[#0F969C]/30',
+    textPrimary: 'text-[#E0F2F7]',
+    textSecondary: 'text-[#6DA5C0]',
+    textMuted: 'text-[#6DA5C0]/60',
+    accent: 'bg-[#0F969C] text-white',
+    accentHover: 'hover:bg-[#0C7075]',
+    inputBg: 'bg-[#061A1F]',
+    inputBorder: 'border-[#0F969C]/40',
+    modalBg: 'bg-[#072E33]',
+    badgePending: 'bg-[#0F969C]/20 text-[#6DA5C0]',
+    badgeAccepted: 'bg-[#0F969C]/30 text-[#0F969C]',
+    badgeDeclined: 'bg-red-900/30 text-red-300',
+    badgeOutstanding: 'bg-[#0A3D44] text-[#6DA5C0]',
+    subtleBg: 'bg-[#061A1F]',
+    cardHover: 'hover:bg-[#0C7075]/20',
+    buttonHover: 'hover:bg-[#294D61]',
+    iconColor: 'text-[#6DA5C0]/60',
+    labelColor: 'text-[#6DA5C0]',
+    toggleInactive: 'bg-[#294D61]',
+    tableHeaderBg: 'bg-[#0C7075]/30',
+    tableRowHover: 'hover:bg-[#0C7075]/20',
+    mobileNavBg: 'bg-[#072E33] border-t border-[#0F969C]/30',
+    mobileNavActive: 'text-[#0F969C] bg-[#0F969C]/20',
+    mobileNavInactive: 'text-[#6DA5C0]/60',
+    sectionHeaderBg: 'bg-[#061A1F]',
+    spinner: 'border-[#0F969C]/30 border-t-[#0F969C]',
+  },
+  'crimson-glass': {
+    appBg: 'bg-[#0A0607]',
+    panelBg: 'bg-[#0F0809]',
+    cardBg: 'bg-[#1A0D10]',
+    sidebarBg: 'bg-[#0F0809]',
+    sidebarActive: 'bg-[#8E1020] text-white',
+    sidebarInactive: 'text-white/60 hover:bg-[#5C0B16]/40',
+    border: 'border-white/10',
+    textPrimary: 'text-white',
+    textSecondary: 'text-white/70',
+    textMuted: 'text-white/45',
+    accent: 'bg-[#D4142A] text-white',
+    accentHover: 'hover:bg-[#8E1020]',
+    inputBg: 'bg-[#1A0D10]',
+    inputBorder: 'border-white/15',
+    modalBg: 'bg-[#0F0809]',
+    badgePending: 'bg-[#5C0B16]/50 text-white/80',
+    badgeAccepted: 'bg-emerald-900/40 text-emerald-300',
+    badgeDeclined: 'bg-[#D4142A]/30 text-[#FF3347]',
+    badgeOutstanding: 'bg-[#5C0B16]/30 text-white/65',
+    subtleBg: 'bg-[#0A0607]',
+    cardHover: 'hover:bg-[#5C0B16]/25',
+    buttonHover: 'hover:bg-[#5C0B16]/50',
+    iconColor: 'text-white/40',
+    labelColor: 'text-white/75',
+    toggleInactive: 'bg-[#5C0B16]',
+    tableHeaderBg: 'bg-[#8E1020]/40',
+    tableRowHover: 'hover:bg-[#5C0B16]/20',
+    mobileNavBg: 'bg-[#0F0809] border-t border-white/10',
+    mobileNavActive: 'text-white bg-[#8E1020]',
+    mobileNavInactive: 'text-white/45',
+    sectionHeaderBg: 'bg-[#0A0607]',
+    spinner: 'border-white/15 border-t-[#D4142A]',
+  },
+};
+
+const SAMPLE_CLIENTS = [
+  {
+    id: 'c1',
+    name: 'North-West University - TAD RAG FARM EVENT',
+    addressLine1: '11 HOFFMAN STR',
+    addressLine2: 'Private Bag X60013',
+    city: 'Potchefstroom',
+    postalCode: '2526',
+    phone: '+27 60 944 9814',
+    email: 'events@nwu.ac.za',
+    vatNumber: '4500 209 301',
+    notes: 'University events department',
+  },
+  {
+    id: 'c2',
+    name: 'Makarios ---> 14 May (Lehan & Anli)',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    postalCode: '',
+    phone: '+27 84 581 3421',
+    email: '',
+    notes: 'Wedding event',
+  },
+  {
+    id: 'c3',
+    name: 'Sunset Lounge Bar',
+    addressLine1: '45 Main Street',
+    addressLine2: '',
+    city: 'Potchefstroom',
+    postalCode: '2531',
+    phone: '+27 82 555 1234',
+    email: 'info@sunsetlounge.co.za',
+    notes: 'Regular weekend events',
+  },
+];
+
+const SAMPLE_ITEMS = [
+  {
+    id: 'i1',
+    name: '3 Block Stage for DJ',
+    description: 'Modular stage blocks for DJ setup',
+    unitCost: 500,
+    unit: 'block',
+    quantity: 1,
+    discountType: 'percentage',
+    discountAmount: 0,
+    taxable: true,
+    additionalDetails: '',
+  },
+  {
+    id: 'i2',
+    name: 'Sound for Event (Full Package)',
+    description: '4x Line array Tops, 4x 18-inch bassbins, 1x DJ Monitor, 1x Mic',
+    unitCost: 8500,
+    unit: 'package',
+    quantity: 1,
+    discountType: 'percentage',
+    discountAmount: 0,
+    taxable: true,
+    additionalDetails: '',
+  },
+  {
+    id: 'i3',
+    name: 'Sound for Event (Wedding)',
+    description: 'Sound for chapel, Canapés, Reception: 4 Tops, 1 Sub',
+    unitCost: 5000,
+    unit: 'package',
+    quantity: 1,
+    discountType: 'percentage',
+    discountAmount: 0,
+    taxable: true,
+    additionalDetails: '',
+  },
+  {
+    id: 'i4',
+    name: 'DJ + Labour',
+    description: 'Professional DJ services including setup',
+    unitCost: 1500,
+    unit: 'service',
+    quantity: 1,
+    discountType: 'percentage',
+    discountAmount: 0,
+    taxable: true,
+    additionalDetails: '',
+  },
+  {
+    id: 'i5',
+    name: 'DJ + Traveling',
+    description: 'DJ services with travel included',
+    unitCost: 1500,
+    unit: 'service',
+    quantity: 1,
+    discountType: 'percentage',
+    discountAmount: 0,
+    taxable: true,
+    additionalDetails: '',
+  },
+  {
+    id: 'i6',
+    name: 'Light Package (Standard)',
+    description: '4x Parcans, 2x Moving heads, 2x Derby lights (disco ball effect)',
+    unitCost: 1500,
+    unit: 'package',
+    quantity: 1,
+    discountType: 'percentage',
+    discountAmount: 0,
+    taxable: true,
+    additionalDetails: '',
+  },
+  {
+    id: 'i7',
+    name: 'Light Package (Premium)',
+    description: '4x Parcans, 2x Moving wash, 1x Derby light, Smoker',
+    unitCost: 4000,
+    unit: 'package',
+    quantity: 1,
+    discountType: 'percentage',
+    discountAmount: 0,
+    taxable: true,
+    additionalDetails: '',
+  },
+];
+
+const SAMPLE_INVOICES = [
+  {
+    id: 'inv1',
+    number: 'INV17054',
+    clientId: 'c2',
+    date: '2026-03-02',
+    dueDate: '2026-03-02',
+    status: 'outstanding',
+    amountPaid: 0,
+    items: [
+      {
+        id: 'li1',
+        description: 'Sound for Event',
+        notes: 'Sound for chapel\nSound for Canapés\nSound for Reception:\n- 4 Tops\n- 1 Sub',
+        rate: 5000,
+        qty: 1,
+        unit: 'package',
+        discountType: 'percentage',
+        discountAmount: 0,
+        taxable: true,
+      },
+      {
+        id: 'li2',
+        description: 'Light package',
+        notes: '4 - Parcans\n2 - Moving wash\n1 - Derby light\nSmoker',
+        rate: 4000,
+        qty: 1,
+        unit: 'package',
+        discountType: 'percentage',
+        discountAmount: 0,
+        taxable: true,
+      },
+      {
+        id: 'li3',
+        description: 'DJ + Traveling',
+        notes: '',
+        rate: 1500,
+        qty: 1,
+        unit: 'service',
+        discountType: 'percentage',
+        discountAmount: 0,
+        taxable: true,
+      },
+    ],
+    notes: '',
+    overallDiscount: 0,
+    overallDiscountType: 'percentage',
+    createdAt: '2026-03-02',
+  },
+];
+
+const SAMPLE_ESTIMATES = [
+  {
+    id: 'est1',
+    number: 'EST033',
+    clientId: 'c1',
+    date: '2026-03-02',
+    status: 'pending',
+    items: [
+      {
+        id: 'li1',
+        description: '3 block Stage for DJ',
+        notes: '',
+        rate: 500,
+        qty: 3,
+        unit: 'block',
+        discountType: 'percentage',
+        discountAmount: 0,
+        taxable: true,
+      },
+      {
+        id: 'li2',
+        description: 'Sound for Event',
+        notes: '4x Line array Tops\n4X 18-inch bassbins\n1x DJ Monitor\n1x Mic',
+        rate: 8500,
+        qty: 1,
+        unit: 'package',
+        discountType: 'percentage',
+        discountAmount: 0,
+        taxable: true,
+      },
+    ],
+    notes: '',
+    overallDiscount: 0,
+    overallDiscountType: 'percentage',
+    createdAt: '2026-03-02',
+  },
+];
+
+// ============================================================================
+// UTILITIES
+// ============================================================================
+
+const generateId = () => Math.random().toString(36).slice(2, 11);
+
+const formatCurrency = (amount) =>
+  `R${Number(amount || 0).toLocaleString('en-ZA', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-ZA');
+};
+
+const formatClientAddress = (client, forHtml = false) => {
+  if (!client) return '';
+
+  if (client.addressLine1 || client.addressLine2 || client.city || client.postalCode) {
+    const lines = [];
+    if (client.addressLine1) lines.push(client.addressLine1);
+    if (client.addressLine2) lines.push(client.addressLine2);
+    if (client.city || client.postalCode) {
+      lines.push([client.city, client.postalCode].filter(Boolean).join(', '));
+    }
+    return forHtml ? lines.join('<br>') : lines.join('\n');
+  }
+
+  if (client.address) {
+    return forHtml ? client.address.replace(/\n/g, '<br>') : client.address;
+  }
+
+  return '';
+};
+
+const calculateItemTotal = (item, taxRate = 0) => {
+  const subtotal = (Number(item.rate) || 0) * (Number(item.qty) || 0);
+  let discountedTotal = subtotal;
+
+  if (item.discountAmount && item.discountAmount > 0) {
+    if (item.discountType === 'percentage') {
+      discountedTotal = subtotal * (1 - item.discountAmount / 100);
+    } else {
+      discountedTotal = subtotal - item.discountAmount;
+    }
+  }
+
+  const tax = item.taxable ? discountedTotal * (taxRate / 100) : 0;
+  const total = discountedTotal + tax;
+
+  return {
+    subtotal,
+    discount: subtotal - discountedTotal,
+    tax,
+    total: Math.max(0, total),
+  };
+};
+
+const calculateSubtotal = (items) =>
+  items.reduce((sum, item) => sum + (Number(item.rate) || 0) * (Number(item.qty) || 0), 0);
+
+const calculateTotalDiscount = (items) =>
+  items.reduce((sum, item) => {
+    const subtotal = (Number(item.rate) || 0) * (Number(item.qty) || 0);
+    if (item.discountAmount > 0) {
+      if (item.discountType === 'percentage') {
+        return sum + subtotal * (item.discountAmount / 100);
+      }
+      return sum + item.discountAmount;
+    }
+    return sum;
+  }, 0);
+
+const calculateTotalTax = (items, taxRate = 0) =>
+  items.reduce((sum, item) => sum + calculateItemTotal(item, taxRate).tax, 0);
+
+const calculateDocumentTotal = (doc, taxRate = 0) => {
+  const subtotal = calculateSubtotal(doc.items || []);
+  const itemDiscount = calculateTotalDiscount(doc.items || []);
+  const subtotalAfterItemDiscounts = subtotal - itemDiscount;
+  const overallDiscountAmount =
+    doc.overallDiscountType === 'percentage'
+      ? subtotalAfterItemDiscounts * ((doc.overallDiscount || 0) / 100)
+      : doc.overallDiscount || 0;
+  const totalTax = calculateTotalTax(doc.items || [], taxRate);
+  return subtotalAfterItemDiscounts - overallDiscountAmount + totalTax;
+};
+
+const generatePDF = async (type, doc, client, settings) => {
+  const isInvoice = type === 'invoice';
+  const taxRate = settings?.taxRate || 15;
+  const taxLabel = settings?.taxLabel || 'VAT';
+  const documentLabel = isInvoice ? 'Invoice' : 'Estimate';
+
+  const escapeHtml = (value = '') =>
+    String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const toHtmlLines = (value = '') => escapeHtml(value).replace(/\n/g, '<br>');
+
+  const formatPdfClientAddress = (pdfClient, forHtml = false) => {
+    if (!pdfClient) return '';
+    const lines = [];
+    if (pdfClient.addressLine1) lines.push(pdfClient.addressLine1);
+    if (pdfClient.addressLine2) lines.push(pdfClient.addressLine2);
+    if (pdfClient.city || pdfClient.postalCode) {
+      lines.push([pdfClient.city, pdfClient.postalCode].filter(Boolean).join(', '));
+    }
+    if (lines.length > 0) {
+      return forHtml ? lines.join('<br>') : lines.join('\n');
+    }
+    if (pdfClient.address) {
+      return forHtml ? String(pdfClient.address).replace(/\n/g, '<br>') : pdfClient.address;
+    }
+    return '';
+  };
+
+  const subtotal = calculateSubtotal(doc.items || []);
+  const itemDiscount = calculateTotalDiscount(doc.items || []);
+  const subtotalAfterItemDiscounts = subtotal - itemDiscount;
+  const overallDiscountAmount =
+    doc.overallDiscountType === 'percentage'
+      ? subtotalAfterItemDiscounts * ((doc.overallDiscount || 0) / 100)
+      : doc.overallDiscount || 0;
+  const totalTax = calculateTotalTax(doc.items || [], taxRate);
+  const total = subtotalAfterItemDiscounts - overallDiscountAmount + totalTax;
+  const amountPaid = doc.amountPaid || 0;
+  const balanceDue = Math.max(0, total - amountPaid);
+
+  const itemRows = (doc.items || [])
+    .map((item) => {
+      const calc = calculateItemTotal(item, taxRate);
+      return `
+        <tr>
+          <td style="padding:12px;border-bottom:1px solid #ddd;">${escapeHtml(item.description || '')}<br><small>${toHtmlLines(item.notes || '')}</small></td>
+          <td style="padding:12px;border-bottom:1px solid #ddd;text-align:center;">${item.qty || 0}</td>
+          <td style="padding:12px;border-bottom:1px solid #ddd;text-align:right;">${formatCurrency(item.rate || 0)}</td>
+          <td style="padding:12px;border-bottom:1px solid #ddd;text-align:right;">${formatCurrency(calc.total)}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  const logoHtml = settings?.logo
+    ? `
+        <div style="flex:0 0 auto; text-align:right;">
+          <img
+            src="${escapeHtml(settings.logo)}"
+            alt="${escapeHtml(settings?.businessName || 'Business logo')}"
+            style="max-width:180px; max-height:90px; object-fit:contain;"
+          />
+        </div>
+      `
+    : '';
+
+  const html = `
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>${escapeHtml(doc.number || documentLabel)}</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; padding: 30px; color: #111;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px;">
+          <div style="flex:1 1 auto;">
+            <h1 style="margin:0 0 8px;">${isInvoice ? 'INVOICE' : 'ESTIMATE'}</h1>
+            <p style="margin:0 0 6px;"><strong>${escapeHtml(settings?.businessName || 'Your Business')}</strong></p>
+            <p style="margin:0 0 4px;">${toHtmlLines(settings?.address || '')}</p>
+            ${settings?.phone ? `<p style="margin:0 0 4px;">${escapeHtml(settings.phone)}</p>` : ''}
+            ${settings?.email ? `<p style="margin:0;">${escapeHtml(settings.email)}</p>` : ''}
+          </div>
+          ${logoHtml}
+        </div>
+        <hr style="margin: 20px 0;" />
+
+        <p><strong>${isInvoice ? 'Invoice' : 'Estimate'} No:</strong> ${escapeHtml(doc.number || '')}</p>
+        <p><strong>Date:</strong> ${escapeHtml(doc.date || '')}</p>
+        <p><strong>Due Date:</strong> ${escapeHtml(doc.dueDate || '')}</p>
+
+        <h3>${isInvoice ? 'Bill To' : 'Prepared For'}</h3>
+        <p><strong>${escapeHtml(client?.name || 'Client')}</strong></p>
+        <p>${toHtmlLines(formatPdfClientAddress(client, false))}</p>
+        <p>${escapeHtml(client?.phone || '')}</p>
+        <p>${escapeHtml(client?.email || '')}</p>
+
+        <table style="width:100%; border-collapse:collapse; margin-top: 20px;">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:12px; border-bottom:2px solid #111;">Description</th>
+              <th style="text-align:center; padding:12px; border-bottom:2px solid #111;">Qty</th>
+              <th style="text-align:right; padding:12px; border-bottom:2px solid #111;">Rate</th>
+              <th style="text-align:right; padding:12px; border-bottom:2px solid #111;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>${itemRows}</tbody>
+        </table>
+
+        <div style="margin-top: 24px; margin-left:auto; width: 320px;">
+          <p><strong>Subtotal:</strong> ${formatCurrency(subtotal)}</p>
+          <p><strong>Item Discount:</strong> ${formatCurrency(itemDiscount)}</p>
+          <p><strong>${escapeHtml(taxLabel)} (${taxRate}%):</strong> ${formatCurrency(totalTax)}</p>
+          <p><strong>Total:</strong> ${formatCurrency(total)}</p>
+          <p><strong>Amount Paid:</strong> ${formatCurrency(amountPaid)}</p>
+          <p><strong>Balance Due:</strong> ${formatCurrency(balanceDue)}</p>
+        </div>
+
+        ${
+          doc.notes
+            ? `<div style="margin-top: 24px;"><h3>Notes</h3><p>${toHtmlLines(doc.notes)}</p></div>`
+            : ''
+        }
+      </body>
+    </html>
+  `;
+
+  let iframe = null;
+
+  try {
+    const html2pdfModule = await import('html2pdf.js');
+    const html2pdf = html2pdfModule?.default || html2pdfModule;
+
+    iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.left = '-10000px';
+    iframe.style.top = '0';
+    iframe.style.width = '794px';
+    iframe.style.height = '1123px';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentWindow.document;
+    iframeDoc.open();
+    iframeDoc.write(html);
+    iframeDoc.close();
+
+    await Promise.all(
+      Array.from(iframeDoc.images || [])
+        .filter((image) => !image.complete)
+        .map(
+          (image) =>
+            new Promise((resolve) => {
+              image.onload = resolve;
+              image.onerror = resolve;
+            })
+        )
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const contentHeight = Math.max(
+      iframeDoc.documentElement?.scrollHeight || 0,
+      iframeDoc.body?.scrollHeight || 0,
+      1123
+    );
+    iframe.style.height = `${contentHeight}px`;
+
+    const safeNumber = String(doc?.number || documentLabel).replace(/[\\/:*?"<>|]+/g, '_');
+
+    await html2pdf()
+      .from(iframeDoc.body)
+      .set({
+        filename: `${documentLabel}_${safeNumber}.pdf`,
+        margin: [0, 0, 0, 0],
+        jsPDF: { format: 'a4', unit: 'mm' },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+        },
+      })
+      .save();
+
+    return true;
+  } catch (error) {
+    console.error('Failed to generate PDF', error);
+    return false;
+  } finally {
+    if (iframe?.parentNode) iframe.parentNode.removeChild(iframe);
+  }
+};
+
+const parseDocumentNumber = (value, prefix, allowPlain = false) => {
+  const raw = String(value || '').trim().toUpperCase();
+  const match = raw.match(new RegExp(`^${prefix}(\\d+)$`))
+    || (allowPlain ? raw.match(/^(\d+)$/) : null);
+  if (!match) return null;
+  return {
+    number: parseInt(match[1], 10),
+    width: match[1].length,
+  };
+};
+
+const formatDocumentNumber = (prefix, number, width = 5) => `${prefix}${String(number).padStart(width, '0')}`;
+
+const generateDocumentNumber = (type, existingInvoices, existingEstimates, settings) => {
+  const prefix = type === 'invoice' ? 'INV' : 'EST';
+  const items = type === 'invoice' ? existingInvoices : existingEstimates;
+  const settingKey = type === 'invoice' ? 'nextInvoiceNumber' : 'nextEstimateNumber';
+  const configured = parseDocumentNumber(settings?.[settingKey], prefix, true);
+  const parsedItems = items
+    .map((item) => parseDocumentNumber(item.number, prefix))
+    .filter(Boolean);
+  const maxExisting = Math.max(0, ...parsedItems.map((item) => item.number));
+  const width = parsedItems.length > 0
+    ? Math.max(...parsedItems.map((item) => item.width))
+    : Math.max(configured?.width || 0, 3);
+  const nextFromSetting = configured ? configured.number + 1 : 1;
+  const nextNumber = Math.max(nextFromSetting, maxExisting + 1);
+  return formatDocumentNumber(prefix, nextNumber, width);
+};
+
+// ============================================================================
+// UI HELPERS
+// ============================================================================
+
+const StatusBadge = ({ status, theme = THEMES.default }) => {
+  const styles = {
+    paid: theme.badgeAccepted,
+    outstanding: theme.badgeOutstanding,
+    accepted: theme.badgeAccepted,
+    declined: theme.badgeDeclined,
+    pending: theme.badgePending,
+  };
+  const labelMap = {
+    accepted: 'Approved',
+  };
+  return (
+    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${styles[status] || styles.pending}`}>
+      {labelMap[status] || (status?.charAt(0).toUpperCase() + status?.slice(1))}
+    </span>
+  );
+};
+
+const EmptyState = ({ icon: Icon, title, description, action, theme = THEMES.default }) => (
+  <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+    <div className={`w-16 h-16 rounded-2xl ${theme.subtleBg} flex items-center justify-center mb-4`}>
+      <Icon className={`w-8 h-8 ${theme.iconColor}`} />
+    </div>
+    <h3 className={`text-lg font-semibold ${theme.textPrimary} mb-1`}>{title}</h3>
+    <p className={`text-sm ${theme.textMuted} mb-6 max-w-xs`}>{description}</p>
+    {action}
+  </div>
+);
+
+const ChartEmptyState = ({ title = 'No data available', description = 'Adjust your filters or create more activity to see this chart.', theme = THEMES.default }) => (
+  <div className={`flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed ${theme.border} ${theme.subtleBg} px-6 text-center`}>
+    <p className={`text-sm font-semibold ${theme.textPrimary}`}>{title}</p>
+    <p className={`mt-2 max-w-xs text-xs ${theme.textMuted}`}>{description}</p>
+  </div>
+);
+
+const AnalyticsCard = ({ title, subtitle, children, theme = THEMES.default, className = '' }) => (
+  <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden ${className}`}>
+    <div className={`p-4 border-b ${theme.border}`}>
+      <h3 className={`text-base font-semibold ${theme.textPrimary}`}>{title}</h3>
+      {subtitle ? <p className={`mt-1 text-sm ${theme.textMuted}`}>{subtitle}</p> : null}
+    </div>
+    <div className="p-4">{children}</div>
+  </div>
+);
+
+const SummaryMetricCard = ({ title, value, detail, accentClass, theme = THEMES.default }) => (
+  <div className={`${theme.cardBg} border ${theme.border} rounded-2xl p-4 shadow-sm`}>
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${theme.textMuted}`}>{title}</p>
+        <p className={`mt-3 text-2xl font-bold ${theme.textPrimary}`}>{value}</p>
+        {detail ? <p className={`mt-2 text-sm ${theme.textSecondary}`}>{detail}</p> : null}
+      </div>
+      <span className={`h-10 w-1.5 rounded-full ${accentClass}`} />
+    </div>
+  </div>
+);
+
+const formatCompactCurrency = (amount) => {
+  const value = Number(amount || 0);
+  if (Math.abs(value) >= 1000000) return `R${(value / 1000000).toFixed(1)}M`;
+  if (Math.abs(value) >= 1000) return `R${(value / 1000).toFixed(1)}K`;
+  return formatCurrency(value);
+};
+
+const SimpleMultiBarChart = ({ data, series, theme = THEMES.default, height = 260 }) => {
+  if (!data.length) {
+    return <ChartEmptyState theme={theme} title="No revenue data" description="There is no period activity for the current filters." />;
+  }
+
+  const maxValue = Math.max(1, ...data.flatMap((item) => series.map((entry) => Number(item[entry.key] || 0))));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-3">
+        {series.map((entry) => (
+          <div key={entry.key} className="flex items-center gap-2 text-xs">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+            <span className={theme.textMuted}>{entry.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-end gap-4 overflow-x-auto pb-2" style={{ minHeight: `${height}px` }}>
+        {data.map((item) => (
+          <div key={item.label} className="flex min-w-[96px] flex-1 flex-col items-center gap-3">
+            <div className="flex h-[220px] w-full items-end justify-center gap-2">
+              {series.map((entry) => {
+                const value = Number(item[entry.key] || 0);
+                const barHeight = `${Math.max((value / maxValue) * 100, value > 0 ? 6 : 0)}%`;
+                return (
+                  <div key={entry.key} className="flex h-full flex-1 items-end">
+                    <div
+                      className="w-full rounded-t-xl transition-all"
+                      style={{
+                        height: barHeight,
+                        background: `linear-gradient(180deg, ${entry.color}, ${entry.color}bb)`,
+                        boxShadow: `0 10px 30px ${entry.color}22`,
+                      }}
+                      title={`${entry.label}: ${formatCurrency(value)}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="text-center">
+              <p className={`text-xs font-semibold ${theme.textPrimary}`}>{item.label}</p>
+              <p className={`mt-1 text-[11px] ${theme.textMuted}`}>{formatCompactCurrency(item.total)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const DonutChart = ({ data, centerLabel, centerValue, theme = THEMES.default }) => {
+  if (!data.length || data.every((item) => !item.value)) {
+    return <ChartEmptyState theme={theme} title="No chart data" description="There is not enough activity for this breakdown yet." />;
+  }
+
+  const total = data.reduce((sum, item) => sum + Number(item.value || 0), 0);
+  const radius = 72;
+  const strokeWidth = 24;
+  const circumference = 2 * Math.PI * radius;
+  let currentOffset = 0;
+
+  return (
+    <div className="grid gap-4 md:grid-cols-[220px_1fr] md:items-center">
+      <div className="mx-auto h-[220px] w-[220px]">
+        <svg viewBox="0 0 220 220" className="h-full w-full -rotate-90">
+          <circle cx="110" cy="110" r={radius} fill="none" stroke="rgba(148,163,184,0.15)" strokeWidth={strokeWidth} />
+          {data.map((item) => {
+            const value = Number(item.value || 0);
+            const dash = total > 0 ? (value / total) * circumference : 0;
+            const element = (
+              <circle
+                key={item.label}
+                cx="110"
+                cy="110"
+                r={radius}
+                fill="none"
+                stroke={item.color}
+                strokeWidth={strokeWidth}
+                strokeDasharray={`${dash} ${circumference - dash}`}
+                strokeDashoffset={-currentOffset}
+                strokeLinecap="round"
+              />
+            );
+            currentOffset += dash;
+            return element;
+          })}
+        </svg>
+        <div className="pointer-events-none -mt-[138px] flex h-[220px] flex-col items-center justify-center text-center">
+          <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${theme.textMuted}`}>{centerLabel}</p>
+          <p className={`mt-2 text-3xl font-bold ${theme.textPrimary}`}>{centerValue}</p>
+        </div>
+      </div>
+      <div className="space-y-3">
+        {data.map((item) => {
+          const percent = total > 0 ? ((Number(item.value || 0) / total) * 100).toFixed(1) : '0.0';
+          return (
+            <div key={item.label} className={`flex items-center justify-between rounded-xl border ${theme.border} ${theme.subtleBg} px-4 py-3`}>
+              <div className="flex items-center gap-3">
+                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                <div>
+                  <p className={`text-sm font-medium ${theme.textPrimary}`}>{item.label}</p>
+                  <p className={`text-xs ${theme.textMuted}`}>{item.detail || `${percent}% of total`}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className={`text-sm font-semibold ${theme.textPrimary}`}>{item.value}</p>
+                <p className={`text-xs ${theme.textMuted}`}>{percent}%</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const HorizontalBarChart = ({ data, theme = THEMES.default, formatter = formatCurrency }) => {
+  if (!data.length) {
+    return <ChartEmptyState theme={theme} title="No client data" description="Client rankings will appear here when invoices exist for the selected filters." />;
+  }
+
+  const maxValue = Math.max(1, ...data.map((item) => Number(item.value || 0)));
+
+  return (
+    <div className="space-y-4">
+      {data.map((item) => (
+        <div key={item.label} className="space-y-2">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className={`truncate text-sm font-medium ${theme.textPrimary}`}>{item.label}</p>
+              {item.detail ? <p className={`text-xs ${theme.textMuted}`}>{item.detail}</p> : null}
+            </div>
+            <p className={`shrink-0 text-sm font-semibold ${theme.textPrimary}`}>{formatter(item.value)}</p>
+          </div>
+          <div className={`h-3 overflow-hidden rounded-full ${theme.subtleBg}`}>
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.max((Number(item.value || 0) / maxValue) * 100, item.value > 0 ? 8 : 0)}%`,
+                background: item.color || 'linear-gradient(90deg, #8E1020, #D4142A)',
+              }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const FormInput = ({ label, type = 'text', value, onChange, placeholder, multiline, rows = 3, theme = THEMES.default }) => (
+  <div className="space-y-1.5">
+    <label className={`text-sm font-medium ${theme.textSecondary}`}>{label}</label>
+    {multiline ? (
+      <textarea
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        className={`w-full px-4 py-2.5 border ${theme.inputBg} ${theme.inputBorder} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400 shadow-sm resize-none ${theme.textPrimary} transition-colors`}
+      />
+    ) : (
+      <input
+        type={type}
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={`w-full px-4 py-2.5 border ${theme.inputBg} ${theme.inputBorder} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400 shadow-sm ${theme.textPrimary} transition-colors`}
+      />
+    )}
+  </div>
+);
+
+const ClientSelect = ({ label, value, onChange, clients, onAddNew, theme = THEMES.default }) => {
+  const [showModal, setShowModal] = useState(false);
+  const [newClient, setNewClient] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    postalCode: '',
+    vatNumber: '',
+    notes: '',
+  });
+
+  const handleSaveNewClient = () => {
+    if (!newClient.name.trim()) return;
+    const clientId = onAddNew(newClient);
+    onChange(clientId);
+    setShowModal(false);
+    setNewClient({
+      name: '',
+      phone: '',
+      email: '',
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      postalCode: '',
+      vatNumber: '',
+      notes: '',
+    });
+  };
+
+  return (
+    <>
+      <div className="space-y-1">
+        <label className={`text-sm font-medium ${theme.labelColor}`}>{label}</label>
+        <div className="flex gap-2">
+          <select
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            className={`flex-1 px-3 py-2 border ${theme.inputBorder} rounded-xl text-sm ${theme.inputBg} ${theme.textPrimary} focus:outline-none focus:ring-2 focus:ring-slate-900`}
+          >
+            <option value="">Select a client...</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setShowModal(true)}
+            className={`px-3 py-2 ${theme.accent} rounded-xl text-sm font-medium ${theme.accentHover}`}
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className={`${theme.modalBg} rounded-2xl w-full max-w-md p-4 space-y-3`}>
+            <div className="flex items-center justify-between">
+              <h2 className={`font-semibold ${theme.textPrimary}`}>New Client</h2>
+              <button onClick={() => setShowModal(false)}>
+                <X className={`w-5 h-5 ${theme.iconColor}`} />
+              </button>
+            </div>
+            <FormInput label="Client Name" value={newClient.name} onChange={(v) => setNewClient({ ...newClient, name: v })} theme={theme} />
+            <FormInput label="Phone" value={newClient.phone} onChange={(v) => setNewClient({ ...newClient, phone: v })} theme={theme} />
+            <FormInput label="Email" value={newClient.email} onChange={(v) => setNewClient({ ...newClient, email: v })} theme={theme} />
+            <FormInput
+              label="Address Line 1"
+              value={newClient.addressLine1}
+              onChange={(v) => setNewClient({ ...newClient, addressLine1: v })}
+              theme={theme}
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setShowModal(false)} className={`flex-1 py-2 border ${theme.border} ${theme.textPrimary} rounded-xl`}>
+                Cancel
+              </button>
+              <button onClick={handleSaveNewClient} className={`flex-1 py-2 ${theme.accent} rounded-xl`}>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+const LineItemModal = ({ isOpen, onClose, onSave, item, savedItems, taxRate, theme = THEMES.default }) => {
+  const defaultItem = {
+    id: generateId(),
+    description: '',
+    notes: '',
+    rate: 0,
+    qty: 1,
+    unit: 'unit',
+    discountType: 'percentage',
+    discountAmount: 0,
+    taxable: false,
+  };
+
+  const [form, setForm] = useState(item || defaultItem);
+
+  useEffect(() => {
+    if (isOpen) {
+      setForm(item || { ...defaultItem, id: generateId() });
+    }
+  }, [isOpen, item]);
+
+  if (!isOpen) return null;
+
+  const handleSavedItemSelect = (itemId) => {
+    if (!itemId) return;
+    const savedItem = savedItems.find((i) => i.id === itemId);
+    if (savedItem) {
+      setForm((prev) => ({
+        ...prev,
+        description: savedItem.name,
+        notes: savedItem.description || savedItem.additionalDetails || '',
+        rate: savedItem.unitCost || 0,
+        unit: savedItem.unit || 'unit',
+        qty: savedItem.quantity || 1,
+        discountType: savedItem.discountType || 'percentage',
+        discountAmount: savedItem.discountAmount || 0,
+        taxable: !!savedItem.taxable,
+      }));
+    }
+  };
+
+  const calc = calculateItemTotal(form, taxRate);
+
+  const handleSave = () => {
+    if (!form.description.trim()) {
+      alert('Please enter a description');
+      return;
+    }
+    onSave({
+      ...form,
+      rate: Number(form.rate) || 0,
+      qty: form.qty === '' ? 0 : Number(form.qty) || 0,
+      discountAmount: Number(form.discountAmount) || 0,
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
+      <div className={`${theme.modalBg} ${theme.textPrimary} border ${theme.border} rounded-2xl w-full max-w-lg max-h-[90vh] overflow-auto shadow-2xl`}>
+        <div className={`p-4 border-b ${theme.border} flex items-center justify-between sticky top-0 ${theme.modalBg}`}>
+          <button onClick={onClose}>
+            <X className={`w-5 h-5 ${theme.textPrimary}`} />
+          </button>
+          <h2 className="font-semibold">{item ? 'Edit Item' : 'Add Item'}</h2>
+          <button onClick={handleSave} className={`px-4 py-2 ${theme.accent} ${theme.accentHover} rounded-xl text-sm`}>
+            Save
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {savedItems?.length > 0 && (
+            <div>
+              <label className={`text-sm font-medium ${theme.labelColor}`}>Quick Add</label>
+              <select
+                onChange={(e) => handleSavedItemSelect(e.target.value)}
+                defaultValue=""
+                className={`w-full mt-1 px-3 py-2 border ${theme.inputBorder} rounded-xl text-sm ${theme.inputBg} ${theme.textPrimary}`}
+              >
+                <option value="">Select a saved item...</option>
+                {savedItems.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name} - {formatCurrency(i.unitCost)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <FormInput label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} theme={theme} />
+          <FormInput label="Additional Details" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={theme} />
+          <div className="grid grid-cols-2 gap-3">
+            <FormInput
+              label="Rate"
+              type="number"
+              value={form.rate}
+              onChange={(v) => setForm({ ...form, rate: parseFloat(v) || 0 })}
+              theme={theme}
+            />
+            <FormInput
+              label="Qty"
+              type="number"
+              value={form.qty}
+              onChange={(v) => setForm({ ...form, qty: v === '' ? '' : parseFloat(v) || 0 })}
+              theme={theme}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className={`text-sm font-medium ${theme.labelColor}`}>Unit</label>
+              <select
+                value={form.unit}
+                onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                className={`w-full px-3 py-2 border ${theme.inputBorder} rounded-xl text-sm ${theme.inputBg} ${theme.textPrimary}`}
+              >
+                <option value="unit">Unit</option>
+                <option value="hour">Hour</option>
+                <option value="day">Day</option>
+                <option value="package">Package</option>
+                <option value="service">Service</option>
+                <option value="block">Block</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className={`text-sm font-medium ${theme.labelColor}`}>Discount Type</label>
+              <select
+                value={form.discountType}
+                onChange={(e) => setForm({ ...form, discountType: e.target.value })}
+                className={`w-full px-3 py-2 border ${theme.inputBorder} rounded-xl text-sm ${theme.inputBg} ${theme.textPrimary}`}
+              >
+                <option value="percentage">Percentage</option>
+                <option value="flat">Flat Amount</option>
+              </select>
+            </div>
+          </div>
+
+          <FormInput
+            label={form.discountType === 'percentage' ? 'Discount (%)' : 'Discount (R)'}
+            type="number"
+            value={form.discountAmount}
+            onChange={(v) => setForm({ ...form, discountAmount: parseFloat(v) || 0 })}
+            theme={theme}
+          />
+
+          <div className="flex items-center justify-between">
+            <span className={`text-sm font-medium ${theme.textPrimary}`}>Taxable</span>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, taxable: !form.taxable })}
+              className={`relative w-12 h-7 rounded-full ${form.taxable ? theme.accent : theme.toggleInactive}`}
+            >
+              <span className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${form.taxable ? 'left-6' : 'left-1'}`} />
+            </button>
+          </div>
+
+          <div className={`${theme.accent} rounded-2xl p-4`}>
+            <div className="flex justify-between text-sm">
+              <span>Subtotal</span>
+              <span>{formatCurrency(calc.subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-sm mt-2">
+              <span>Total</span>
+              <span className="font-bold">{formatCurrency(calc.total)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// SETTINGS PAGE (top-level component — must not be nested inside App)
+// ============================================================================
+
+const SettingsPage = ({ save, activeTheme }) => {
+  const [form, setForm] = useState(() => {
+    try {
+      const raw = localStorage.getItem(DB_KEYS.settings);
+      const parsed = raw ? { ...SAMPLE_SETTINGS, ...JSON.parse(raw) } : SAMPLE_SETTINGS;
+      return {
+        ...parsed,
+        nextInvoiceNumber: String(parsed.nextInvoiceNumber || '').replace(/^INV/i, '') || SAMPLE_SETTINGS.nextInvoiceNumber,
+        nextEstimateNumber: String(parsed.nextEstimateNumber || '').replace(/^EST/i, '') || SAMPLE_SETTINGS.nextEstimateNumber,
+      };
+    } catch {
+      return SAMPLE_SETTINGS;
+    }
+  });
+  const [savedState, setSavedState] = useState(false);
+  const buildSettingsPayload = (values) => ({
+    ...values,
+    nextInvoiceNumber: String(values.nextInvoiceNumber || '').replace(/\D/g, '') || SAMPLE_SETTINGS.nextInvoiceNumber,
+    nextEstimateNumber: String(values.nextEstimateNumber || '').replace(/\D/g, '') || SAMPLE_SETTINGS.nextEstimateNumber,
+  });
+
+  // Persist draft to localStorage only — no React state update, no remount, no focus loss
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      localStorage.setItem(DB_KEYS.settings, JSON.stringify(buildSettingsPayload(form)));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [form]);
+
+  const handleSave = async () => {
+    await save('settings', buildSettingsPayload(form));
+    setSavedState(true);
+    setTimeout(() => setSavedState(false), 1500);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className={`p-5 lg:p-8 ${activeTheme.border} flex items-center justify-between`}>
+        <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Settings</h1>
+        <button onClick={handleSave} className={`px-4 py-2 ${activeTheme.accent} rounded-xl ${activeTheme.accentHover}`}>
+          {savedState ? 'Saved!' : 'Save Changes'}
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-auto p-5 lg:p-8 space-y-6">
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6 space-y-5`}>
+          <div className={`flex items-center gap-2 pb-2 ${activeTheme.border}`}>
+            <Building2 className={`w-5 h-5 ${activeTheme.iconColor}`} />
+            <p className={`font-semibold ${activeTheme.textPrimary}`}>Business Details</p>
+          </div>
+          {/* Logo uploader */}
+          <div className="flex items-start gap-5">
+            <span className={`w-24 shrink-0 pt-2 text-sm font-medium ${activeTheme.labelColor}`}>Logo</span>
+            <div className="flex-1 space-y-2">
+              {form.logo ? (
+                <div className={`relative w-48 h-24 rounded-xl border ${activeTheme.border} ${activeTheme.inputBg} flex items-center justify-center overflow-hidden`}>
+                  <img src={form.logo} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, logo: null })}
+                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className={`w-48 h-24 rounded-xl border-2 border-dashed ${activeTheme.border} ${activeTheme.inputBg} flex items-center justify-center`}>
+                  <span className={`text-xs ${activeTheme.textMuted}`}>No logo</span>
+                </div>
+              )}
+              <label className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-xl cursor-pointer ${activeTheme.accent} ${activeTheme.accentHover}`}>
+                <span>{form.logo ? 'Replace' : 'Upload Logo'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => setForm({ ...form, logo: ev.target.result });
+                    reader.readAsDataURL(file);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+          <FormInput label="Business Name" value={form.businessName} onChange={(v) => setForm({ ...form, businessName: v })} theme={activeTheme} />
+          <FormInput
+            label="Business Number"
+            value={form.businessNumber}
+            onChange={(v) => setForm({ ...form, businessNumber: v })}
+            theme={activeTheme}
+          />
+          <FormInput label="Address" value={form.address} onChange={(v) => setForm({ ...form, address: v })} multiline theme={activeTheme} />
+          <FormInput label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} theme={activeTheme} />
+          <FormInput label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} theme={activeTheme} />
+        </div>
+
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6 space-y-5`}>
+          <div className={`flex items-center gap-2 pb-2 ${activeTheme.border}`}>
+            <CreditCard className={`w-5 h-5 ${activeTheme.iconColor}`} />
+            <p className={`font-semibold ${activeTheme.textPrimary}`}>Banking Details</p>
+          </div>
+          <FormInput label="Bank Name" value={form.bankName} onChange={(v) => setForm({ ...form, bankName: v })} theme={activeTheme} />
+          <FormInput
+            label="Account Number"
+            value={form.accountNumber}
+            onChange={(v) => setForm({ ...form, accountNumber: v })}
+            theme={activeTheme}
+          />
+          <FormInput
+            label="Account Type"
+            value={form.accountType}
+            onChange={(v) => setForm({ ...form, accountType: v })}
+            theme={activeTheme}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <FormInput label="Branch Code" value={form.branchCode} onChange={(v) => setForm({ ...form, branchCode: v })} theme={activeTheme} />
+            <FormInput label="Branch Name" value={form.branchName} onChange={(v) => setForm({ ...form, branchName: v })} theme={activeTheme} />
+          </div>
+          <FormInput label="Swift Code" value={form.swiftCode} onChange={(v) => setForm({ ...form, swiftCode: v })} theme={activeTheme} />
+        </div>
+
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6 space-y-5`}>
+          <div className={`flex items-center gap-2 pb-2 ${activeTheme.border}`}>
+            <BarChart3 className={`w-5 h-5 ${activeTheme.iconColor}`} />
+            <p className={`font-semibold ${activeTheme.textPrimary}`}>Tax</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FormInput
+              label="Tax Rate (%)"
+              type="number"
+              value={form.taxRate}
+              onChange={(v) => setForm({ ...form, taxRate: parseFloat(v) || 0 })}
+              theme={activeTheme}
+            />
+            <FormInput label="Tax Label" value={form.taxLabel} onChange={(v) => setForm({ ...form, taxLabel: v })} theme={activeTheme} />
+          </div>
+        </div>
+
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6`}>
+          <div className={`flex items-center gap-2 pb-3 mb-5 border-b ${activeTheme.border}`}>
+            <FileSignature className={`w-5 h-5 ${activeTheme.iconColor}`} />
+            <p className={`font-semibold ${activeTheme.textPrimary}`}>Invoice Number</p>
+          </div>
+          <div className="space-y-5">
+            {[
+              { label: 'Invoice Number', field: 'nextInvoiceNumber', placeholder: '00000', prefix: 'INV' },
+              { label: 'Estimate Number', field: 'nextEstimateNumber', placeholder: '00000', prefix: 'EST' },
+            ].map(({ label, field, placeholder, prefix }) => (
+              <div key={field} className="flex items-center gap-5">
+                <span className={`w-32 shrink-0 text-sm font-medium ${activeTheme.labelColor}`}>{label}</span>
+                <div className="flex-1 relative flex items-center">
+                  <span className={`px-4 py-2.5 border border-r-0 ${activeTheme.inputBorder} ${activeTheme.subtleBg} ${activeTheme.textSecondary} rounded-l-xl text-sm font-semibold`}>
+                    {prefix}
+                  </span>
+                  <input
+                    value={form[field] || ''}
+                    onChange={(e) => setForm({ ...form, [field]: e.target.value.replace(/\D/g, '') })}
+                    placeholder={placeholder}
+                    className={`w-full px-4 py-2.5 pr-11 border ${activeTheme.inputBorder} ${activeTheme.inputBg} ${activeTheme.textPrimary} rounded-r-xl rounded-l-none text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400`}
+                  />
+                  <Check className="w-5 h-5 text-emerald-500 absolute right-4 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6`}>
+          <div className={`flex items-center gap-2 pb-3 mb-5 border-b ${activeTheme.border}`}>
+            <FileText className={`w-5 h-5 ${activeTheme.iconColor}`} />
+            <p className={`font-semibold ${activeTheme.textPrimary}`}>Default Notes</p>
+          </div>
+          <div className="space-y-5">
+            {[
+              { label: 'Invoices', field: 'defaultInvoiceNotes' },
+              { label: 'Estimates', field: 'defaultEstimateNotes' },
+            ].map(({ label, field }) => (
+              <div key={field} className="flex items-start gap-5">
+                <span className={`w-24 shrink-0 pt-2.5 text-sm font-medium ${activeTheme.labelColor}`}>{label}</span>
+                <textarea
+                  value={form[field] || ''}
+                  onChange={(e) => setForm({ ...form, [field]: e.target.value })}
+                  rows={5}
+                  placeholder={`Default notes for ${label.toLowerCase()}…`}
+                  className={`flex-1 px-3 py-2.5 border ${activeTheme.inputBorder} ${activeTheme.inputBg} ${activeTheme.textPrimary} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0F969C]/50 resize-none overflow-y-auto`}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6 space-y-5`}>
+          <div className={`flex items-center gap-2 pb-2 border-b ${activeTheme.border}`}>
+            <Palette className={`w-5 h-5 ${activeTheme.iconColor}`} />
+            <p className={`font-semibold ${activeTheme.textPrimary}`}>App Theme</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Default */}
+            <button
+              onClick={() => setForm({ ...form, appTheme: 'default' })}
+              className={`p-4 rounded-xl border-2 transition-all text-left ${
+                form.appTheme === 'default' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-4 h-4 bg-slate-900 rounded-full"></div>
+                <span className="font-medium text-slate-800">Default</span>
+              </div>
+              <div className="space-y-2">
+                <div className="h-2 bg-slate-200 rounded"></div>
+                <div className="h-2 bg-slate-100 rounded w-3/4"></div>
+              </div>
+            </button>
+
+            {/* Aurora Teal */}
+            <button
+              onClick={() => setForm({ ...form, appTheme: 'aurora-teal' })}
+              className={`p-4 rounded-xl border-2 transition-all text-left bg-[#061A1F] ${
+                form.appTheme === 'aurora-teal' ? 'border-[#0F969C]' : 'border-[#0F969C]/30 hover:border-[#0F969C]/60'
+              }`}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-4 h-4 bg-[#0F969C] rounded-full"></div>
+                <span className="font-medium text-[#6DA5C0]">Aurora Teal</span>
+              </div>
+              <div className="space-y-2">
+                <div className="h-2 bg-[#0F969C]/40 rounded"></div>
+                <div className="h-2 bg-[#6DA5C0]/30 rounded w-3/4"></div>
+              </div>
+            </button>
+
+            {/* Crimson Glass */}
+            <button
+              onClick={() => setForm({ ...form, appTheme: 'crimson-glass' })}
+              className={`p-4 rounded-xl border-2 transition-all text-left bg-[#0A0607] ${
+                form.appTheme === 'crimson-glass' ? 'border-[#D4142A]' : 'border-white/10 hover:border-[#D4142A]/50'
+              }`}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-4 h-4 rounded-full" style={{ background: 'linear-gradient(135deg,#FF3347,#8E1020)' }}></div>
+                <span className="font-medium text-white/80">Crimson Glass</span>
+              </div>
+              <div className="space-y-2">
+                <div className="h-2 rounded" style={{ background: 'rgba(212,20,42,0.45)' }}></div>
+                <div className="h-2 rounded w-3/4" style={{ background: 'rgba(255,51,71,0.25)' }}></div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// APP
+// ============================================================================
+
+export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null }) {
+  const { data, save, loading } = useDatabase();
+  const [activeTab, setActiveTab] = useState('invoices');
+  const [view, setView] = useState('list');
+  const [currentItem, setCurrentItem] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [confirmAction, setConfirmAction] = useState(() => () => {});
+
+  useEffect(() => {
+    const initSampleData = async () => {
+      const isFirstRun = Object.values(DB_KEYS).every((dbKey) => localStorage.getItem(dbKey) === null);
+
+      if (!loading && isFirstRun) {
+        await save('settings', SAMPLE_SETTINGS);
+        await save('clients', SAMPLE_CLIENTS);
+        await save('items', SAMPLE_ITEMS);
+        await save('invoices', SAMPLE_INVOICES);
+        await save('estimates', SAMPLE_ESTIMATES);
+      }
+    };
+    initSampleData();
+  }, [loading, data.clients.length, save]);
+
+  const updateNextDocumentSetting = async (type, number) => {
+    const currentSettings = { ...SAMPLE_SETTINGS, ...(data.settings || {}) };
+    const field = type === 'invoice' ? 'nextInvoiceNumber' : 'nextEstimateNumber';
+    const parsed = parseDocumentNumber(number, type === 'invoice' ? 'INV' : 'EST');
+    await save('settings', {
+      ...currentSettings,
+      [field]: parsed ? String(parsed.number).padStart(parsed.width, '0') : currentSettings[field],
+    });
+  };
+
+  const getClient = (clientId) => data.clients.find((c) => c.id === clientId);
+
+  const downloadInvoicePDF = async (invoice) => {
+    try {
+      const rawSettings = localStorage.getItem('invoiceapp_settings');
+      const mergedSettings = rawSettings
+        ? { ...(data.settings || {}), ...JSON.parse(rawSettings) }
+        : data.settings;
+
+      const client = data.clients.find((c) => c.id === invoice.clientId);
+      await generatePDF('invoice', invoice, client, mergedSettings);
+    } catch (error) {
+      console.error('Invoice PDF action failed', error);
+    }
+  };
+
+  const navItems = [
+    { id: 'invoices', icon: FileText, label: 'Invoices' },
+    { id: 'estimates', icon: FileSignature, label: 'Estimates' },
+    { id: 'clients', icon: Users, label: 'Clients' },
+    { id: 'items', icon: Package, label: 'Items' },
+    { id: 'reports', icon: BarChart3, label: 'Reports' },
+  ];
+
+  const activeTheme = THEMES[data.settings?.appTheme] || THEMES.default;
+
+  // ============================================================================
+  // INVOICES
+  // ============================================================================
+
+  const InvoicesList = () => {
+    const filtered = data.invoices.filter((inv) => {
+      if (!searchTerm) return true;
+      const client = getClient(inv.clientId);
+      return (
+        inv.number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    });
+
+    const [longPressTimer, setLongPressTimer] = useState(null);
+    const [longPressedInvoice, setLongPressedInvoice] = useState(null);
+    const [statusModalOpen, setStatusModalOpen] = useState(false);
+    const [selectedInvoice, setSelectedInvoice] = useState(null);
+    const [activeInvoiceMenu, setActiveInvoiceMenu] = useState(null);
+    const [invoiceMenuPosition, setInvoiceMenuPosition] = useState(null);
+    const invoiceMenuRef = useRef(null);
+
+    useEffect(() => {
+      if (!activeInvoiceMenu) return undefined;
+
+      const handleOutsideClick = (event) => {
+        if (invoiceMenuRef.current && !invoiceMenuRef.current.contains(event.target)) {
+          setActiveInvoiceMenu(null);
+          setInvoiceMenuPosition(null);
+        }
+      };
+
+      document.addEventListener('mousedown', handleOutsideClick);
+      document.addEventListener('touchstart', handleOutsideClick);
+
+      return () => {
+        document.removeEventListener('mousedown', handleOutsideClick);
+        document.removeEventListener('touchstart', handleOutsideClick);
+      };
+    }, [activeInvoiceMenu]);
+
+    const handleMouseDown = (invoice) => {
+      setLongPressedInvoice(invoice);
+      const timer = setTimeout(() => {
+        setSelectedInvoice(invoice);
+        setStatusModalOpen(true);
+        setLongPressedInvoice(null);
+      }, 800); // 800ms long press
+      setLongPressTimer(timer);
+    };
+
+    const handleMouseUp = () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        setLongPressTimer(null);
+      }
+      setLongPressedInvoice(null);
+    };
+
+    const handleStatusChange = async (status, invoiceOverride = null) => {
+      const invoiceToUpdate = invoiceOverride || selectedInvoice;
+      if (!invoiceToUpdate) return;
+      const updatedInvoice = { ...invoiceToUpdate, status };
+      const updated = data.invoices.map((inv) => (inv.id === invoiceToUpdate.id ? updatedInvoice : inv));
+      await save('invoices', updated);
+      setActiveInvoiceMenu(null);
+      setInvoiceMenuPosition(null);
+      setStatusModalOpen(false);
+      setSelectedInvoice(null);
+    };
+
+    const duplicateInvoice = async (invoice) => {
+      const duplicatedInvoice = {
+        ...invoice,
+        id: generateId(),
+        number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
+        items: (invoice.items || []).map((item) => ({ ...item, id: generateId() })),
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      await save('invoices', [...data.invoices, duplicatedInvoice]);
+      await updateNextDocumentSetting('invoice', duplicatedInvoice.number);
+      setActiveInvoiceMenu(null);
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 lg:p-6 border-b">
+          <div className="flex items-center justify-between">
+            <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Invoices</h1>
+            <button
+              onClick={() => {
+                setCurrentItem({
+                  id: generateId(),
+                  number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
+                  date: new Date().toISOString().split('T')[0],
+                  dueDate: '',
+                  status: 'outstanding',
+                  clientId: '',
+                  items: [],
+                  amountPaid: 0,
+                  overallDiscount: 0,
+                  overallDiscountType: 'percentage',
+                  notes: '',
+                });
+                setView('edit-invoice');
+              }}
+              className={`flex items-center gap-2 px-4 py-2.5 ${activeTheme.accent} rounded-xl`}
+            >
+              <Plus className="w-4 h-4" />
+              New Invoice
+            </button>
+          </div>
+
+          <div className="relative mt-4 max-w-sm">
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
+            <input
+              type="text"
+              placeholder="Search invoices..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 lg:p-6">
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={FileText}
+              title="No invoices yet"
+              description="Create your first invoice"
+              theme={activeTheme}
+              action={
+                <button className={`px-4 py-2 ${activeTheme.accent} rounded-xl`} onClick={() => setView('edit-invoice')}>
+                  Create Invoice
+                </button>
+              }
+            />
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((invoice) => {
+                const client = getClient(invoice.clientId);
+                const total = calculateDocumentTotal(invoice, data.settings?.taxRate || 15);
+                const isLongPressed = longPressedInvoice?.id === invoice.id;
+                return (
+                  <div
+                    key={invoice.id}
+                    className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 ${activeTheme.cardHover} group transition-all duration-200 ${
+                      isLongPressed ? 'bg-blue-50 border-blue-200 scale-105' : ''
+                    }`}
+                    onMouseDown={() => handleMouseDown(invoice)}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onTouchStart={() => handleMouseDown(invoice)}
+                    onTouchEnd={handleMouseUp}
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <div
+                        onClick={() => {
+                          if (!isLongPressed) {
+                            setCurrentItem(invoice);
+                            setView('view-invoice');
+                          }
+                        }}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <p className={`font-semibold ${activeTheme.textPrimary}`}>{invoice.number}</p>
+                        <p className={`text-sm ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
+                        <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{formatDate(invoice.date)}</p>
+                        {isLongPressed && (
+                          <p className="text-xs text-blue-600 mt-1 font-medium">Hold to change status...</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 relative">
+                        <div className="text-right">
+                          <StatusBadge status={invoice.status} theme={activeTheme} />
+                          <p className={`font-semibold mt-2 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setActiveInvoiceMenu((current) => {
+                              if (current === invoice.id) {
+                                setInvoiceMenuPosition(null);
+                                return null;
+                              }
+                              setInvoiceMenuPosition({
+                                top: rect.top,
+                                right: window.innerWidth - rect.right + 36,
+                              });
+                              return invoice.id;
+                            });
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          className={`p-2 ${activeTheme.buttonHover} rounded-xl opacity-0 group-hover:opacity-100 transition-opacity`}
+                        >
+                          <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveInvoiceMenu(null);
+                            setInvoiceMenuPosition(null);
+                            setConfirmMessage(`Are you sure you want to delete invoice ${invoice.number}? This action cannot be undone.`);
+                            setConfirmAction(() => async () => {
+                              await save('invoices', data.invoices.filter((inv) => inv.id !== invoice.id));
+                            });
+                            setConfirmOpen(true);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 rounded-xl transition-opacity"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {activeInvoiceMenu && invoiceMenuPosition && (
+          <div
+            ref={invoiceMenuRef}
+            className={`fixed z-50 min-w-40 rounded-xl border ${activeTheme.border} ${activeTheme.modalBg} shadow-lg overflow-hidden`}
+            style={{
+              top: `${invoiceMenuPosition.top}px`,
+              right: `${invoiceMenuPosition.right}px`,
+            }}
+          >
+            {(() => {
+              const invoice = data.invoices.find((item) => item.id === activeInvoiceMenu);
+              if (!invoice) return null;
+              return (
+                <>
+                  <button
+                    onClick={async () => {
+                      await handleStatusChange('outstanding', invoice);
+                    }}
+                    className={`w-full px-4 py-3 text-left text-sm ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
+                  >
+                    Mark as Outstanding
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await handleStatusChange('paid', invoice);
+                    }}
+                    className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
+                  >
+                    Mark as Paid
+                  </button>
+                  <button
+                    onClick={() => duplicateInvoice(invoice)}
+                    className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
+                  >
+                    Duplicate
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await downloadInvoicePDF(invoice);
+                    }}
+                    className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
+                  >
+                    Download PDF
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Status Change Modal */}
+        {statusModalOpen && selectedInvoice && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className={`${activeTheme.modalBg} rounded-2xl w-full max-w-md p-6 shadow-xl`}>
+              <div className="flex items-center gap-3 mb-4">
+                <FileText className={`w-6 h-6 ${activeTheme.textSecondary}`} />
+                <h2 className={`font-semibold text-lg ${activeTheme.textPrimary}`}>Change Invoice Status</h2>
+              </div>
+              <p className={`${activeTheme.labelColor} mb-6`}>
+                Change status for invoice <strong>{selectedInvoice.number}</strong>?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  className={`flex-1 py-3 border ${activeTheme.border} rounded-xl font-medium ${activeTheme.cardHover} ${activeTheme.textPrimary}`}
+                  onClick={() => handleStatusChange('outstanding')}
+                >
+                  Mark as Unpaid
+                </button>
+                <button
+                  className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700"
+                  onClick={() => handleStatusChange('paid')}
+                >
+                  Mark as Paid
+                </button>
+              </div>
+              <button
+                className={`w-full mt-3 py-2 ${activeTheme.textMuted} text-sm ${activeTheme.buttonHover}`}
+                onClick={() => setStatusModalOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const InvoiceView = () => {
+    const [itemModalOpen, setItemModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
+    const client = getClient(currentItem?.clientId);
+    const taxRate = data.settings?.taxRate || 15;
+    const total = calculateDocumentTotal(currentItem, taxRate);
+
+    const saveInvoice = async (updatedInvoice) => {
+      const updated = data.invoices.map((inv) => (inv.id === updatedInvoice.id ? updatedInvoice : inv));
+      await save('invoices', updated);
+      setCurrentItem(updatedInvoice);
+    };
+
+    const handleSaveItem = async (updatedItem) => {
+      const updatedInvoice = {
+        ...currentItem,
+        items: currentItem.items.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
+      };
+      await saveInvoice(updatedInvoice);
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 lg:p-6 border-b flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setView('list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <h1 className={`font-bold text-xl ${activeTheme.textPrimary}`}>{currentItem.number}</h1>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => downloadInvoicePDF(currentItem)}
+              className={`p-2 ${activeTheme.buttonHover} rounded-xl`}
+              title="Download Invoice PDF"
+            >
+              <Printer className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <button onClick={() => setView('edit-invoice')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+              <Edit className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <button
+              onClick={() => {
+                setConfirmMessage(`Are you sure you want to delete invoice ${currentItem.number}? This action cannot be undone.`);
+                setConfirmAction(() => async () => {
+                  await save('invoices', data.invoices.filter((inv) => inv.id !== currentItem.id));
+                  setView('list');
+                });
+                setConfirmOpen(true);
+              }}
+              className="p-2 hover:bg-red-50 rounded-xl"
+            >
+              <Trash2 className="w-5 h-5 text-red-500" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 lg:p-6 space-y-4">
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+            <div className="flex justify-between items-start">
+              <div>
+                <p className={`text-sm ${activeTheme.textMuted}`}>Invoice</p>
+                <p className={`text-2xl font-bold ${activeTheme.textPrimary}`}>{currentItem.number}</p>
+              </div>
+              <StatusBadge status={currentItem.status} />
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+              <div>
+                <p className={activeTheme.textMuted}>Date</p>
+                <p className={activeTheme.textPrimary}>{formatDate(currentItem.date)}</p>
+              </div>
+              <div>
+                <p className={activeTheme.textMuted}>Due Date</p>
+                <p className={activeTheme.textPrimary}>{formatDate(currentItem.dueDate)}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+            <p className={`text-sm ${activeTheme.textMuted} mb-2`}>Bill To</p>
+            <p className={`font-semibold ${activeTheme.textPrimary}`}>{client?.name || 'No client selected'}</p>
+            {formatClientAddress(client) && <p className={`text-sm ${activeTheme.textSecondary} whitespace-pre-line mt-1`}>{formatClientAddress(client)}</p>}
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
+            <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
+              <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
+              <span className={`text-xs ${activeTheme.iconColor}`}>Tap to edit</span>
+            </div>
+            <div className={`hidden md:grid grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] gap-4 px-4 py-3 border-b ${activeTheme.border} ${activeTheme.tableHeaderBg}`}>
+              <span className={`text-xs font-semibold uppercase tracking-wide ${activeTheme.textMuted}`}>Description</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Discount</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-center ${activeTheme.textMuted}`}>Qty</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Rate</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Amount</span>
+            </div>
+            <div className="divide-y">
+              {currentItem.items.map((item) => (
+                <div
+                  key={item.id}
+                  className={`p-4 ${activeTheme.tableRowHover} cursor-pointer`}
+                  onClick={() => {
+                    setEditingItem(item);
+                    setItemModalOpen(true);
+                  }}
+                >
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] md:items-start">
+                    <div className="min-w-0">
+                      <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
+                      <div className={`md:hidden text-xs ${activeTheme.textMuted} mt-1 space-y-1`}>
+                        <p>{`${item.qty || 0} x ${formatCurrency(item.rate || 0)}`}</p>
+                        {item.discountAmount > 0 && (
+                          <p>
+                            {item.discountType === 'percentage'
+                              ? `${item.discountAmount}% discount`
+                              : `${formatCurrency(item.discountAmount)} discount`}
+                          </p>
+                        )}
+                      </div>
+                      {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1 whitespace-pre-line`}>{item.notes}</p>}
+                    </div>
+                    <p className={`hidden md:block text-sm text-right ${activeTheme.textPrimary}`}>
+                      {item.discountAmount > 0
+                        ? item.discountType === 'percentage'
+                          ? `${item.discountAmount}%`
+                          : formatCurrency(item.discountAmount)
+                        : '—'}
+                    </p>
+                    <p className={`hidden md:block text-sm text-center ${activeTheme.textPrimary}`}>{item.qty || 0}</p>
+                    <p className={`hidden md:block text-sm text-right ${activeTheme.textPrimary}`}>{formatCurrency(item.rate || 0)}</p>
+                    <p className={`font-semibold md:text-right ${activeTheme.textPrimary}`}>{formatCurrency(calculateItemTotal(item, taxRate).total)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className={`p-4 ${activeTheme.tableHeaderBg} border-t ${activeTheme.border}`}>
+              <div className="flex justify-between">
+                <span className={`font-semibold ${activeTheme.textPrimary}`}>Total</span>
+                <span className={`font-bold ${activeTheme.textPrimary}`}>{formatCurrency(total)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                const newEstimate = {
+                  id: generateId(),
+                  number: generateDocumentNumber('estimate', data.invoices, data.estimates, data.settings),
+                  clientId: currentItem.clientId,
+                  date: new Date().toISOString().split('T')[0],
+                  status: 'pending',
+                  items: currentItem.items.map((item) => ({ ...item, id: generateId() })),
+                  overallDiscount: currentItem.overallDiscount || 0,
+                  overallDiscountType: currentItem.overallDiscountType || 'percentage',
+                  notes: currentItem.notes,
+                  createdAt: new Date().toISOString().split('T')[0],
+                };
+                await save('estimates', [...data.estimates, newEstimate]);
+                await updateNextDocumentSetting('estimate', newEstimate.number);
+                setActiveTab('estimates');
+                setCurrentItem(newEstimate);
+                setView('view-estimate');
+              }}
+              className={`w-full py-3 ${activeTheme.subtleBg} ${activeTheme.labelColor} rounded-xl flex items-center justify-center gap-2`}
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              Convert
+            </button>
+          </div>
+        </div>
+
+        <LineItemModal
+          isOpen={itemModalOpen}
+          onClose={() => setItemModalOpen(false)}
+          onSave={handleSaveItem}
+          item={editingItem}
+          savedItems={data.items}
+          taxRate={taxRate}
+          theme={activeTheme}
+        />
+      </div>
+    );
+  };
+
+  const InvoiceEdit = () => {
+    const [form, setForm] = useState(
+      currentItem || {
+        id: generateId(),
+        number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
+        date: new Date().toISOString().split('T')[0],
+        dueDate: '',
+        status: 'outstanding',
+        clientId: '',
+        items: [],
+        amountPaid: 0,
+        overallDiscount: 0,
+        overallDiscountType: 'percentage',
+        notes: '',
+      },
+    );
+    const [itemModalOpen, setItemModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
+
+    const isExistingInvoice = data.invoices.some((inv) => inv.id === form.id);
+
+    const handleSave = async () => {
+      const isNew = !data.invoices.find((i) => i.id === form.id);
+      const updated = isNew
+        ? [...data.invoices, { ...form, createdAt: new Date().toISOString().split('T')[0] }]
+        : data.invoices.map((inv) => (inv.id === form.id ? form : inv));
+      await save('invoices', updated);
+      if (isNew) {
+        await updateNextDocumentSetting('invoice', form.number);
+      }
+      setView('list');
+    };
+
+    const handleSaveItem = (item) => {
+      if (editingItem) {
+        setForm({ ...form, items: form.items.map((i) => (i.id === item.id ? item : i)) });
+      } else {
+        setForm({ ...form, items: [...form.items, item] });
+      }
+    };
+
+    const handleAddClient = async (newClientData) => {
+      const newClient = { id: generateId(), ...newClientData, createdAt: new Date().toISOString().split('T')[0] };
+      await save('clients', [...data.clients, newClient]);
+      return newClient.id;
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
+          <button onClick={() => setView(isExistingInvoice ? 'view-invoice' : 'list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+            <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+          </button>
+          <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{isExistingInvoice ? 'Edit Invoice' : 'New Invoice'}</h1>
+          <button onClick={handleSave} className={`px-4 py-2 ${activeTheme.accent} rounded-xl`}>
+            Save
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 space-y-4">
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
+            <FormInput label="Invoice Number" value={form.number} onChange={(v) => setForm({ ...form, number: v })} theme={activeTheme} />
+            <div className="grid grid-cols-2 gap-3">
+              <FormInput label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} theme={activeTheme} />
+              <FormInput label="Due Date" type="date" value={form.dueDate} onChange={(v) => setForm({ ...form, dueDate: v })} theme={activeTheme} />
+            </div>
+            <ClientSelect
+              label="Client"
+              value={form.clientId}
+              onChange={(v) => setForm({ ...form, clientId: v })}
+              clients={data.clients}
+              onAddNew={handleAddClient}
+              theme={activeTheme}
+            />
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
+            <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
+              <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
+              <button
+                onClick={() => {
+                  setEditingItem(null);
+                  setItemModalOpen(true);
+                }}
+                className={`px-3 py-1.5 ${activeTheme.accent} rounded-lg text-sm flex items-center gap-1`}
+              >
+                <Plus className="w-4 h-4" />
+                Add Item
+              </button>
+            </div>
+
+            {form.items.length === 0 ? (
+              <div className={`p-8 text-center ${activeTheme.textMuted}`}>No items added yet</div>
+            ) : (
+              <div className="divide-y">
+                {form.items.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    className={`p-4 ${activeTheme.tableRowHover} cursor-pointer`}
+                    onClick={() => {
+                      setEditingItem(item);
+                      setItemModalOpen(true);
+                    }}
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <div>
+                        <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
+                        {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.notes}</p>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(calculateItemTotal(item, data.settings?.taxRate || 15).total)}</p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
+                          }}
+                          className="p-1.5 hover:bg-red-50 rounded-lg"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+            <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
+          </div>
+        </div>
+
+        <LineItemModal
+          isOpen={itemModalOpen}
+          onClose={() => setItemModalOpen(false)}
+          onSave={handleSaveItem}
+          item={editingItem}
+          savedItems={data.items}
+          taxRate={data.settings?.taxRate || 15}
+          theme={activeTheme}
+        />
+      </div>
+    );
+  };
+
+  // ============================================================================
+  // ESTIMATES
+  // ============================================================================
+
+  const EstimatesList = () => {
+    const filtered = data.estimates.filter((est) => {
+      if (!searchTerm) return true;
+      const client = getClient(est.clientId);
+      return (
+        est.number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    });
+
+    const [longPressTimer, setLongPressTimer] = useState(null);
+    const [longPressedEstimate, setLongPressedEstimate] = useState(null);
+    const [statusModalOpen, setStatusModalOpen] = useState(false);
+    const [selectedEstimate, setSelectedEstimate] = useState(null);
+    const [activeEstimateMenu, setActiveEstimateMenu] = useState(null);
+    const [estimateMenuPosition, setEstimateMenuPosition] = useState(null);
+    const estimateMenuRef = useRef(null);
+
+    useEffect(() => {
+      if (!activeEstimateMenu) return undefined;
+
+      const handleOutsideClick = (event) => {
+        if (estimateMenuRef.current && !estimateMenuRef.current.contains(event.target)) {
+          setActiveEstimateMenu(null);
+          setEstimateMenuPosition(null);
+        }
+      };
+
+      document.addEventListener('mousedown', handleOutsideClick);
+      document.addEventListener('touchstart', handleOutsideClick);
+
+      return () => {
+        document.removeEventListener('mousedown', handleOutsideClick);
+        document.removeEventListener('touchstart', handleOutsideClick);
+      };
+    }, [activeEstimateMenu]);
+
+    const handleMouseDown = (estimate) => {
+      setLongPressedEstimate(estimate);
+      const timer = setTimeout(() => {
+        setSelectedEstimate(estimate);
+        setStatusModalOpen(true);
+        setLongPressedEstimate(null);
+      }, 800); // 800ms long press
+      setLongPressTimer(timer);
+    };
+
+    const handleMouseUp = () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        setLongPressTimer(null);
+      }
+      setLongPressedEstimate(null);
+    };
+
+    const handleStatusChange = async (status, estimateOverride = null) => {
+      const estimateToUpdate = estimateOverride || selectedEstimate;
+      if (!estimateToUpdate) return;
+      const updatedEstimate = { ...estimateToUpdate, status };
+      const updated = data.estimates.map((est) => (est.id === estimateToUpdate.id ? updatedEstimate : est));
+      await save('estimates', updated);
+      setActiveEstimateMenu(null);
+      setEstimateMenuPosition(null);
+      setStatusModalOpen(false);
+      setSelectedEstimate(null);
+    };
+
+    const duplicateEstimate = async (estimate) => {
+      const duplicatedEstimate = {
+        ...estimate,
+        id: generateId(),
+        number: generateDocumentNumber('estimate', data.invoices, data.estimates, data.settings),
+        items: (estimate.items || []).map((item) => ({ ...item, id: generateId() })),
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      await save('estimates', [...data.estimates, duplicatedEstimate]);
+      await updateNextDocumentSetting('estimate', duplicatedEstimate.number);
+      setActiveEstimateMenu(null);
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 lg:p-6 border-b">
+          <div className="flex items-center justify-between">
+            <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Estimates</h1>
+            <button
+              onClick={() => {
+                setCurrentItem({
+                  id: generateId(),
+                  number: generateDocumentNumber('estimate', data.invoices, data.estimates, data.settings),
+                  date: new Date().toISOString().split('T')[0],
+                  status: 'pending',
+                  clientId: '',
+                  items: [],
+                  overallDiscount: 0,
+                  overallDiscountType: 'percentage',
+                  notes: '',
+                });
+                setView('edit-estimate');
+              }}
+              className={`flex items-center gap-2 px-4 py-2.5 ${activeTheme.accent} rounded-xl`}
+            >
+              <Plus className="w-4 h-4" />
+              New Estimate
+            </button>
+          </div>
+
+          <div className="relative mt-4 max-w-sm">
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
+            <input
+              type="text"
+              placeholder="Search estimates..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 lg:p-6">
+          {filtered.length === 0 ? (
+            <EmptyState icon={FileSignature} title="No estimates yet" description="Create your first estimate" theme={activeTheme} />
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((estimate) => {
+                const client = getClient(estimate.clientId);
+                const total = calculateDocumentTotal(estimate, data.settings?.taxRate || 15);
+                const isLongPressed = longPressedEstimate?.id === estimate.id;
+                return (
+                  <div
+                    key={estimate.id}
+                    className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 ${activeTheme.cardHover} group transition-all duration-200 ${
+                      isLongPressed ? 'bg-blue-50 border-blue-200 scale-105' : ''
+                    }`}
+                    onMouseDown={() => handleMouseDown(estimate)}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onTouchStart={() => handleMouseDown(estimate)}
+                    onTouchEnd={handleMouseUp}
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <div
+                        onClick={() => {
+                          if (!isLongPressed) {
+                            setCurrentItem(estimate);
+                            setView('view-estimate');
+                          }
+                        }}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <p className={`font-semibold ${activeTheme.textPrimary}`}>{estimate.number}</p>
+                        <p className={`text-sm ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
+                        <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{formatDate(estimate.date)}</p>
+                        {isLongPressed && (
+                          <p className="text-xs text-blue-600 mt-1 font-medium">Hold to change status...</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 relative">
+                        <div className="text-right">
+                          <StatusBadge status={estimate.status} theme={activeTheme} />
+                          <p className={`font-semibold mt-2 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setActiveEstimateMenu((current) => {
+                              if (current === estimate.id) {
+                                setEstimateMenuPosition(null);
+                                return null;
+                              }
+                              setEstimateMenuPosition({
+                                top: rect.top,
+                                right: window.innerWidth - rect.right + 36,
+                              });
+                              return estimate.id;
+                            });
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          className={`p-2 ${activeTheme.buttonHover} rounded-xl opacity-0 group-hover:opacity-100 transition-opacity`}
+                        >
+                          <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveEstimateMenu(null);
+                            setEstimateMenuPosition(null);
+                            setConfirmMessage(`Are you sure you want to delete estimate ${estimate.number}? This action cannot be undone.`);
+                            setConfirmAction(() => async () => {
+                              await save('estimates', data.estimates.filter((est) => est.id !== estimate.id));
+                            });
+                            setConfirmOpen(true);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 rounded-xl transition-opacity"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {activeEstimateMenu && estimateMenuPosition && (
+          <div
+            ref={estimateMenuRef}
+            className={`fixed z-50 min-w-40 rounded-xl border ${activeTheme.border} ${activeTheme.modalBg} shadow-lg overflow-hidden`}
+            style={{
+              top: `${estimateMenuPosition.top}px`,
+              right: `${estimateMenuPosition.right}px`,
+            }}
+          >
+            {(() => {
+              const estimate = data.estimates.find((item) => item.id === activeEstimateMenu);
+              if (!estimate) return null;
+              return (
+                <>
+                  <button
+                    onClick={async () => {
+                      await handleStatusChange('pending', estimate);
+                    }}
+                    className={`w-full px-4 py-3 text-left text-sm ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
+                  >
+                    Mark as Pending
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await handleStatusChange('accepted', estimate);
+                    }}
+                    className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
+                  >
+                    Mark as Approved
+                  </button>
+                  <button
+                    onClick={() => duplicateEstimate(estimate)}
+                    className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
+                  >
+                    Duplicate
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Status Change Modal */}
+        {statusModalOpen && selectedEstimate && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className={`${activeTheme.modalBg} rounded-2xl w-full max-w-md p-6 shadow-xl`}>
+              <div className="flex items-center gap-3 mb-4">
+                <FileSignature className={`w-6 h-6 ${activeTheme.textSecondary}`} />
+                <h2 className={`font-semibold text-lg ${activeTheme.textPrimary}`}>Change Estimate Status</h2>
+              </div>
+              <p className={`${activeTheme.labelColor} mb-6`}>
+                Change status for estimate <strong>{selectedEstimate.number}</strong>?
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  className={`py-3 border ${activeTheme.border} rounded-xl font-medium ${activeTheme.cardHover} ${activeTheme.textPrimary}`}
+                  onClick={() => handleStatusChange('pending')}
+                >
+                  Mark as Pending
+                </button>
+
+                <button
+                  className="py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700"
+                  onClick={() => handleStatusChange('accepted')}
+                >
+                  Mark as Approved
+                </button>
+
+                <button
+                  className="py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700"
+                  onClick={() => handleStatusChange('declined')}
+                >
+                  Mark as Declined
+                </button>
+              </div>
+              <button
+                className={`w-full mt-3 py-2 ${activeTheme.textMuted} text-sm ${activeTheme.buttonHover}`}
+                onClick={() => setStatusModalOpen(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const EstimateView = () => {
+    const [itemModalOpen, setItemModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
+    const client = getClient(currentItem?.clientId);
+    const taxRate = data.settings?.taxRate || 15;
+    const total = calculateDocumentTotal(currentItem, taxRate);
+
+    const saveEstimate = async (updatedEstimate) => {
+      const updated = data.estimates.map((est) => (est.id === updatedEstimate.id ? updatedEstimate : est));
+      await save('estimates', updated);
+      setCurrentItem(updatedEstimate);
+    };
+
+    const handleSaveItem = async (updatedItem) => {
+      const updatedEstimate = {
+        ...currentItem,
+        items: currentItem.items.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
+      };
+      await saveEstimate(updatedEstimate);
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 lg:p-6 border-b flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setView('list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <h1 className={`font-bold text-xl ${activeTheme.textPrimary}`}>{currentItem.number}</h1>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => generatePDF('estimate', currentItem, client, data.settings)}
+              className={`p-2 ${activeTheme.buttonHover} rounded-xl`}
+              title="Download PDF"
+            >
+              <Printer className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <button onClick={() => setView('edit-estimate')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+              <Edit className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <button
+              onClick={() => {
+                setConfirmMessage(`Are you sure you want to delete estimate ${currentItem.number}? This action cannot be undone.`);
+                setConfirmAction(() => async () => {
+                  await save('estimates', data.estimates.filter((est) => est.id !== currentItem.id));
+                  setView('list');
+                });
+                setConfirmOpen(true);
+              }}
+              className="p-2 hover:bg-red-50 rounded-xl"
+            >
+              <Trash2 className="w-5 h-5 text-red-500" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 lg:p-6 space-y-4">
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+            <div className="flex justify-between items-start">
+              <div>
+                <p className={`text-sm ${activeTheme.textMuted}`}>Estimate</p>
+                <p className={`text-2xl font-bold ${activeTheme.textPrimary}`}>{currentItem.number}</p>
+              </div>
+              <StatusBadge status={currentItem.status} theme={activeTheme} />
+            </div>
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+            <p className={`text-sm ${activeTheme.textMuted} mb-2`}>Prepared For</p>
+            <p className={`font-semibold ${activeTheme.textPrimary}`}>{client?.name || 'No client selected'}</p>
+            {formatClientAddress(client) && <p className={`text-sm ${activeTheme.textSecondary} whitespace-pre-line mt-1`}>{formatClientAddress(client)}</p>}
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
+            <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
+              <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
+              <span className={`text-xs ${activeTheme.iconColor}`}>Tap to edit</span>
+            </div>
+            <div className={`hidden md:grid grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] gap-4 px-4 py-3 border-b ${activeTheme.border} ${activeTheme.tableHeaderBg}`}>
+              <span className={`text-xs font-semibold uppercase tracking-wide ${activeTheme.textMuted}`}>Description</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Discount</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-center ${activeTheme.textMuted}`}>Qty</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Rate</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Amount</span>
+            </div>
+            <div className="divide-y">
+              {currentItem.items.map((item) => (
+                <div
+                  key={item.id}
+                  className={`p-4 ${activeTheme.tableRowHover} cursor-pointer`}
+                  onClick={() => {
+                    setEditingItem(item);
+                    setItemModalOpen(true);
+                  }}
+                >
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] md:items-start">
+                    <div className="min-w-0">
+                      <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
+                      <div className={`md:hidden text-xs ${activeTheme.textMuted} mt-1 space-y-1`}>
+                        <p>{`${item.qty || 0} x ${formatCurrency(item.rate || 0)}`}</p>
+                        {item.discountAmount > 0 && (
+                          <p>
+                            {item.discountType === 'percentage'
+                              ? `${item.discountAmount}% discount`
+                              : `${formatCurrency(item.discountAmount)} discount`}
+                          </p>
+                        )}
+                      </div>
+                      {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1 whitespace-pre-line`}>{item.notes}</p>}
+                    </div>
+                    <p className={`hidden md:block text-sm text-right ${activeTheme.textPrimary}`}>
+                      {item.discountAmount > 0
+                        ? item.discountType === 'percentage'
+                          ? `${item.discountAmount}%`
+                          : formatCurrency(item.discountAmount)
+                        : '—'}
+                    </p>
+                    <p className={`hidden md:block text-sm text-center ${activeTheme.textPrimary}`}>{item.qty || 0}</p>
+                    <p className={`hidden md:block text-sm text-right ${activeTheme.textPrimary}`}>{formatCurrency(item.rate || 0)}</p>
+                    <p className={`font-semibold md:text-right ${activeTheme.textPrimary}`}>{formatCurrency(calculateItemTotal(item, taxRate).total)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className={`p-4 ${activeTheme.tableHeaderBg} border-t ${activeTheme.border}`}>
+              <div className="flex justify-between">
+                <span className={`font-semibold ${activeTheme.textPrimary}`}>Total</span>
+                <span className={`font-bold ${activeTheme.textPrimary}`}>{formatCurrency(total)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                const newInvoice = {
+                  id: generateId(),
+                  number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
+                  clientId: currentItem.clientId,
+                  date: new Date().toISOString().split('T')[0],
+                  dueDate: '',
+                  status: 'outstanding',
+                  items: currentItem.items.map((item) => ({ ...item, id: generateId() })),
+                  amountPaid: 0,
+                  overallDiscount: currentItem.overallDiscount || 0,
+                  overallDiscountType: currentItem.overallDiscountType || 'percentage',
+                  notes: currentItem.notes,
+                  createdAt: new Date().toISOString().split('T')[0],
+                };
+                await save('invoices', [...data.invoices, newInvoice]);
+                await updateNextDocumentSetting('invoice', newInvoice.number);
+                setActiveTab('invoices');
+                setCurrentItem(newInvoice);
+                setView('view-invoice');
+              }}
+              className={`w-full py-3 ${activeTheme.subtleBg} ${activeTheme.labelColor} rounded-xl flex items-center justify-center gap-2`}
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              Convert
+            </button>
+          </div>
+        </div>
+
+        <LineItemModal
+          isOpen={itemModalOpen}
+          onClose={() => setItemModalOpen(false)}
+          onSave={handleSaveItem}
+          item={editingItem}
+          savedItems={data.items}
+          taxRate={taxRate}
+          theme={activeTheme}
+        />
+      </div>
+    );
+  };
+
+  const EstimateEdit = () => {
+    const [form, setForm] = useState(
+      currentItem || {
+        id: generateId(),
+        number: generateDocumentNumber('estimate', data.invoices, data.estimates, data.settings),
+        date: new Date().toISOString().split('T')[0],
+        status: 'pending',
+        clientId: '',
+        items: [],
+        overallDiscount: 0,
+        overallDiscountType: 'percentage',
+        notes: '',
+      },
+    );
+    const [itemModalOpen, setItemModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
+
+    const isExistingEstimate = data.estimates.some((est) => est.id === form.id);
+
+    const handleSave = async () => {
+      const isNew = !data.estimates.find((e) => e.id === form.id);
+      const updated = isNew
+        ? [...data.estimates, { ...form, createdAt: new Date().toISOString().split('T')[0] }]
+        : data.estimates.map((est) => (est.id === form.id ? form : est));
+      await save('estimates', updated);
+      if (isNew) {
+        await updateNextDocumentSetting('estimate', form.number);
+      }
+      setView('list');
+    };
+
+    const handleSaveItem = (item) => {
+      if (editingItem) {
+        setForm({ ...form, items: form.items.map((i) => (i.id === item.id ? item : i)) });
+      } else {
+        setForm({ ...form, items: [...form.items, item] });
+      }
+    };
+
+    const handleAddClient = async (newClientData) => {
+      const newClient = { id: generateId(), ...newClientData, createdAt: new Date().toISOString().split('T')[0] };
+      await save('clients', [...data.clients, newClient]);
+      return newClient.id;
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
+          <button onClick={() => setView(isExistingEstimate ? 'view-estimate' : 'list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+            <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+          </button>
+          <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{isExistingEstimate ? 'Edit Estimate' : 'New Estimate'}</h1>
+          <button onClick={handleSave} className={`px-4 py-2 ${activeTheme.accent} rounded-xl`}>
+            Save
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 space-y-4">
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
+            <FormInput label="Estimate Number" value={form.number} onChange={(v) => setForm({ ...form, number: v })} theme={activeTheme} />
+            <FormInput label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} theme={activeTheme} />
+            <ClientSelect
+              label="Client"
+              value={form.clientId}
+              onChange={(v) => setForm({ ...form, clientId: v })}
+              clients={data.clients}
+              onAddNew={handleAddClient}
+              theme={activeTheme}
+            />
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
+            <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
+              <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
+              <button
+                onClick={() => {
+                  setEditingItem(null);
+                  setItemModalOpen(true);
+                }}
+                className={`px-3 py-1.5 ${activeTheme.accent} rounded-lg text-sm flex items-center gap-1`}
+              >
+                <Plus className="w-4 h-4" />
+                Add Item
+              </button>
+            </div>
+
+            {form.items.length === 0 ? (
+              <div className={`p-8 text-center ${activeTheme.textMuted}`}>No items added yet</div>
+            ) : (
+              <div className="divide-y">
+                {form.items.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    className={`p-4 ${activeTheme.tableRowHover} cursor-pointer`}
+                    onClick={() => {
+                      setEditingItem(item);
+                      setItemModalOpen(true);
+                    }}
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <div>
+                        <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
+                        {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.notes}</p>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(calculateItemTotal(item, data.settings?.taxRate || 15).total)}</p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
+                          }}
+                          className="p-1.5 hover:bg-red-50 rounded-lg"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+            <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
+          </div>
+        </div>
+
+        <LineItemModal
+          isOpen={itemModalOpen}
+          onClose={() => setItemModalOpen(false)}
+          onSave={handleSaveItem}
+          item={editingItem}
+          savedItems={data.items}
+          taxRate={data.settings?.taxRate || 15}
+          theme={activeTheme}
+        />
+      </div>
+    );
+  };
+
+  // ============================================================================
+  // CLIENTS
+  // ============================================================================
+
+  const ClientsList = () => {
+    const filtered = data.clients.filter((client) => {
+      if (!searchTerm) return true;
+      return (
+        client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    });
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 lg:p-6 border-b">
+          <div className="flex items-center justify-between">
+            <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Clients</h1>
+            <button
+              onClick={() => {
+                setCurrentItem({
+                  id: generateId(),
+                  name: '',
+                  phone: '',
+                  email: '',
+                  addressLine1: '',
+                  addressLine2: '',
+                  city: '',
+                  postalCode: '',
+                  vatNumber: '',
+                  extraLine1: '',
+                  extraLine2: '',
+                  extraLine3: '',
+                  extraLine4: '',
+                  extraLine5: '',
+                  notes: '',
+                });
+                setView('edit-client');
+              }}
+              className={`flex items-center gap-2 px-4 py-2.5 ${activeTheme.accent} rounded-xl`}
+            >
+              <Plus className="w-4 h-4" />
+              Add Client
+            </button>
+          </div>
+
+          <div className="relative mt-4 max-w-sm">
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
+            <input
+              type="text"
+              placeholder="Search clients..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 lg:p-6">
+          {filtered.length === 0 ? (
+            <EmptyState icon={Users} title="No clients yet" description="Add your first client" theme={activeTheme} />
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((client) => (
+                <div
+                  key={client.id}
+                  className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 ${activeTheme.cardHover} group transition-all duration-200`}
+                >
+                  <div className="flex justify-between items-start gap-3">
+                    <div
+                      onClick={() => {
+                        setCurrentItem(client);
+                        setView('view-client');
+                      }}
+                      className="flex-1 cursor-pointer"
+                    >
+                      <p className={`font-semibold ${activeTheme.textPrimary}`}>{client.name}</p>
+                      {client.email && <p className={`text-sm ${activeTheme.textMuted}`}>{client.email}</p>}
+                      {client.phone && <p className={`text-sm ${activeTheme.textMuted}`}>{client.phone}</p>}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmMessage(`Are you sure you want to delete client ${client.name}? This action cannot be undone.`);
+                        setConfirmAction(() => async () => {
+                          await save('clients', data.clients.filter((c) => c.id !== client.id));
+                        });
+                        setConfirmOpen(true);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 rounded-xl transition-opacity"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const ClientView = () => (
+    <div className="flex flex-col h-full">
+      <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
+        <button onClick={() => setView('list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+          <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+        </button>
+        <h1 className={`font-semibold ${activeTheme.textPrimary}`}>Client Details</h1>
+        <div className="flex gap-2">
+          <button onClick={() => setView('edit-client')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+            <Edit className={`w-5 h-5 ${activeTheme.textSecondary}`} />
+          </button>
+          <button
+            onClick={() => {
+              setConfirmMessage(`Are you sure you want to delete client ${currentItem.name}? This action cannot be undone.`);
+              setConfirmAction(() => async () => {
+                await save('clients', data.clients.filter((c) => c.id !== currentItem.id));
+                setView('list');
+              });
+              setConfirmOpen(true);
+            }}
+            className="p-2 hover:bg-red-50 rounded-xl"
+          >
+            <Trash2 className="w-5 h-5 text-red-500" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto p-4">
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+          <h2 className={`text-xl font-bold mb-4 ${activeTheme.textPrimary}`}>{currentItem?.name}</h2>
+          {currentItem?.phone && (
+            <div className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
+              <Phone className={`w-5 h-5 ${activeTheme.iconColor}`} />
+              <div>
+                <p className={`text-xs ${activeTheme.textMuted}`}>Phone</p>
+                <p className={`text-sm font-medium ${activeTheme.textPrimary}`}>{currentItem.phone}</p>
+              </div>
+            </div>
+          )}
+          {currentItem?.email && (
+            <div className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
+              <Mail className={`w-5 h-5 ${activeTheme.iconColor}`} />
+              <div>
+                <p className={`text-xs ${activeTheme.textMuted}`}>Email</p>
+                <p className={`text-sm font-medium ${activeTheme.textPrimary}`}>{currentItem.email}</p>
+              </div>
+            </div>
+          )}
+          {formatClientAddress(currentItem) && (
+            <div className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
+              <MapPin className={`w-5 h-5 ${activeTheme.iconColor}`} />
+              <div>
+                <p className={`text-xs ${activeTheme.textMuted}`}>Address</p>
+                <p className={`text-sm font-medium whitespace-pre-line ${activeTheme.textPrimary}`}>{formatClientAddress(currentItem)}</p>
+              </div>
+            </div>
+          )}
+          {currentItem?.vatNumber && (
+            <div className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
+              <Building2 className={`w-5 h-5 ${activeTheme.iconColor}`} />
+              <div>
+                <p className={`text-xs ${activeTheme.textMuted}`}>VAT Number</p>
+                <p className={`text-sm font-medium ${activeTheme.textPrimary}`}>{currentItem.vatNumber}</p>
+              </div>
+            </div>
+          )}
+          {[currentItem?.extraLine1, currentItem?.extraLine2, currentItem?.extraLine3, currentItem?.extraLine4, currentItem?.extraLine5]
+            .filter(Boolean)
+            .map((line, index) => (
+              <div key={index} className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
+                <Building2 className={`w-5 h-5 ${activeTheme.iconColor}`} />
+                <div>
+                  <p className={`text-xs ${activeTheme.textMuted}`}>Extra Info {index + 1}</p>
+                  <p className={`text-sm font-medium ${activeTheme.textPrimary}`}>{line}</p>
+                </div>
+              </div>
+            ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const ClientEdit = () => {
+    const [form, setForm] = useState(
+      currentItem || {
+        id: generateId(),
+        name: '',
+        phone: '',
+        email: '',
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        postalCode: '',
+        vatNumber: '',
+        extraLine1: '',
+        extraLine2: '',
+        extraLine3: '',
+        extraLine4: '',
+        extraLine5: '',
+        notes: '',
+      },
+    );
+
+    const handleSave = async () => {
+      const isNew = !data.clients.find((c) => c.id === form.id);
+      const updated = isNew ? [...data.clients, form] : data.clients.map((c) => (c.id === form.id ? form : c));
+      await save('clients', updated);
+      setView('list');
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
+          <button onClick={() => setView(currentItem?.name ? 'view-client' : 'list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+            <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+          </button>
+          <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{currentItem?.name ? 'Edit Client' : 'New Client'}</h1>
+          <button onClick={handleSave} className={`px-4 py-2 ${activeTheme.accent} rounded-xl`}>
+            Save
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 space-y-4">
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
+            <FormInput label="Client Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} theme={activeTheme} />
+            <FormInput label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} theme={activeTheme} />
+            <FormInput label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} theme={activeTheme} />
+            <FormInput label="VAT Number" value={form.vatNumber} onChange={(v) => setForm({ ...form, vatNumber: v })} theme={activeTheme} />
+            <FormInput label="Extra Info 1" value={form.extraLine1 || ''} onChange={(v) => setForm({ ...form, extraLine1: v })} theme={activeTheme} />
+            <FormInput label="Extra Info 2" value={form.extraLine2 || ''} onChange={(v) => setForm({ ...form, extraLine2: v })} theme={activeTheme} />
+            <FormInput label="Extra Info 3" value={form.extraLine3 || ''} onChange={(v) => setForm({ ...form, extraLine3: v })} theme={activeTheme} />
+            <FormInput label="Extra Info 4" value={form.extraLine4 || ''} onChange={(v) => setForm({ ...form, extraLine4: v })} theme={activeTheme} />
+            <FormInput label="Extra Info 5" value={form.extraLine5 || ''} onChange={(v) => setForm({ ...form, extraLine5: v })} theme={activeTheme} />
+            <FormInput label="Address Line 1" value={form.addressLine1} onChange={(v) => setForm({ ...form, addressLine1: v })} theme={activeTheme} />
+            <FormInput label="Address Line 2" value={form.addressLine2} onChange={(v) => setForm({ ...form, addressLine2: v })} theme={activeTheme} />
+            <div className="grid grid-cols-2 gap-3">
+              <FormInput label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} theme={activeTheme} />
+              <FormInput label="Postal Code" value={form.postalCode} onChange={(v) => setForm({ ...form, postalCode: v })} theme={activeTheme} />
+            </div>
+            <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================================
+  // ITEMS
+  // ============================================================================
+
+  const ItemsList = () => {
+    const filtered = data.items.filter((item) => {
+      if (!searchTerm) return true;
+      return item.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    });
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 lg:p-6 border-b">
+          <div className="flex items-center justify-between">
+            <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Items</h1>
+            <button
+              onClick={() => {
+                setCurrentItem({
+                  id: generateId(),
+                  name: '',
+                  description: '',
+                  unitCost: 0,
+                  unit: '',
+                  quantity: 1,
+                  discountType: 'percentage',
+                  discountAmount: 0,
+                  taxable: false,
+                  additionalDetails: '',
+                });
+                setView('edit-item');
+              }}
+              className={`flex items-center gap-2 px-4 py-2.5 ${activeTheme.accent} rounded-xl`}
+            >
+              <Plus className="w-4 h-4" />
+              Add Item
+            </button>
+          </div>
+
+          <div className="relative mt-4 max-w-sm">
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
+            <input
+              type="text"
+              placeholder="Search items..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 lg:p-6">
+          {filtered.length === 0 ? (
+            <EmptyState icon={Package} title="No items yet" description="Add your products and services" theme={activeTheme} />
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((item) => (
+                <div
+                  key={item.id}
+                  className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 ${activeTheme.cardHover} group transition-all duration-200`}
+                >
+                  <div className="flex justify-between items-start gap-3">
+                    <div
+                      onClick={() => {
+                        setCurrentItem(item);
+                        setView('edit-item');
+                      }}
+                      className="flex-1 cursor-pointer"
+                    >
+                      <p className={`font-semibold ${activeTheme.textPrimary}`}>{item.name}</p>
+                      {item.description && <p className={`text-sm ${activeTheme.textMuted}`}>{item.description}</p>}
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        {item.unit && <span className={`text-xs ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-2 py-0.5 rounded`}>per {item.unit}</span>}
+                        {item.taxable && <span className="text-xs bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded">Taxable</span>}
+                        {item.discountAmount > 0 && (
+                          <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+                            {item.discountType === 'percentage'
+                              ? `${item.discountAmount}% off`
+                              : `${formatCurrency(item.discountAmount)} off`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.unitCost || 0)}</p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmMessage(`Are you sure you want to delete item ${item.name}? This action cannot be undone.`);
+                          setConfirmAction(() => async () => {
+                            await save('items', data.items.filter((i) => i.id !== item.id));
+                          });
+                          setConfirmOpen(true);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 rounded-xl transition-opacity"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const ItemEdit = () => {
+    const [form, setForm] = useState(
+      currentItem || {
+        id: generateId(),
+        name: '',
+        description: '',
+        unitCost: 0,
+        unit: '',
+        quantity: 1,
+        discountType: 'percentage',
+        discountAmount: 0,
+        taxable: false,
+        additionalDetails: '',
+      },
+    );
+
+    const itemTotal = (form.unitCost || 0) * (form.quantity || 1);
+    const discount =
+      form.discountType === 'percentage'
+        ? itemTotal * ((form.discountAmount || 0) / 100)
+        : form.discountAmount || 0;
+    const finalTotal = itemTotal - discount;
+
+    const handleSave = async () => {
+      const normalizedForm = {
+        ...form,
+        unitCost: Number(form.unitCost) || 0,
+        quantity: form.quantity === '' ? 0 : parseInt(form.quantity, 10) || 0,
+        discountAmount: Number(form.discountAmount) || 0,
+      };
+      const isNew = !data.items.find((i) => i.id === form.id);
+      const updated = isNew
+        ? [...data.items, normalizedForm]
+        : data.items.map((i) => (i.id === form.id ? normalizedForm : i));
+      await save('items', updated);
+      setView('list');
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
+          <button onClick={() => setView('list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+            <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+          </button>
+          <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{currentItem?.name ? 'Edit Item' : 'New Item'}</h1>
+          <div className="flex gap-2">
+            {currentItem?.name && (
+              <button
+                onClick={() => {
+                  setConfirmMessage(`Are you sure you want to delete item ${form.name}? This action cannot be undone.`);
+                  setConfirmAction(() => async () => {
+                    await save('items', data.items.filter((i) => i.id !== form.id));
+                    setView('list');
+                  });
+                  setConfirmOpen(true);
+                }}
+                className="p-2 hover:bg-red-50 rounded-xl"
+              >
+                <Trash2 className="w-5 h-5 text-red-500" />
+              </button>
+            )}
+            <button onClick={handleSave} className={`px-4 py-2 ${activeTheme.accent} rounded-xl`}>
+              Save
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 space-y-4">
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
+            <FormInput label="Item Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} theme={activeTheme} />
+            <FormInput label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} multiline theme={activeTheme} />
+            <FormInput
+              label="Unit Cost"
+              type="number"
+              value={form.unitCost}
+              onChange={(v) => setForm({ ...form, unitCost: parseFloat(v) || 0 })}
+              theme={activeTheme}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <FormInput label="Unit" value={form.unit} onChange={(v) => setForm({ ...form, unit: v })} theme={activeTheme} />
+              <FormInput
+                label="Quantity"
+                type="number"
+                value={form.quantity}
+                onChange={(v) => setForm({ ...form, quantity: v === '' ? '' : parseInt(v, 10) || 0 })}
+                theme={activeTheme}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className={`text-sm font-medium ${activeTheme.labelColor}`}>Discount Type</label>
+                <select
+                  value={form.discountType}
+                  onChange={(e) => setForm({ ...form, discountType: e.target.value })}
+                  className={`w-full px-3 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+                >
+                  <option value="percentage">Percentage</option>
+                  <option value="flat">Fixed Amount</option>
+                </select>
+              </div>
+              <FormInput
+                label="Discount Amount"
+                type="number"
+                value={form.discountAmount}
+                onChange={(v) => setForm({ ...form, discountAmount: parseFloat(v) || 0 })}
+                theme={activeTheme}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className={`text-sm font-medium ${activeTheme.textPrimary}`}>Taxable</span>
+              <button
+                onClick={() => setForm({ ...form, taxable: !form.taxable })}
+                className={`relative w-12 h-7 rounded-full ${form.taxable ? activeTheme.accent : activeTheme.toggleInactive}`}
+              >
+                <span className={`absolute top-1 w-5 h-5 bg-white rounded-full ${form.taxable ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+
+            <div className={`flex justify-between items-center pt-4 border-t ${activeTheme.border}`}>
+              <span className={`font-semibold ${activeTheme.textPrimary}`}>Total</span>
+              <span className={`text-xl font-bold ${activeTheme.textPrimary}`}>{formatCurrency(finalTotal)}</span>
+            </div>
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+            <FormInput
+              label="Additional Details"
+              value={form.additionalDetails}
+              onChange={(v) => setForm({ ...form, additionalDetails: v })}
+              multiline
+              theme={activeTheme}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================================
+  // REPORTS + SETTINGS
+  // ============================================================================
+
+  const ReportsPage = () => {
+    const taxRate = data.settings?.taxRate || 15;
+
+    // Current date helpers
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+
+    // Filter states
+    const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString());
+    const [selectedYear, setSelectedYear] = useState(currentYear.toString());
+    const [selectedStatus, setSelectedStatus] = useState('all');
+    const [selectedClient, setSelectedClient] = useState('all');
+    const [reportView, setReportView] = useState('overview');
+
+    // Helper functions
+    const getClientName = (clientId) => {
+      const client = data.clients.find(c => c.id === clientId);
+      return client?.name || 'No client';
+    };
+
+    const getMonthYear = (dateStr) => {
+      const date = new Date(dateStr);
+      return {
+        month: date.getMonth() + 1,
+        year: date.getFullYear(),
+        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      };
+    };
+
+    const formatMonthYear = (month, year) => {
+      const date = new Date(year, month - 1);
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+    };
+
+    // Filtered data
+    const filteredInvoices = useMemo(() => {
+      return data.invoices.filter(inv => {
+        const { month, year } = getMonthYear(inv.date);
+        const matchesMonth = selectedMonth === 'all' || month === parseInt(selectedMonth);
+        const matchesYear = selectedYear === 'all' || year === parseInt(selectedYear);
+        const matchesClient = selectedClient === 'all' || inv.clientId === selectedClient;
+        let matchesStatus = true;
+        if (selectedStatus !== 'all') {
+          if (selectedStatus === 'paid') matchesStatus = inv.status === 'paid';
+          else if (selectedStatus === 'outstanding') matchesStatus = inv.status === 'outstanding';
+          else if (selectedStatus === 'estimate') matchesStatus = false; // invoices are not estimates
+          else if (selectedStatus === 'converted') matchesStatus = false; // for now, assume not
+        }
+        return matchesMonth && matchesYear && matchesClient && matchesStatus;
+      });
+    }, [data.invoices, selectedMonth, selectedYear, selectedClient, selectedStatus]);
+
+    const filteredEstimates = useMemo(() => {
+      return data.estimates.filter(est => {
+        const { month, year } = getMonthYear(est.date);
+        const matchesMonth = selectedMonth === 'all' || month === parseInt(selectedMonth);
+        const matchesYear = selectedYear === 'all' || year === parseInt(selectedYear);
+        const matchesClient = selectedClient === 'all' || est.clientId === selectedClient;
+        let matchesStatus = true;
+        if (selectedStatus !== 'all') {
+          if (selectedStatus === 'estimate') matchesStatus = true;
+          else if (selectedStatus === 'converted') matchesStatus = est.status === 'accepted';
+          else matchesStatus = false; // estimates don't have paid/outstanding
+        }
+        return matchesMonth && matchesYear && matchesClient && matchesStatus;
+      });
+    }, [data.estimates, selectedMonth, selectedYear, selectedClient, selectedStatus]);
+
+    // Summary calculations
+    const summary = useMemo(() => {
+      const totalInvoiced = filteredInvoices.reduce((sum, inv) => sum + calculateDocumentTotal(inv, taxRate), 0);
+      const totalPaid = filteredInvoices.filter(i => i.status === 'paid').reduce((sum, inv) => sum + calculateDocumentTotal(inv, taxRate), 0);
+      const totalOutstanding = filteredInvoices.filter(i => i.status !== 'paid').reduce((sum, inv) => sum + calculateDocumentTotal(inv, taxRate), 0);
+      const totalEstimates = filteredEstimates.reduce((sum, est) => sum + calculateDocumentTotal(est, taxRate), 0);
+      const invoiceCount = filteredInvoices.length;
+      const estimateCount = filteredEstimates.length;
+      const activeClients = new Set([...filteredInvoices.map(i => i.clientId), ...filteredEstimates.map(e => e.clientId)]).size;
+      const conversionRate = estimateCount > 0 ? (invoiceCount / estimateCount) * 100 : 0;
+
+      return {
+        totalInvoiced,
+        totalPaid,
+        totalOutstanding,
+        totalEstimates,
+        invoiceCount,
+        estimateCount,
+        activeClients,
+        conversionRate,
+        averageInvoiceValue: invoiceCount > 0 ? totalInvoiced / invoiceCount : 0,
+        averageEstimateValue: estimateCount > 0 ? totalEstimates / estimateCount : 0,
+      };
+    }, [filteredInvoices, filteredEstimates, taxRate]);
+
+    // Monthly breakdown
+    const monthlyBreakdown = useMemo(() => {
+      const breakdown = {};
+      const allItems = [
+        ...filteredInvoices.map(item => ({ ...item, docType: 'invoice' })),
+        ...filteredEstimates.map(item => ({ ...item, docType: 'estimate' }))
+      ];
+      allItems.forEach(item => {
+        const { key, month, year } = getMonthYear(item.date);
+        if (!breakdown[key]) {
+          breakdown[key] = {
+            period: formatMonthYear(month, year),
+            invoices: 0,
+            paid: 0,
+            outstanding: 0,
+            estimates: 0,
+            totalInvoiced: 0,
+            totalEstimated: 0,
+            clients: new Set()
+          };
+        }
+        const total = calculateDocumentTotal(item, taxRate);
+        if (item.docType === 'invoice') { // invoice
+          breakdown[key].invoices++;
+          breakdown[key].totalInvoiced += total;
+          if (item.status === 'paid') breakdown[key].paid++;
+          else breakdown[key].outstanding++;
+        } else { // estimate
+          breakdown[key].estimates++;
+          breakdown[key].totalEstimated += total;
+        }
+        breakdown[key].clients.add(item.clientId);
+      });
+
+      // Convert clients to count
+      Object.keys(breakdown).forEach(key => {
+        breakdown[key].clients = breakdown[key].clients.size;
+      });
+
+      return Object.values(breakdown).sort((a, b) => new Date(b.period) - new Date(a.period));
+    }, [filteredInvoices, filteredEstimates, taxRate]);
+
+    // Client reporting
+    const clientReporting = useMemo(() => {
+      const clients = {};
+      data.clients.forEach(client => {
+        clients[client.id] = {
+          name: client.name,
+          invoices: 0,
+          estimates: 0,
+          totalInvoiced: 0,
+          totalPaid: 0,
+          outstanding: 0,
+          lastActivity: null
+        };
+      });
+
+      filteredInvoices.forEach(inv => {
+        if (clients[inv.clientId]) {
+          clients[inv.clientId].invoices++;
+          const total = calculateDocumentTotal(inv, taxRate);
+          clients[inv.clientId].totalInvoiced += total;
+          if (inv.status === 'paid') clients[inv.clientId].totalPaid += total;
+          else clients[inv.clientId].outstanding += total;
+          const date = new Date(inv.date);
+          if (!clients[inv.clientId].lastActivity || date > clients[inv.clientId].lastActivity) {
+            clients[inv.clientId].lastActivity = date;
+          }
+        }
+      });
+
+      filteredEstimates.forEach(est => {
+        if (clients[est.clientId]) {
+          clients[est.clientId].estimates++;
+          const date = new Date(est.date);
+          if (!clients[est.clientId].lastActivity || date > clients[est.clientId].lastActivity) {
+            clients[est.clientId].lastActivity = date;
+          }
+        }
+      });
+
+      return Object.values(clients).filter(c => c.invoices > 0 || c.estimates > 0).sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+    }, [data.clients, filteredInvoices, filteredEstimates, taxRate]);
+
+    // Recent activity
+    const recentActivity = useMemo(() => {
+      const activities = [
+        ...filteredInvoices.map(inv => ({ ...inv, type: 'Invoice', status: inv.status })),
+        ...filteredEstimates.map(est => ({ ...est, type: 'Estimate', status: est.status }))
+      ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 20);
+
+      return activities.map(item => ({
+        ...item,
+        clientName: getClientName(item.clientId),
+        total: calculateDocumentTotal(item, taxRate)
+      }));
+    }, [filteredInvoices, filteredEstimates, taxRate]);
+
+    const revenueChartData = useMemo(() => {
+      return monthlyBreakdown
+        .slice()
+        .reverse()
+        .map((row) => ({
+          label: row.period,
+          invoiced: row.totalInvoiced,
+          paid: filteredInvoices
+            .filter((inv) => {
+              const period = getMonthYear(inv.date);
+              return formatMonthYear(period.month, period.year) === row.period && inv.status === 'paid';
+            })
+            .reduce((sum, inv) => sum + calculateDocumentTotal(inv, taxRate), 0),
+          estimated: row.totalEstimated,
+          total: row.totalInvoiced + row.totalEstimated,
+        }));
+    }, [monthlyBreakdown, filteredInvoices, taxRate]);
+
+    const invoiceStatusChartData = useMemo(() => {
+      const paidCount = filteredInvoices.filter((inv) => inv.status === 'paid').length;
+      const outstandingCount = filteredInvoices.filter((inv) => inv.status !== 'paid').length;
+      return [
+        { label: 'Paid', value: paidCount, color: '#10B981', detail: `${formatCurrency(summary.totalPaid)} collected` },
+        { label: 'Outstanding', value: outstandingCount, color: '#F59E0B', detail: `${formatCurrency(summary.totalOutstanding)} open` },
+      ];
+    }, [filteredInvoices, summary.totalPaid, summary.totalOutstanding]);
+
+    const estimateStatusChartData = useMemo(() => {
+      const statuses = [
+        { key: 'pending', label: 'Pending', color: '#F59E0B' },
+        { key: 'accepted', label: 'Accepted', color: '#10B981' },
+        { key: 'declined', label: 'Declined', color: '#EF4444' },
+      ];
+
+      return statuses.map((status) => ({
+        label: status.label,
+        value: filteredEstimates.filter((estimate) => estimate.status === status.key).length,
+        color: status.color,
+      }));
+    }, [filteredEstimates]);
+
+    const clientPerformanceChartData = useMemo(() => {
+      return clientReporting
+        .filter((client) => client.totalInvoiced > 0)
+        .slice(0, 6)
+        .map((client, index) => ({
+          label: client.name,
+          value: client.totalInvoiced,
+          detail: `${client.invoices} invoices`,
+          color: [
+            'linear-gradient(90deg, #8E1020, #D4142A)',
+            'linear-gradient(90deg, #0F766E, #14B8A6)',
+            'linear-gradient(90deg, #7C3AED, #A855F7)',
+            'linear-gradient(90deg, #1D4ED8, #3B82F6)',
+            'linear-gradient(90deg, #B45309, #F59E0B)',
+            'linear-gradient(90deg, #BE123C, #FB7185)',
+          ][index % 6],
+        }));
+    }, [clientReporting]);
+
+    const conversionChartData = useMemo(() => {
+      const acceptedEstimates = filteredEstimates.filter((estimate) => estimate.status === 'accepted').length;
+      const invoiceCount = filteredInvoices.length;
+      return [
+        {
+          label: 'Accepted Estimates',
+          value: acceptedEstimates,
+          detail: `${acceptedEstimates} accepted`,
+          color: 'linear-gradient(90deg, #0F766E, #14B8A6)',
+        },
+        {
+          label: 'Invoices Issued',
+          value: invoiceCount,
+          detail: `${summary.conversionRate.toFixed(1)}% estimate-to-invoice rate`,
+          color: 'linear-gradient(90deg, #8E1020, #D4142A)',
+        },
+      ];
+    }, [filteredEstimates, filteredInvoices, summary.conversionRate]);
+
+    // Filter options
+    const monthOptions = useMemo(() => {
+      return Array.from({ length: 12 }, (_, i) => i + 1).map(m => ({ value: m, label: new Date(2023, m - 1).toLocaleString('default', { month: 'long' }) }));
+    }, []);
+
+    const yearOptions = useMemo(() => {
+      const years = new Set();
+      [...data.invoices, ...data.estimates].forEach(item => {
+        const { year } = getMonthYear(item.date);
+        years.add(year);
+      });
+      years.add(currentYear);
+      return Array.from(years).sort((a, b) => b - a);
+    }, [data.invoices, data.estimates, currentYear]);
+
+    const statusOptions = [
+      { value: 'all', label: 'All' },
+      { value: 'paid', label: 'Paid' },
+      { value: 'outstanding', label: 'Outstanding' },
+      { value: 'estimate', label: 'Estimate' },
+      { value: 'converted', label: 'Converted' }
+    ];
+
+    const clientOptions = [
+      { value: 'all', label: 'All Clients' },
+      ...data.clients.map(c => ({ value: c.id, label: c.name }))
+    ];
+
+    const resetFilters = () => {
+      setSelectedMonth(currentMonth.toString());
+      setSelectedYear(currentYear.toString());
+      setSelectedStatus('all');
+      setSelectedClient('all');
+    };
+
+    const topClient = clientReporting[0] || null;
+    const latestPeriod = monthlyBreakdown[0] || null;
+    const paidRatio = summary.totalInvoiced > 0 ? (summary.totalPaid / summary.totalInvoiced) * 100 : 0;
+    const outstandingRatio = summary.totalInvoiced > 0 ? (summary.totalOutstanding / summary.totalInvoiced) * 100 : 0;
+    const businessSignals = [
+      {
+        title: 'Collections',
+        value: `${paidRatio.toFixed(1)}%`,
+        detail: `${formatCurrency(summary.totalPaid)} collected from invoiced work`,
+      },
+      {
+        title: 'Exposure',
+        value: `${outstandingRatio.toFixed(1)}%`,
+        detail: `${formatCurrency(summary.totalOutstanding)} still outstanding`,
+      },
+      {
+        title: 'Momentum',
+        value: latestPeriod ? latestPeriod.period : 'No period',
+        detail: latestPeriod
+          ? `${latestPeriod.invoices} invoices and ${latestPeriod.estimates} estimates in the latest period`
+          : 'No activity for the selected filters',
+      },
+    ];
+
+    const analyticsSummaryCards = [
+      {
+        title: 'Total Invoiced',
+        value: formatCurrency(summary.totalInvoiced),
+        detail: `${summary.invoiceCount} invoices issued`,
+        accentClass: 'bg-sky-500',
+      },
+      {
+        title: 'Total Paid',
+        value: formatCurrency(summary.totalPaid),
+        detail: `${summary.totalInvoiced > 0 ? ((summary.totalPaid / summary.totalInvoiced) * 100).toFixed(1) : '0.0'}% collected`,
+        accentClass: 'bg-emerald-500',
+      },
+      {
+        title: 'Outstanding',
+        value: formatCurrency(summary.totalOutstanding),
+        detail: `${summary.totalInvoiced > 0 ? ((summary.totalOutstanding / summary.totalInvoiced) * 100).toFixed(1) : '0.0'}% still open`,
+        accentClass: 'bg-amber-500',
+      },
+      {
+        title: 'Total Estimates',
+        value: formatCurrency(summary.totalEstimates),
+        detail: `${summary.estimateCount} estimates created`,
+        accentClass: 'bg-violet-500',
+      },
+      {
+        title: 'Active Clients',
+        value: `${summary.activeClients}`,
+        detail: 'Clients with filtered activity',
+        accentClass: 'bg-cyan-500',
+      },
+      {
+        title: 'Conversion Rate',
+        value: `${summary.conversionRate.toFixed(1)}%`,
+        detail: 'Invoices compared with estimates',
+        accentClass: 'bg-rose-500',
+      },
+      {
+        title: 'Average Invoice Value',
+        value: formatCurrency(summary.averageInvoiceValue),
+        detail: 'Average across filtered invoices',
+        accentClass: 'bg-indigo-500',
+      },
+      {
+        title: 'Average Estimate Value',
+        value: formatCurrency(summary.averageEstimateValue),
+        detail: 'Average across filtered estimates',
+        accentClass: 'bg-fuchsia-500',
+      },
+    ];
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 lg:p-6 border-b">
+          <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Reports</h1>
+          <p className={`text-sm ${activeTheme.textMuted}`}>Detailed business performance overview</p>
+          <div className={`mt-4 inline-flex p-1 rounded-2xl border ${activeTheme.border} ${activeTheme.subtleBg}`}>
+            <button
+              onClick={() => setReportView('overview')}
+              className={`px-4 py-2 text-sm rounded-xl transition-colors ${
+                reportView === 'overview' ? activeTheme.accent : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
+              }`}
+            >
+              Reports Overview
+            </button>
+            <button
+              onClick={() => setReportView('business')}
+              className={`px-4 py-2 text-sm rounded-xl transition-colors ${
+                reportView === 'business' ? activeTheme.accent : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
+              }`}
+            >
+              Business View
+            </button>
+            <button
+              onClick={() => setReportView('analytics')}
+              className={`px-4 py-2 text-sm rounded-xl transition-colors ${
+                reportView === 'analytics' ? activeTheme.accent : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
+              }`}
+            >
+              Analytics
+            </button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className={`px-4 lg:px-6 py-4 border-b ${activeTheme.sectionHeaderBg}`}>
+          <div className="flex flex-wrap gap-3 items-center">
+            {/* Month */}
+            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-xl overflow-hidden shadow-sm`}>
+              <span className={`px-3 py-2 text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Month</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className={`px-3 py-2 text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none`}
+              >
+                <option value="all">All Months</option>
+                {monthOptions.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            </div>
+            {/* Year */}
+            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-xl overflow-hidden shadow-sm`}>
+              <span className={`px-3 py-2 text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Year</span>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className={`px-3 py-2 text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none`}
+              >
+                <option value="all">All Years</option>
+                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            {/* Status */}
+            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-xl overflow-hidden shadow-sm`}>
+              <span className={`px-3 py-2 text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Status</span>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className={`px-3 py-2 text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none`}
+              >
+                {statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+            {/* Client */}
+            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-xl overflow-hidden shadow-sm`}>
+              <span className={`px-3 py-2 text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Client</span>
+              <select
+                value={selectedClient}
+                onChange={(e) => setSelectedClient(e.target.value)}
+                className={`px-3 py-2 text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none`}
+              >
+                {clientOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
+            <button
+              onClick={resetFilters}
+              className={`px-4 py-2 ${activeTheme.accent} ${activeTheme.accentHover} rounded-xl text-sm font-medium shadow-sm transition-colors`}
+            >
+              Reset Filters
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 lg:p-6 space-y-6">
+          {reportView === 'analytics' ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                {analyticsSummaryCards.map((card) => (
+                  <SummaryMetricCard key={card.title} {...card} theme={activeTheme} />
+                ))}
+              </div>
+
+              <div className="grid xl:grid-cols-[1.5fr_0.9fr] gap-6">
+                <AnalyticsCard
+                  title="Revenue Overview"
+                  subtitle="Invoiced, paid, and estimated value grouped by period"
+                  theme={activeTheme}
+                >
+                  <SimpleMultiBarChart
+                    data={revenueChartData}
+                    theme={activeTheme}
+                    series={[
+                      { key: 'invoiced', label: 'Invoiced', color: '#3B82F6' },
+                      { key: 'paid', label: 'Paid', color: '#10B981' },
+                      { key: 'estimated', label: 'Estimated', color: '#A855F7' },
+                    ]}
+                  />
+                </AnalyticsCard>
+
+                <AnalyticsCard
+                  title="Invoice Status"
+                  subtitle="Paid versus outstanding invoice count"
+                  theme={activeTheme}
+                >
+                  <DonutChart
+                    data={invoiceStatusChartData}
+                    centerLabel="Invoices"
+                    centerValue={String(summary.invoiceCount)}
+                    theme={activeTheme}
+                  />
+                </AnalyticsCard>
+              </div>
+
+              <div className="grid xl:grid-cols-2 gap-6">
+                <AnalyticsCard
+                  title="Estimate Status"
+                  subtitle="Pending, accepted, and declined estimates"
+                  theme={activeTheme}
+                >
+                  <DonutChart
+                    data={estimateStatusChartData}
+                    centerLabel="Estimates"
+                    centerValue={String(summary.estimateCount)}
+                    theme={activeTheme}
+                  />
+                </AnalyticsCard>
+
+                <AnalyticsCard
+                  title="Client Performance"
+                  subtitle="Top clients ranked by invoiced amount"
+                  theme={activeTheme}
+                >
+                  <HorizontalBarChart data={clientPerformanceChartData} theme={activeTheme} formatter={formatCurrency} />
+                </AnalyticsCard>
+              </div>
+
+              <div className="grid xl:grid-cols-[0.95fr_1.05fr] gap-6">
+                <AnalyticsCard
+                  title="Conversion View"
+                  subtitle="Accepted estimates compared with invoices issued"
+                  theme={activeTheme}
+                >
+                  <HorizontalBarChart data={conversionChartData} theme={activeTheme} formatter={(value) => `${value}`} />
+                </AnalyticsCard>
+
+                <AnalyticsCard
+                  title="Recent Activity"
+                  subtitle="Latest invoices and estimates in the filtered period"
+                  theme={activeTheme}
+                >
+                  <div className={`divide-y ${activeTheme.border}`}>
+                    {recentActivity.slice(0, 8).map((item, idx) => (
+                      <div key={`${item.id || item.number}-${idx}`} className={`flex items-center justify-between gap-4 py-3 ${activeTheme.tableRowHover}`}>
+                        <div className="min-w-0">
+                          <p className={`truncate text-sm font-medium ${activeTheme.textPrimary}`}>{item.number}</p>
+                          <p className={`truncate text-xs ${activeTheme.textMuted}`}>{item.clientName}</p>
+                          <p className={`mt-1 text-[11px] ${activeTheme.iconColor}`}>{formatDate(item.date)} • {item.type}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</p>
+                          <p className={`text-xs ${activeTheme.textMuted}`}>{item.status}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {recentActivity.length === 0 && (
+                      <ChartEmptyState
+                        theme={activeTheme}
+                        title="No recent activity"
+                        description="Create invoices or estimates to populate this panel."
+                      />
+                    )}
+                  </div>
+                </AnalyticsCard>
+              </div>
+
+              <div className="grid gap-6">
+                <AnalyticsCard
+                  title="Period Breakdown"
+                  subtitle="Revenue and document activity by period"
+                  theme={activeTheme}
+                >
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className={activeTheme.tableHeaderBg}>
+                        <tr>
+                          <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Period</th>
+                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
+                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
+                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
+                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
+                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Invoiced Value</th>
+                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Estimated Value</th>
+                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Clients</th>
+                        </tr>
+                      </thead>
+                      <tbody className={`divide-y ${activeTheme.border}`}>
+                        {monthlyBreakdown.map((row, idx) => (
+                          <tr key={idx} className={activeTheme.tableRowHover}>
+                            <td className={`px-4 py-3 text-sm font-medium ${activeTheme.textPrimary}`}>{row.period}</td>
+                            <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{row.invoices}</td>
+                            <td className="px-4 py-3 text-sm text-right text-emerald-600">{row.paid}</td>
+                            <td className="px-4 py-3 text-sm text-right text-amber-600">{row.outstanding}</td>
+                            <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{row.estimates}</td>
+                            <td className={`px-4 py-3 text-sm text-right font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(row.totalInvoiced)}</td>
+                            <td className={`px-4 py-3 text-sm text-right font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(row.totalEstimated)}</td>
+                            <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{row.clients}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {monthlyBreakdown.length === 0 && (
+                    <div className="pt-4">
+                      <ChartEmptyState theme={activeTheme} title="No period data" description="There is no period breakdown for the selected filters." />
+                    </div>
+                  )}
+                </AnalyticsCard>
+
+                <div className="grid xl:grid-cols-2 gap-6">
+                  <AnalyticsCard
+                    title="Client Performance"
+                    subtitle="Detailed client-level financial activity"
+                    theme={activeTheme}
+                  >
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className={activeTheme.tableHeaderBg}>
+                          <tr>
+                            <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
+                            <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
+                            <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
+                            <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Invoiced</th>
+                            <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
+                            <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
+                          </tr>
+                        </thead>
+                        <tbody className={`divide-y ${activeTheme.border}`}>
+                          {clientReporting.map((client, idx) => (
+                            <tr key={idx} className={activeTheme.tableRowHover}>
+                              <td className={`px-4 py-3 text-sm font-medium ${activeTheme.textPrimary}`}>{client.name}</td>
+                              <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{client.invoices}</td>
+                              <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{client.estimates}</td>
+                              <td className={`px-4 py-3 text-sm text-right font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(client.totalInvoiced)}</td>
+                              <td className="px-4 py-3 text-sm text-right text-emerald-600">{formatCurrency(client.totalPaid)}</td>
+                              <td className="px-4 py-3 text-sm text-right text-amber-600">{formatCurrency(client.outstanding)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {clientReporting.length === 0 && (
+                      <div className="pt-4">
+                        <ChartEmptyState theme={activeTheme} title="No client performance data" description="Client metrics will appear here once documents exist." />
+                      </div>
+                    )}
+                  </AnalyticsCard>
+
+                  <AnalyticsCard
+                    title="Recent Activity Log"
+                    subtitle="Readable list of the latest documents"
+                    theme={activeTheme}
+                  >
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className={activeTheme.tableHeaderBg}>
+                          <tr>
+                            <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Document</th>
+                            <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
+                            <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Date</th>
+                            <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Status</th>
+                            <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className={`divide-y ${activeTheme.border}`}>
+                          {recentActivity.map((item, idx) => (
+                            <tr key={`${item.id || item.number}-${idx}`} className={activeTheme.tableRowHover}>
+                              <td className={`px-4 py-3 text-sm font-medium ${activeTheme.textPrimary}`}>{item.number}</td>
+                              <td className={`px-4 py-3 text-sm ${activeTheme.textPrimary}`}>{item.clientName}</td>
+                              <td className={`px-4 py-3 text-sm ${activeTheme.textPrimary}`}>{formatDate(item.date)}</td>
+                              <td className={`px-4 py-3 text-sm ${activeTheme.textPrimary}`}>{item.status}</td>
+                              <td className={`px-4 py-3 text-sm text-right font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {recentActivity.length === 0 && (
+                      <div className="pt-4">
+                        <ChartEmptyState theme={activeTheme} title="No recent activity" description="The recent activity log is empty for the current filters." />
+                      </div>
+                    )}
+                  </AnalyticsCard>
+                </div>
+              </div>
+            </>
+          ) : reportView === 'business' ? (
+            <>
+              <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-3xl p-6 lg:p-8 overflow-hidden relative`}>
+                <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_top_right,rgba(212,20,42,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(92,11,22,0.18),transparent_25%)]" />
+                <div className="relative grid lg:grid-cols-[1.4fr_0.9fr] gap-6 items-start">
+                  <div>
+                    <p className={`text-xs uppercase tracking-[0.25em] ${activeTheme.textMuted}`}>Business View</p>
+                    <h2 className={`mt-3 text-3xl font-bold ${activeTheme.textPrimary}`}>Operational snapshot</h2>
+                    <p className={`mt-3 max-w-2xl text-sm ${activeTheme.textSecondary}`}>
+                      A management-focused summary of revenue, collections, client activity, and recent document flow for the selected filters.
+                    </p>
+                    <div className="grid sm:grid-cols-3 gap-4 mt-6">
+                      <div className={`rounded-2xl border ${activeTheme.border} ${activeTheme.subtleBg} p-4`}>
+                        <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Revenue</p>
+                        <p className={`mt-2 text-2xl font-bold ${activeTheme.textPrimary}`}>{formatCurrency(summary.totalInvoiced)}</p>
+                        <p className={`mt-1 text-xs ${activeTheme.textMuted}`}>{summary.invoiceCount} invoices issued</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                        <p className="text-xs uppercase tracking-wide text-emerald-600">Collected</p>
+                        <p className="mt-2 text-2xl font-bold text-emerald-700">{formatCurrency(summary.totalPaid)}</p>
+                        <p className="mt-1 text-xs text-emerald-600">{paidRatio.toFixed(1)}% collection rate</p>
+                      </div>
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                        <p className="text-xs uppercase tracking-wide text-amber-600">Outstanding</p>
+                        <p className="mt-2 text-2xl font-bold text-amber-700">{formatCurrency(summary.totalOutstanding)}</p>
+                        <p className="mt-1 text-xs text-amber-600">{summary.activeClients} active clients</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`rounded-3xl border ${activeTheme.border} ${activeTheme.subtleBg} p-5`}>
+                    <p className={`text-xs uppercase tracking-[0.2em] ${activeTheme.textMuted}`}>Top Client</p>
+                    <p className={`mt-3 text-xl font-semibold ${activeTheme.textPrimary}`}>{topClient?.name || 'No client activity'}</p>
+                    <div className="mt-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${activeTheme.textMuted}`}>Invoiced</span>
+                        <span className={`text-sm font-semibold ${activeTheme.textPrimary}`}>{topClient ? formatCurrency(topClient.totalInvoiced) : formatCurrency(0)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${activeTheme.textMuted}`}>Paid</span>
+                        <span className="text-sm font-semibold text-emerald-600">{topClient ? formatCurrency(topClient.totalPaid) : formatCurrency(0)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${activeTheme.textMuted}`}>Outstanding</span>
+                        <span className="text-sm font-semibold text-amber-600">{topClient ? formatCurrency(topClient.outstanding) : formatCurrency(0)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${activeTheme.textMuted}`}>Last Activity</span>
+                        <span className={`text-sm font-semibold ${activeTheme.textPrimary}`}>
+                          {topClient?.lastActivity ? formatDate(topClient.lastActivity.toISOString().split('T')[0]) : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid lg:grid-cols-3 gap-4">
+                {businessSignals.map((signal) => (
+                  <div key={signal.title} className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5`}>
+                    <p className={`text-xs uppercase tracking-[0.18em] ${activeTheme.textMuted}`}>{signal.title}</p>
+                    <p className={`mt-3 text-2xl font-bold ${activeTheme.textPrimary}`}>{signal.value}</p>
+                    <p className={`mt-2 text-sm ${activeTheme.textSecondary}`}>{signal.detail}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid xl:grid-cols-[1.1fr_0.9fr] gap-6">
+                <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
+                  <div className={`p-4 border-b ${activeTheme.border}`}>
+                    <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Best Clients</h2>
+                    <p className={`text-sm ${activeTheme.textMuted}`}>Clients ranked by invoiced value</p>
+                  </div>
+                  <div className={`divide-y ${activeTheme.border}`}>
+                    {clientReporting.slice(0, 5).map((clientItem) => (
+                      <div key={clientItem.name} className={`p-4 ${activeTheme.tableRowHover}`}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className={`font-medium ${activeTheme.textPrimary}`}>{clientItem.name}</p>
+                            <p className={`text-xs ${activeTheme.textMuted} mt-1`}>
+                              {clientItem.invoices} invoices • {clientItem.estimates} estimates
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(clientItem.totalInvoiced)}</p>
+                            <p className="text-xs text-amber-600 mt-1">{formatCurrency(clientItem.outstanding)} outstanding</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {clientReporting.length === 0 && (
+                      <div className={`p-8 text-center ${activeTheme.textMuted}`}>No client activity for the selected filters.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
+                  <div className={`p-4 border-b ${activeTheme.border}`}>
+                    <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Recent Activity</h2>
+                    <p className={`text-sm ${activeTheme.textMuted}`}>Latest invoices and estimates</p>
+                  </div>
+                  <div className={`divide-y ${activeTheme.border}`}>
+                    {recentActivity.slice(0, 8).map((item, idx) => (
+                      <div key={`${item.id || item.number}-${idx}`} className={`p-4 ${activeTheme.tableRowHover}`}>
+                        <div className="flex justify-between gap-4">
+                          <div>
+                            <p className={`font-medium ${activeTheme.textPrimary}`}>{item.number}</p>
+                            <p className={`text-sm ${activeTheme.textMuted}`}>{item.clientName}</p>
+                            <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{formatDate(item.date)} • {item.type}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</p>
+                            <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.status}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {recentActivity.length === 0 && (
+                      <div className={`p-8 text-center ${activeTheme.textMuted}`}>No activity for the selected filters.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
+                <div className={`p-4 border-b ${activeTheme.border}`}>
+                  <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Period Snapshot</h2>
+                  <p className={`text-sm ${activeTheme.textMuted}`}>Latest period performance at a glance</p>
+                </div>
+                {latestPeriod ? (
+                  <div className="grid md:grid-cols-4 gap-4 p-4">
+                    <div className={`${activeTheme.subtleBg} rounded-2xl p-4`}>
+                      <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Period</p>
+                      <p className={`mt-2 font-semibold ${activeTheme.textPrimary}`}>{latestPeriod.period}</p>
+                    </div>
+                    <div className={`${activeTheme.subtleBg} rounded-2xl p-4`}>
+                      <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Invoice Value</p>
+                      <p className={`mt-2 font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(latestPeriod.totalInvoiced)}</p>
+                    </div>
+                    <div className={`${activeTheme.subtleBg} rounded-2xl p-4`}>
+                      <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Estimate Value</p>
+                      <p className={`mt-2 font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(latestPeriod.totalEstimated)}</p>
+                    </div>
+                    <div className={`${activeTheme.subtleBg} rounded-2xl p-4`}>
+                      <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Clients</p>
+                      <p className={`mt-2 font-semibold ${activeTheme.textPrimary}`}>{latestPeriod.clients}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`p-8 text-center ${activeTheme.textMuted}`}>No period data available for the selected filters.</div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 shadow-sm`}>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Total Invoiced</p>
+              <p className={`text-2xl font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(summary.totalInvoiced)}</p>
+              <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{summary.invoiceCount} invoices</p>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm">
+              <p className="text-sm text-emerald-600">Total Paid</p>
+              <p className="text-2xl font-bold mt-1 text-emerald-700">{formatCurrency(summary.totalPaid)}</p>
+              <p className="text-xs text-emerald-500 mt-1">{summary.totalInvoiced > 0 ? ((summary.totalPaid / summary.totalInvoiced) * 100).toFixed(1) : 0}% of invoiced</p>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+              <p className="text-sm text-amber-600">Outstanding</p>
+              <p className="text-2xl font-bold mt-1 text-amber-700">{formatCurrency(summary.totalOutstanding)}</p>
+              <p className="text-xs text-amber-500 mt-1">{summary.totalInvoiced > 0 ? ((summary.totalOutstanding / summary.totalInvoiced) * 100).toFixed(1) : 0}% of invoiced</p>
+            </div>
+            <div className={`${activeTheme.subtleBg} border ${activeTheme.border} rounded-2xl p-4 shadow-sm`}>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Estimates</p>
+              <p className={`text-2xl font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(summary.totalEstimates)}</p>
+              <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{summary.estimateCount} estimates</p>
+            </div>
+          </div>
+
+          {/* Additional Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 shadow-sm`}>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Active Clients</p>
+              <p className={`text-xl font-bold mt-1 ${activeTheme.textPrimary}`}>{summary.activeClients}</p>
+            </div>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 shadow-sm`}>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Conversion Rate</p>
+              <p className={`text-xl font-bold mt-1 ${activeTheme.textPrimary}`}>{summary.conversionRate.toFixed(1)}%</p>
+              <p className={`text-xs ${activeTheme.iconColor} mt-1`}>Estimates to invoices</p>
+            </div>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 shadow-sm`}>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Average Invoice Value</p>
+              <p className={`text-xl font-bold mt-1 ${activeTheme.textPrimary}`}>{summary.invoiceCount > 0 ? formatCurrency(summary.totalInvoiced / summary.invoiceCount) : formatCurrency(0)}</p>
+            </div>
+          </div>
+
+          {/* Monthly Breakdown */}
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
+            <div className={`p-4 border-b ${activeTheme.border}`}>
+              <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Period Breakdown</h2>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Revenue and activity by period</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className={activeTheme.tableHeaderBg}>
+                  <tr>
+                    <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Period</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Total Invoiced</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Total Estimated</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Clients</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${activeTheme.border}`}>
+                  {monthlyBreakdown.map((row, idx) => (
+                    <tr key={idx} className={activeTheme.tableRowHover}>
+                      <td className={`px-4 py-3 text-sm font-medium ${activeTheme.textPrimary}`}>{row.period}</td>
+                      <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{row.invoices}</td>
+                      <td className="px-4 py-3 text-sm text-right text-emerald-600">{row.paid}</td>
+                      <td className="px-4 py-3 text-sm text-right text-amber-600">{row.outstanding}</td>
+                      <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{row.estimates}</td>
+                      <td className={`px-4 py-3 text-sm text-right font-medium ${activeTheme.textPrimary}`}>{formatCurrency(row.totalInvoiced)}</td>
+                      <td className={`px-4 py-3 text-sm text-right font-medium ${activeTheme.textPrimary}`}>{formatCurrency(row.totalEstimated)}</td>
+                      <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{row.clients}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {monthlyBreakdown.length === 0 && (
+              <div className={`p-8 text-center ${activeTheme.textMuted}`}>
+                No data available for the selected filters.
+              </div>
+            )}
+          </div>
+
+          {/* Client Reporting */}
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
+            <div className={`p-4 border-b ${activeTheme.border}`}>
+              <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Client Performance</h2>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Revenue and activity by client</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className={activeTheme.tableHeaderBg}>
+                  <tr>
+                    <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Total Invoiced</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Total Paid</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
+                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Last Activity</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${activeTheme.border}`}>
+                  {clientReporting.map((client, idx) => (
+                    <tr key={idx} className={activeTheme.tableRowHover}>
+                      <td className={`px-4 py-3 text-sm font-medium ${activeTheme.textPrimary}`}>{client.name}</td>
+                      <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{client.invoices}</td>
+                      <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{client.estimates}</td>
+                      <td className={`px-4 py-3 text-sm text-right font-medium ${activeTheme.textPrimary}`}>{formatCurrency(client.totalInvoiced)}</td>
+                      <td className="px-4 py-3 text-sm text-right text-emerald-600">{formatCurrency(client.totalPaid)}</td>
+                      <td className="px-4 py-3 text-sm text-right text-amber-600">{formatCurrency(client.outstanding)}</td>
+                      <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{client.lastActivity ? formatDate(client.lastActivity.toISOString().split('T')[0]) : 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {clientReporting.length === 0 && (
+              <div className={`p-8 text-center ${activeTheme.textMuted}`}>
+                No client data available for the selected filters.
+              </div>
+            )}
+          </div>
+
+          {/* Recent Activity */}
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
+            <div className={`p-4 border-b ${activeTheme.border}`}>
+              <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Recent Activity</h2>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Latest invoices and estimates</p>
+            </div>
+            <div className={`divide-y ${activeTheme.border}`}>
+              {recentActivity.map((item, idx) => (
+                <div key={idx} className={`p-4 ${activeTheme.tableRowHover}`}>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className={`font-medium ${activeTheme.textPrimary}`}>{item.number}</p>
+                      <p className={`text-sm ${activeTheme.textMuted}`}>{item.clientName} • {formatDate(item.date)} • {item.status}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</p>
+                      <p className={`text-xs ${activeTheme.iconColor}`}>{item.type}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {recentActivity.length === 0 && (
+                <div className={`p-8 text-center ${activeTheme.textMuted}`}>
+                  No activity for the selected filters.
+                </div>
+              )}
+            </div>
+          </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
+
+  if (loading) {
+    return (
+      <div className={`min-h-screen ${activeTheme.appBg} flex items-center justify-center`}>
+        <div className={`animate-spin w-8 h-8 border-4 ${activeTheme.spinner} rounded-full`} />
+      </div>
+    );
+  }
+
+  const renderContent = () => {
+    switch (view) {
+      case 'view-invoice':
+        return <InvoiceView />;
+      case 'edit-invoice':
+        return <InvoiceEdit />;
+      case 'view-estimate':
+        return <EstimateView />;
+      case 'edit-estimate':
+        return <EstimateEdit />;
+      case 'view-client':
+        return <ClientView />;
+      case 'edit-client':
+        return <ClientEdit />;
+      case 'edit-item':
+        return <ItemEdit />;
+      default:
+        switch (activeTab) {
+          case 'invoices':
+            return <InvoicesList />;
+          case 'estimates':
+            return <EstimatesList />;
+          case 'clients':
+            return <ClientsList />;
+          case 'items':
+            return <ItemsList />;
+          case 'reports':
+            return <ReportsPage />;
+          case 'settings':
+            return <SettingsPage save={save} activeTheme={activeTheme} />;
+          default:
+            return <InvoicesList />;
+        }
+    }
+  };
+
+  const DesktopSidebar = () => (
+    <aside className={`hidden lg:flex flex-col w-64 ${activeTheme.sidebarBg} border-r ${activeTheme.border} h-screen sticky top-0`}>
+      <div className={`border-b ${activeTheme.border}`}>
+        {data.settings?.logo ? (
+          <>
+            <img src={data.settings.logo} alt="Logo" className="w-full object-cover" />
+            <div className="px-5 py-3 text-center">
+              <h1 className={`font-bold tracking-wide ${activeTheme.textPrimary} text-sm leading-tight`}>
+                {data.settings?.businessName || 'Invoice App'}
+              </h1>
+              <p className={`text-xs mt-0.5 ${activeTheme.textMuted}`}>Dashboard</p>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-3 text-center px-5 pt-6 pb-5">
+            <div className={`w-16 h-16 ${activeTheme.accent} rounded-2xl flex items-center justify-center shadow-lg`}>
+              <FileText className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h1 className={`font-bold tracking-wide ${activeTheme.textPrimary} text-sm leading-tight`}>
+                {data.settings?.businessName || 'Invoice App'}
+              </h1>
+              <p className={`text-xs mt-0.5 ${activeTheme.textMuted}`}>Dashboard</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <nav className="flex-1 p-4 space-y-1">
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => {
+              setActiveTab(item.id);
+              setView('list');
+              setSearchTerm('');
+            }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+              activeTab === item.id ? activeTheme.sidebarActive : activeTheme.sidebarInactive
+            }`}
+          >
+            <item.icon className="w-5 h-5" />
+            {item.label}
+          </button>
+        ))}
+      </nav>
+
+      <div className={`p-4 border-t ${activeTheme.border}`}>
+        <button
+          onClick={() => {
+            setActiveTab('settings');
+            setView('list');
+          }}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium ${
+            activeTab === 'settings' ? activeTheme.sidebarActive : activeTheme.sidebarInactive
+          }`}
+        >
+          <Settings className="w-5 h-5" />
+          Settings
+        </button>
+      </div>
+    </aside>
+  );
+
+  const MobileBottomNav = () => (
+    <div className={`lg:hidden fixed bottom-0 left-0 right-0 ${activeTheme.mobileNavBg} z-40`}>
+      <div className="flex items-center justify-around py-2 px-2">
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => {
+              setActiveTab(item.id);
+              setView('list');
+              setSearchTerm('');
+            }}
+            className={`flex flex-col items-center py-2 px-3 rounded-xl ${
+              activeTab === item.id ? activeTheme.mobileNavActive : activeTheme.mobileNavInactive
+            }`}
+          >
+            <item.icon className="w-5 h-5" />
+            <span className="text-xs mt-1 font-medium">{item.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={`h-screen overflow-hidden ${activeTheme.appBg}`} style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}>
+      <div className="flex h-full">
+        <DesktopSidebar />
+        <main className="flex flex-1 flex-col overflow-hidden">
+          {activeTab === 'settings' && cloudToolbarProps && renderCloudToolbar ? renderCloudToolbar(cloudToolbarProps) : null}
+          <div className={`min-h-0 flex-1 ${activeTab === 'settings' ? 'p-0 md:p-4 xl:p-6' : 'p-2 md:p-6 xl:p-8'}`}>
+            <div
+              className={`${activeTheme.panelBg} shadow-sm ${activeTheme.border} h-full overflow-hidden ${
+                activeTab === 'settings' ? 'w-full rounded-none md:rounded-2xl' : 'max-w-[90vw] mx-auto rounded-2xl'
+              }`}
+              style={activeTab === 'settings' ? undefined : { maxWidth: '1600px' }}
+            >
+              {renderContent()}
+            </div>
+          </div>
+        </main>
+      </div>
+      {view === 'list' && activeTab !== 'settings' && <MobileBottomNav />}
+      {/* Confirm Modal */}
+      {confirmOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className={`${activeTheme.modalBg} rounded-2xl w-full max-w-md p-6 shadow-xl ${activeTheme.border}`}>
+            <div className="flex items-center gap-3 mb-4">
+              <Trash2 className="w-6 h-6 text-red-500" />
+              <h2 className={`font-semibold text-lg ${activeTheme.textPrimary}`}>Confirm Delete</h2>
+            </div>
+            <p className={`${activeTheme.textSecondary} mb-6`}>{confirmMessage}</p>
+            <div className="flex gap-2">
+              <button
+                className={`flex-1 py-2 ${activeTheme.border} rounded-xl ${activeTheme.textPrimary} hover:${activeTheme.panelBg}`}
+                onClick={() => setConfirmOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className={`flex-1 py-2 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700`}
+                onClick={async () => {
+                  setConfirmOpen(false);
+                  await confirmAction();
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
