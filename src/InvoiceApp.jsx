@@ -22,7 +22,9 @@ import {
   FileSignature,
   Printer,
   Palette,
+  Wallet,
 } from 'lucide-react';
+import FinancePage from './FinancePage';
 
 // ============================================================================
 // DATABASE LAYER - localStorage
@@ -128,7 +130,7 @@ const useDatabase = () => {
     loadAll();
   }, [loadAll]);
 
-  const save = async (key, value) => {
+  const save = useCallback(async (key, value) => {
     try {
       localStorage.setItem(DB_KEYS[key], JSON.stringify(value));
       setData((prev) => ({ ...prev, [key]: value }));
@@ -137,7 +139,7 @@ const useDatabase = () => {
       console.error('Save error:', error);
       return false;
     }
-  };
+  }, []);
 
   return { data, save, loading, reload: loadAll };
 };
@@ -488,6 +490,7 @@ const SAMPLE_INVOICES = [
     notes: '',
     overallDiscount: 0,
     overallDiscountType: 'percentage',
+    taxEnabled: true,
     createdAt: '2026-03-02',
   },
 ];
@@ -526,6 +529,7 @@ const SAMPLE_ESTIMATES = [
     notes: '',
     overallDiscount: 0,
     overallDiscountType: 'percentage',
+    taxEnabled: true,
     createdAt: '2026-03-02',
   },
 ];
@@ -568,7 +572,10 @@ const formatClientAddress = (client, forHtml = false) => {
   return '';
 };
 
-const calculateItemTotal = (item, taxRate = 0) => {
+const isDocumentTaxEnabled = (doc) => doc?.taxEnabled !== false;
+
+const calculateItemTotal = (item, taxRate = 0, options = {}) => {
+  const applyTax = options.applyTax !== false;
   const subtotal = (Number(item.rate) || 0) * (Number(item.qty) || 0);
   let discountedTotal = subtotal;
 
@@ -580,7 +587,7 @@ const calculateItemTotal = (item, taxRate = 0) => {
     }
   }
 
-  const tax = item.taxable ? discountedTotal * (taxRate / 100) : 0;
+  const tax = applyTax && item.taxable ? discountedTotal * (taxRate / 100) : 0;
   const total = discountedTotal + tax;
 
   return {
@@ -606,29 +613,70 @@ const calculateTotalDiscount = (items) =>
     return sum;
   }, 0);
 
-const calculateTotalTax = (items, taxRate = 0) =>
-  items.reduce((sum, item) => sum + calculateItemTotal(item, taxRate).tax, 0);
+const calculateTotalTax = (items, taxRate = 0, options = {}) =>
+  items.reduce((sum, item) => sum + calculateItemTotal(item, taxRate, options).tax, 0);
 
-const calculateDocumentTotal = (doc, taxRate = 0) => {
-  const subtotal = calculateSubtotal(doc.items || []);
-  const itemDiscount = calculateTotalDiscount(doc.items || []);
+const calculateDocumentTotals = (doc = {}, taxRate = 0) => {
+  const items = doc.items || [];
+  const subtotal = calculateSubtotal(items);
+  const itemDiscount = calculateTotalDiscount(items);
   const subtotalAfterItemDiscounts = subtotal - itemDiscount;
-  const overallDiscountAmount =
+  const rawOverallDiscountAmount =
     doc.overallDiscountType === 'percentage'
       ? subtotalAfterItemDiscounts * ((doc.overallDiscount || 0) / 100)
       : doc.overallDiscount || 0;
-  const totalTax = calculateTotalTax(doc.items || [], taxRate);
-  return subtotalAfterItemDiscounts - overallDiscountAmount + totalTax;
+  const overallDiscountAmount = Math.min(
+    Math.max(Number(rawOverallDiscountAmount) || 0, 0),
+    Math.max(subtotalAfterItemDiscounts, 0),
+  );
+  const taxEnabled = isDocumentTaxEnabled(doc);
+  const totalTax = taxEnabled ? calculateTotalTax(items, taxRate, { applyTax: true }) : 0;
+  const total = Math.max(0, subtotalAfterItemDiscounts - overallDiscountAmount + totalTax);
+  const amountPaid = Math.min(Math.max(Number(doc.amountPaid) || 0, 0), total);
+  const balanceDue = Math.max(0, total - amountPaid);
+
+  return {
+    subtotal,
+    itemDiscount,
+    subtotalAfterItemDiscounts,
+    overallDiscountAmount,
+    totalTax,
+    total,
+    amountPaid,
+    balanceDue,
+    taxEnabled,
+  };
 };
+
+const calculateDocumentTotal = (doc, taxRate = 0) => calculateDocumentTotals(doc, taxRate).total;
+
+const resizeLogoForPdf = (src, maxW = 160, maxH = 70) =>
+  new Promise((resolve) => {
+    if (!src) { resolve(''); return; }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (w > maxW) { h = h * (maxW / w); w = maxW; }
+      if (h > maxH) { w = w * (maxH / h); h = maxH; }
+      const c = document.createElement('canvas');
+      c.width = Math.round(w);
+      c.height = Math.round(h);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL('image/png'));
+    };
+    img.onerror = () => resolve('');
+    img.src = src;
+  });
 
 const generatePDF = async (type, doc, client, settings) => {
   const isInvoice = type === 'invoice';
   const taxRate = settings?.taxRate || 15;
   const taxLabel = settings?.taxLabel || 'VAT';
   const documentLabel = isInvoice ? 'Invoice' : 'Estimate';
-
+  const title = isInvoice ? 'INVOICE' : 'ESTIMATE';
   const escapeHtml = (value = '') =>
-    String(value)
+    String(value ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -637,7 +685,12 @@ const generatePDF = async (type, doc, client, settings) => {
 
   const toHtmlLines = (value = '') => escapeHtml(value).replace(/\n/g, '<br>');
 
-  const formatPdfClientAddress = (pdfClient, forHtml = false) => {
+  const fmtMoney = (value) => {
+    const num = Number(value || 0);
+    return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+  };
+
+  const formatPdfClientAddress = (pdfClient) => {
     if (!pdfClient) return '';
     const lines = [];
     if (pdfClient.addressLine1) lines.push(pdfClient.addressLine1);
@@ -645,111 +698,246 @@ const generatePDF = async (type, doc, client, settings) => {
     if (pdfClient.city || pdfClient.postalCode) {
       lines.push([pdfClient.city, pdfClient.postalCode].filter(Boolean).join(', '));
     }
-    if (lines.length > 0) {
-      return forHtml ? lines.join('<br>') : lines.join('\n');
-    }
-    if (pdfClient.address) {
-      return forHtml ? String(pdfClient.address).replace(/\n/g, '<br>') : pdfClient.address;
-    }
+    if (lines.length > 0) return lines.join('<br>');
+    if (pdfClient.address) return String(pdfClient.address).replace(/\n/g, '<br>');
     return '';
   };
 
-  const subtotal = calculateSubtotal(doc.items || []);
-  const itemDiscount = calculateTotalDiscount(doc.items || []);
-  const subtotalAfterItemDiscounts = subtotal - itemDiscount;
-  const overallDiscountAmount =
-    doc.overallDiscountType === 'percentage'
-      ? subtotalAfterItemDiscounts * ((doc.overallDiscount || 0) / 100)
-      : doc.overallDiscount || 0;
-  const totalTax = calculateTotalTax(doc.items || [], taxRate);
-  const total = subtotalAfterItemDiscounts - overallDiscountAmount + totalTax;
-  const amountPaid = doc.amountPaid || 0;
-  const balanceDue = Math.max(0, total - amountPaid);
+  // --- Resize logo for html2canvas ---
+  const logoDataUrl = await resizeLogoForPdf(settings?.logo, 160, 70);
 
+  // --- Calculations ---
+  const {
+    subtotal, itemDiscount, overallDiscountAmount,
+    totalTax, total, amountPaid, balanceDue, taxEnabled,
+  } = calculateDocumentTotals(doc, taxRate);
+
+  // --- Notes: use doc notes, fallback to default notes from settings ---
+  const docNotes = String(doc.notes || '').trim();
+  const defaultNotes = isInvoice
+    ? String(settings?.defaultInvoiceNotes || '').trim()
+    : String(settings?.defaultEstimateNotes || '').trim();
+  const finalNotes = docNotes || defaultNotes;
+
+  // --- Design tokens ---
+  const P = {
+    dark: '#111827', text: '#1f2937', textMd: '#4b5563', textLt: '#6b7280',
+    red: '#991b1b', redLt: '#fef2f2', redBorder: '#e8c4c4',
+    border: '#e5e7eb', borderLt: '#f0f1f4', bgPage: '#f3f4f6',
+    bgCard: '#ffffff', bgSoft: '#fafafa',
+    bg: '#ffffff', fontStack: "Aptos, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+  };
+  const num = `text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;`;
+  const cardStyle = `background:${P.bgCard};border:1px solid ${P.border};border-radius:12px;padding:16px 20px;`;
+  const secLabel = `font-size:9.5px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${P.red};margin-bottom:10px;`;
+
+  // --- Addresses ---
+  const bizAddr = String(settings?.address || '').trim();
+  const clientAddr = formatPdfClientAddress(client);
+
+  // --- Banking fields (Invoice only) ---
+  const bankFields = [
+    { label: 'Bank Name', value: settings?.bankName },
+    { label: 'Account Number', value: settings?.accountNumber },
+    { label: 'Account Type', value: settings?.accountType },
+    { label: 'Branch Code', value: settings?.branchCode },
+    { label: 'Account Holder', value: settings?.businessName },
+  ].filter(f => String(f.value || '').trim());
+
+  const hasBank = isInvoice && bankFields.length > 0;
+  const hasNotes = finalNotes.length > 0;
+  const hasDiscount = (doc.items || []).some(item => item.discountAmount > 0);
+
+  // --- Item rows ---
   const itemRows = (doc.items || [])
-    .map((item) => {
-      const calc = calculateItemTotal(item, taxRate);
-      return `
-        <tr>
-          <td style="padding:12px;border-bottom:1px solid #ddd;">${escapeHtml(item.description || '')}<br><small>${toHtmlLines(item.notes || '')}</small></td>
-          <td style="padding:12px;border-bottom:1px solid #ddd;text-align:center;">${item.qty || 0}</td>
-          <td style="padding:12px;border-bottom:1px solid #ddd;text-align:right;">${formatCurrency(item.rate || 0)}</td>
-          <td style="padding:12px;border-bottom:1px solid #ddd;text-align:right;">${formatCurrency(calc.total)}</td>
-        </tr>
-      `;
-    })
-    .join('');
+    .map((item, idx) => {
+      const calc = calculateItemTotal(item, taxRate, { applyTax: taxEnabled });
+      const bg = idx % 2 === 1 ? P.bgSoft : P.bgCard;
+      const cellBase = `padding:10px 16px;font-size:12px;vertical-align:top;background:${bg};border-bottom:1px solid ${P.borderLt};`;
+      const discVal = item.discountAmount > 0
+        ? (item.discountType === 'percentage'
+          ? fmtMoney(item.rate * item.qty * item.discountAmount / 100)
+          : fmtMoney(item.discountAmount))
+        : '';
+      const meta = String(item.notes || '').trim();
+      return `<tr>
+        <td style="${cellBase}">
+          <div style="font-weight:600;color:${P.dark};line-height:1.35;">${escapeHtml(item.description || '')}</div>
+          ${meta ? `<div style="font-size:10.5px;line-height:1.4;color:${P.textLt};margin-top:2px;">${toHtmlLines(meta)}</div>` : ''}
+        </td>
+        <td style="${cellBase}text-align:center;">${escapeHtml(String(item.qty || 0))}</td>
+        <td style="${cellBase}${num}">${escapeHtml(fmtMoney(item.rate || 0))}</td>
+        ${hasDiscount ? `<td style="${cellBase}${num}">${discVal ? `-${escapeHtml(discVal)}` : ''}</td>` : ''}
+        <td style="${cellBase}${num}font-weight:700;">${escapeHtml(fmtMoney(calc.total))}</td>
+      </tr>`;
+    }).join('');
 
-  const logoHtml = settings?.logo
-    ? `
-        <div style="flex:0 0 auto; text-align:right;">
-          <img
-            src="${escapeHtml(settings.logo)}"
-            alt="${escapeHtml(settings?.businessName || 'Business logo')}"
-            style="max-width:180px; max-height:90px; object-fit:contain;"
-          />
+  // --- Summary row helper ---
+  const sumLine = (label, value, bold) => `<tr>
+    <td style="padding:7px 0;font-size:12px;color:${P.textMd};border-bottom:1px solid ${P.borderLt};">${label}</td>
+    <td style="padding:7px 0;font-size:12px;font-weight:${bold ? '800' : '600'};color:${P.dark};${num}border-bottom:1px solid ${P.borderLt};">${value}</td>
+  </tr>`;
+
+  // --- Column widths ---
+  const descW = hasDiscount ? '36%' : '46%';
+  const qtyW = '10%';
+  const rateW = '18%';
+  const discW = '16%';
+  const amtW = hasDiscount ? '20%' : '26%';
+  const thBase = `padding:10px 16px;background:#f3f4f6;border-bottom:2px solid ${P.border};font-size:9.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:${P.textLt};`;
+
+  // --- Build full HTML (100% inline styles for html2canvas) ---
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><title>${escapeHtml(title)} ${escapeHtml(doc.number || '')}</title></head>
+<body style="margin:0;padding:0;font-family:${P.fontStack};font-size:12px;line-height:1.5;color:${P.text};background:${P.bgPage};-webkit-print-color-adjust:exact;print-color-adjust:exact;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
+<div style="width:100%;max-width:760px;margin:0 auto;background:${P.bgPage};padding:0;">
+
+  <!-- ===== TOP ACCENT BAR ===== -->
+  <div style="height:5px;background:linear-gradient(90deg,${P.dark} 0%,#7f1d1d 50%,#dc2626 100%);"></div>
+
+  <!-- ===== HEADER CARD ===== -->
+  <div style="background:${P.bgCard};padding:28px 32px 24px;margin-bottom:4px;page-break-inside:avoid;">
+    <table style="width:100%;border-collapse:collapse;"><tr>
+      <td style="vertical-align:top;">
+        <div style="display:inline-block;padding:5px 16px;border-radius:999px;border:1px solid ${P.redBorder};background:${P.redLt};color:${P.red};font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;line-height:18px;text-align:center;margin-bottom:10px;">${escapeHtml(title)}</div>
+        <div style="font-size:26px;font-weight:900;color:${P.dark};letter-spacing:-0.5px;line-height:1.1;margin-bottom:8px;">${escapeHtml(settings?.businessName || '')}</div>
+        <div style="font-size:11px;line-height:1.7;color:${P.textMd};">
+          ${settings?.businessNumber ? `<span style="font-weight:700;color:${P.dark};">Reg No:</span> ${escapeHtml(settings.businessNumber)}<br>` : ''}
+          ${bizAddr ? `${toHtmlLines(bizAddr)}<br>` : ''}
+          ${settings?.phone ? `<span style="font-weight:700;color:${P.dark};">Phone:</span> ${escapeHtml(settings.phone)}<br>` : ''}
+          ${settings?.email ? `<span style="font-weight:700;color:${P.dark};">Email:</span> ${escapeHtml(settings.email)}` : ''}
         </div>
-      `
-    : '';
+      </td>
+      <td style="width:170px;text-align:right;vertical-align:top;">
+        ${logoDataUrl ? `<div style="display:inline-block;padding:8px;border:1px solid ${P.border};border-radius:14px;background:${P.bgCard};overflow:hidden;"><img src="${logoDataUrl}" alt="Logo" style="display:block;border-radius:10px;max-width:150px;max-height:65px;"/></div>` : ''}
+      </td>
+    </tr></table>
+  </div>
 
-  const html = `
-    <html>
-      <head>
-        <meta charset="UTF-8" />
-        <title>${escapeHtml(doc.number || documentLabel)}</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; padding: 30px; color: #111;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px;">
-          <div style="flex:1 1 auto;">
-            <h1 style="margin:0 0 8px;">${isInvoice ? 'INVOICE' : 'ESTIMATE'}</h1>
-            <p style="margin:0 0 6px;"><strong>${escapeHtml(settings?.businessName || 'Your Business')}</strong></p>
-            <p style="margin:0 0 4px;">${toHtmlLines(settings?.address || '')}</p>
-            ${settings?.phone ? `<p style="margin:0 0 4px;">${escapeHtml(settings.phone)}</p>` : ''}
-            ${settings?.email ? `<p style="margin:0;">${escapeHtml(settings.email)}</p>` : ''}
-          </div>
-          ${logoHtml}
-        </div>
-        <hr style="margin: 20px 0;" />
-
-        <p><strong>${isInvoice ? 'Invoice' : 'Estimate'} No:</strong> ${escapeHtml(doc.number || '')}</p>
-        <p><strong>Date:</strong> ${escapeHtml(doc.date || '')}</p>
-        <p><strong>Due Date:</strong> ${escapeHtml(doc.dueDate || '')}</p>
-
-        <h3>${isInvoice ? 'Bill To' : 'Prepared For'}</h3>
-        <p><strong>${escapeHtml(client?.name || 'Client')}</strong></p>
-        <p>${toHtmlLines(formatPdfClientAddress(client, false))}</p>
-        <p>${escapeHtml(client?.phone || '')}</p>
-        <p>${escapeHtml(client?.email || '')}</p>
-
-        <table style="width:100%; border-collapse:collapse; margin-top: 20px;">
-          <thead>
-            <tr>
-              <th style="text-align:left; padding:12px; border-bottom:2px solid #111;">Description</th>
-              <th style="text-align:center; padding:12px; border-bottom:2px solid #111;">Qty</th>
-              <th style="text-align:right; padding:12px; border-bottom:2px solid #111;">Rate</th>
-              <th style="text-align:right; padding:12px; border-bottom:2px solid #111;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>${itemRows}</tbody>
+  <!-- ===== INFO CARDS ROW ===== -->
+  <div style="padding:0 16px;page-break-inside:avoid;">
+    <table style="width:100%;border-collapse:separate;border-spacing:8px;"><tr>
+      <!-- Invoice/Estimate Details Card -->
+      <td style="width:50%;vertical-align:top;${cardStyle}">
+        <div style="${secLabel}">${isInvoice ? 'Invoice Details' : 'Estimate Details'}</div>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="padding:6px 0;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${P.textLt};width:42%;">${isInvoice ? 'Invoice No' : 'Estimate No'}</td>
+            <td style="padding:6px 0;font-size:12px;font-weight:700;color:${P.dark};text-align:right;">${escapeHtml(doc.number || '')}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${P.textLt};border-top:1px solid ${P.borderLt};">Date</td>
+            <td style="padding:6px 0;font-size:12px;font-weight:700;color:${P.dark};text-align:right;border-top:1px solid ${P.borderLt};">${escapeHtml(doc.date || '')}</td>
+          </tr>
+          ${isInvoice ? `<tr>
+            <td style="padding:6px 0;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${P.textLt};border-top:1px solid ${P.borderLt};">Due Date</td>
+            <td style="padding:6px 0;font-size:12px;font-weight:700;color:${P.dark};text-align:right;border-top:1px solid ${P.borderLt};">${escapeHtml(doc.dueDate || '')}</td>
+          </tr>` : ''}
+          <tr>
+            <td style="padding:6px 0;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${P.textLt};border-top:1px solid ${P.borderLt};">Status</td>
+            <td style="padding:6px 0;font-size:12px;font-weight:700;color:${P.dark};text-align:right;border-top:1px solid ${P.borderLt};">${escapeHtml(doc.status ? doc.status.charAt(0).toUpperCase() + doc.status.slice(1) : '')}</td>
+          </tr>
         </table>
-
-        <div style="margin-top: 24px; margin-left:auto; width: 320px;">
-          <p><strong>Subtotal:</strong> ${formatCurrency(subtotal)}</p>
-          <p><strong>Item Discount:</strong> ${formatCurrency(itemDiscount)}</p>
-          <p><strong>${escapeHtml(taxLabel)} (${taxRate}%):</strong> ${formatCurrency(totalTax)}</p>
-          <p><strong>Total:</strong> ${formatCurrency(total)}</p>
-          <p><strong>Amount Paid:</strong> ${formatCurrency(amountPaid)}</p>
-          <p><strong>Balance Due:</strong> ${formatCurrency(balanceDue)}</p>
+      </td>
+      <!-- Bill To Card -->
+      <td style="width:50%;vertical-align:top;${cardStyle}">
+        <div style="${secLabel}">Bill To</div>
+        <div style="font-size:14px;font-weight:800;color:${P.dark};margin-bottom:6px;">${escapeHtml(client?.name || 'Client')}</div>
+        <div style="font-size:11px;line-height:1.7;color:${P.textMd};">
+          ${clientAddr ? `${clientAddr}<br>` : ''}
+          ${client?.vatNumber ? `VAT NR: ${escapeHtml(client.vatNumber)}<br>` : ''}
+          ${client?.email ? `${escapeHtml(client.email)}<br>` : ''}
+          ${client?.phone ? escapeHtml(client.phone) : ''}
         </div>
+      </td>
+    </tr></table>
+  </div>
 
-        ${
-          doc.notes
-            ? `<div style="margin-top: 24px;"><h3>Notes</h3><p>${toHtmlLines(doc.notes)}</p></div>`
-            : ''
-        }
-      </body>
-    </html>
-  `;
+  <!-- ===== LINE ITEMS TABLE CARD ===== -->
+  <div style="padding:0 16px;page-break-inside:avoid;">
+    <div style="margin-top:10px;${cardStyle}padding:0;overflow:hidden;">
+      <div style="padding:14px 20px 10px;">
+        <div style="font-size:14px;font-weight:800;color:${P.dark};">Line Items</div>
+        <div style="font-size:10px;color:${P.textLt};margin-top:1px;">${(doc.items || []).length} item${(doc.items || []).length === 1 ? '' : 's'}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr>
+          <th style="${thBase}width:${descW};text-align:left;">Description</th>
+          <th style="${thBase}width:${qtyW};text-align:center;">Qty</th>
+          <th style="${thBase}width:${rateW};${num}">Rate</th>
+          ${hasDiscount ? `<th style="${thBase}width:${discW};${num}">Discount</th>` : ''}
+          <th style="${thBase}width:${amtW};${num}">Amount</th>
+        </tr></thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== SUMMARY CARD (right-aligned) ===== -->
+  <div style="padding:0 16px;page-break-inside:avoid;">
+    <table style="width:100%;border-collapse:separate;border-spacing:8px;margin-top:2px;"><tr>
+      <td style="width:50%;vertical-align:top;"></td>
+      <td style="width:50%;vertical-align:top;${cardStyle}">
+        <div style="${secLabel}">Summary</div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${sumLine('Subtotal', escapeHtml(fmtMoney(subtotal)))}
+          ${itemDiscount > 0 ? sumLine('Item Discount', `-${escapeHtml(fmtMoney(itemDiscount))}`) : ''}
+          ${overallDiscountAmount > 0 ? sumLine('Overall Discount', `-${escapeHtml(fmtMoney(overallDiscountAmount))}`) : ''}
+          ${sumLine(`${escapeHtml(taxLabel)} (${taxEnabled ? `${taxRate}%` : 'Off'})`, escapeHtml(fmtMoney(totalTax)))}
+        </table>
+        <!-- Total highlight bar -->
+        <div style="margin:8px 0;padding:10px 14px;border-radius:10px;background:linear-gradient(90deg,${P.dark} 0%,#7f1d1d 50%,#b91c1c 100%);">
+          <table style="width:100%;border-collapse:collapse;"><tr>
+            <td style="font-size:12px;font-weight:800;color:#ffffff;">Total</td>
+            <td style="font-size:17px;font-weight:900;${num}color:#ffffff;">${escapeHtml(fmtMoney(total))}</td>
+          </tr></table>
+        </div>
+        ${isInvoice ? `
+        <table style="width:100%;border-collapse:collapse;">
+          ${sumLine('Amount Paid', escapeHtml(fmtMoney(amountPaid)))}
+        </table>
+        <div style="margin-top:6px;">
+          <table style="width:100%;border-collapse:collapse;"><tr>
+            <td style="padding:4px 0;font-size:13px;font-weight:900;color:${P.dark};">BALANCE DUE</td>
+            <td style="padding:4px 0;font-size:16px;font-weight:900;${num}color:#b91c1c;">${escapeHtml(fmtMoney(balanceDue))}</td>
+          </tr></table>
+        </div>` : ''}
+      </td>
+    </tr></table>
+  </div>
+
+  <!-- ===== BANKING DETAILS CARD (Invoice only) ===== -->
+  ${hasBank ? `
+  <div style="padding:0 16px;page-break-inside:avoid;">
+    <div style="margin-top:10px;${cardStyle}page-break-inside:avoid;">
+      <div style="${secLabel}">Banking Details</div>
+      <table style="width:100%;border-collapse:collapse;">
+        ${bankFields.map(f => `<tr>
+          <td style="padding:7px 0;font-size:10.5px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${P.textLt};width:38%;vertical-align:top;border-bottom:1px solid ${P.borderLt};">${escapeHtml(f.label)}</td>
+          <td style="padding:7px 0;font-size:12px;font-weight:700;color:${P.dark};vertical-align:top;border-bottom:1px solid ${P.borderLt};">${escapeHtml(f.value)}</td>
+        </tr>`).join('')}
+      </table>
+    </div>
+  </div>
+  ` : ''}
+
+  <!-- ===== NOTES (full width) ===== -->
+  ${hasNotes ? `
+  <div style="padding:0 16px;page-break-inside:avoid;">
+    <div style="margin-top:10px;margin-bottom:8px;${cardStyle}page-break-inside:avoid;">
+      <div style="${secLabel}">${isInvoice ? 'Invoice Notes' : 'Estimate Notes'}</div>
+      <div style="font-size:11px;line-height:1.65;color:${P.textMd};white-space:pre-line;">${toHtmlLines(finalNotes)}</div>
+    </div>
+  </div>
+  ` : ''}
+
+  <!-- ===== FOOTER ===== -->
+  <div style="padding:14px 24px 18px;text-align:center;font-size:10px;color:#9ca3af;">
+    ${isInvoice ? 'Thank you for your business.' : 'This estimate is issued for review and approval.'}
+  </div>
+
+</div>
+</body></html>`;
 
   let iframe = null;
 
@@ -800,10 +988,12 @@ const generatePDF = async (type, doc, client, settings) => {
         filename: `${documentLabel}_${safeNumber}.pdf`,
         margin: [0, 0, 0, 0],
         jsPDF: { format: 'a4', unit: 'mm' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', 'td'] },
         html2canvas: {
           scale: 2,
           useCORS: true,
           logging: false,
+          letterRendering: true,
         },
       })
       .save();
@@ -1089,6 +1279,142 @@ const FormInput = ({ label, type = 'text', value, onChange, placeholder, multili
   </div>
 );
 
+const ToggleSwitch = ({ checked, onChange, theme = THEMES.default }) => (
+  <button
+    type="button"
+    onClick={onChange}
+    className={`relative h-7 w-12 rounded-full transition-colors ${checked ? theme.accent : theme.toggleInactive}`}
+  >
+    <span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${checked ? 'left-6' : 'left-1'}`} />
+  </button>
+);
+
+const DocumentTotalsSummary = ({
+  doc,
+  taxRate,
+  taxLabel = 'VAT',
+  theme = THEMES.default,
+  showPayments = false,
+}) => {
+  const totals = calculateDocumentTotals(doc, taxRate);
+
+  return (
+    <div className={`rounded-2xl border ${theme.border} ${theme.subtleBg} p-4`}>
+      <div className="space-y-2 text-sm">
+        <div className="flex items-center justify-between gap-4">
+          <span className={theme.textSecondary}>Subtotal</span>
+          <span className={theme.textPrimary}>{formatCurrency(totals.subtotal)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className={theme.textSecondary}>Item Discounts</span>
+          <span className={theme.textPrimary}>{formatCurrency(totals.itemDiscount)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className={theme.textSecondary}>Document Discount</span>
+          <span className={theme.textPrimary}>{formatCurrency(totals.overallDiscountAmount)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className={theme.textSecondary}>{`${taxLabel} ${totals.taxEnabled ? `(${taxRate}%)` : '(Off)'}`}</span>
+          <span className={theme.textPrimary}>{formatCurrency(totals.totalTax)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-4 pt-2">
+          <span className={`font-semibold ${theme.textPrimary}`}>Total</span>
+          <span className={`font-semibold ${theme.textPrimary}`}>{formatCurrency(totals.total)}</span>
+        </div>
+        {showPayments && (
+          <>
+            <div className="flex items-center justify-between gap-4">
+              <span className={theme.textSecondary}>Payments Received</span>
+              <span className={theme.textPrimary}>{formatCurrency(totals.amountPaid)}</span>
+            </div>
+            <div className={`flex items-center justify-between gap-4 border-t ${theme.border} pt-3`}>
+              <span className={`text-base font-bold ${theme.textPrimary}`}>Balance Due</span>
+              <span className={`text-base font-bold ${theme.textPrimary}`}>{formatCurrency(totals.balanceDue)}</span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const DocumentTotalsEditor = ({
+  form,
+  setForm,
+  taxRate,
+  taxLabel = 'VAT',
+  theme = THEMES.default,
+  showPayments = false,
+}) => {
+  const taxEnabled = isDocumentTaxEnabled(form);
+
+  return (
+    <div className={`${theme.cardBg} border ${theme.border} rounded-2xl p-4 space-y-4`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className={`font-semibold ${theme.textPrimary}`}>Totals</p>
+          <p className={`mt-1 text-sm ${theme.textMuted}`}>
+            {showPayments
+              ? `Add a document discount, control whether ${taxLabel} is applied, and track payments already received.`
+              : `Add a document discount and control whether ${taxLabel} is applied.`}
+          </p>
+        </div>
+        <div className={`flex items-center gap-3 rounded-2xl border ${theme.border} px-3 py-2 ${theme.subtleBg}`}>
+          <div className="text-right">
+            <p className={`text-sm font-medium ${theme.textPrimary}`}>{taxLabel}</p>
+            <p className={`text-xs ${theme.textMuted}`}>{taxEnabled ? `${taxRate}% on taxable items` : 'Not applied to this document'}</p>
+          </div>
+          <ToggleSwitch
+            checked={taxEnabled}
+            onChange={() => setForm({ ...form, taxEnabled: !taxEnabled })}
+            theme={theme}
+          />
+        </div>
+      </div>
+
+      <div className={`grid gap-3 ${showPayments ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+        <div className="space-y-1.5">
+          <label className={`text-sm font-medium ${theme.textSecondary}`}>Discount Type</label>
+          <select
+            value={form.overallDiscountType || 'percentage'}
+            onChange={(e) => setForm({ ...form, overallDiscountType: e.target.value })}
+            className={`w-full px-4 py-2.5 border ${theme.inputBg} ${theme.inputBorder} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400 shadow-sm ${theme.textPrimary} transition-colors`}
+          >
+            <option value="percentage">Percentage</option>
+            <option value="flat">Flat Amount</option>
+          </select>
+        </div>
+
+        <FormInput
+          label={form.overallDiscountType === 'percentage' ? 'Document Discount (%)' : 'Document Discount (R)'}
+          type="number"
+          value={form.overallDiscount}
+          onChange={(v) => setForm({ ...form, overallDiscount: parseFloat(v) || 0 })}
+          theme={theme}
+        />
+
+        {showPayments ? (
+          <FormInput
+            label="Payments Received (R)"
+            type="number"
+            value={form.amountPaid}
+            onChange={(v) => setForm({ ...form, amountPaid: parseFloat(v) || 0 })}
+            theme={theme}
+          />
+        ) : null}
+      </div>
+
+      <DocumentTotalsSummary
+        doc={form}
+        taxRate={taxRate}
+        taxLabel={taxLabel}
+        theme={theme}
+        showPayments={showPayments}
+      />
+    </div>
+  );
+};
+
 const ClientSelect = ({ label, value, onChange, clients, onAddNew, theme = THEMES.default }) => {
   const [showModal, setShowModal] = useState(false);
   const [newClient, setNewClient] = useState({
@@ -1181,7 +1507,16 @@ const ClientSelect = ({ label, value, onChange, clients, onAddNew, theme = THEME
   );
 };
 
-const LineItemModal = ({ isOpen, onClose, onSave, item, savedItems, taxRate, theme = THEMES.default }) => {
+const LineItemModal = ({
+  isOpen,
+  onClose,
+  onSave,
+  item,
+  savedItems,
+  taxRate,
+  applyDocumentTax = true,
+  theme = THEMES.default,
+}) => {
   const defaultItem = {
     id: generateId(),
     description: '',
@@ -1222,7 +1557,7 @@ const LineItemModal = ({ isOpen, onClose, onSave, item, savedItems, taxRate, the
     }
   };
 
-  const calc = calculateItemTotal(form, taxRate);
+  const calc = calculateItemTotal(form, taxRate, { applyTax: applyDocumentTax });
 
   const handleSave = () => {
     if (!form.description.trim()) {
@@ -1675,6 +2010,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     { id: 'estimates', icon: FileSignature, label: 'Estimates' },
     { id: 'clients', icon: Users, label: 'Clients' },
     { id: 'items', icon: Package, label: 'Items' },
+    { id: 'finance', icon: Wallet, label: 'Finance' },
     { id: 'reports', icon: BarChart3, label: 'Reports' },
   ];
 
@@ -1757,6 +2093,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
         id: generateId(),
         number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
         items: (invoice.items || []).map((item) => ({ ...item, id: generateId() })),
+        amountPaid: 0,
         createdAt: new Date().toISOString().split('T')[0],
       };
       await save('invoices', [...data.invoices, duplicatedInvoice]);
@@ -1782,6 +2119,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                   amountPaid: 0,
                   overallDiscount: 0,
                   overallDiscountType: 'percentage',
+                  taxEnabled: true,
                   notes: '',
                 });
                 setView('edit-invoice');
@@ -1997,7 +2335,9 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     const [editingItem, setEditingItem] = useState(null);
     const client = getClient(currentItem?.clientId);
     const taxRate = data.settings?.taxRate || 15;
-    const total = calculateDocumentTotal(currentItem, taxRate);
+    const taxLabel = data.settings?.taxLabel || 'VAT';
+    const totals = calculateDocumentTotals(currentItem, taxRate);
+    const total = totals.total;
 
     const saveInvoice = async (updatedInvoice) => {
       const updated = data.invoices.map((inv) => (inv.id === updatedInvoice.id ? updatedInvoice : inv));
@@ -2122,7 +2462,9 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     </p>
                     <p className={`hidden md:block text-sm text-center ${activeTheme.textPrimary}`}>{item.qty || 0}</p>
                     <p className={`hidden md:block text-sm text-right ${activeTheme.textPrimary}`}>{formatCurrency(item.rate || 0)}</p>
-                    <p className={`font-semibold md:text-right ${activeTheme.textPrimary}`}>{formatCurrency(calculateItemTotal(item, taxRate).total)}</p>
+                    <p className={`font-semibold md:text-right ${activeTheme.textPrimary}`}>
+                      {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: totals.taxEnabled }).total)}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -2134,6 +2476,14 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               </div>
             </div>
           </div>
+
+          <DocumentTotalsSummary
+            doc={currentItem}
+            taxRate={taxRate}
+            taxLabel={taxLabel}
+            theme={activeTheme}
+            showPayments
+          />
 
           <div className="flex gap-2">
             <button
@@ -2147,6 +2497,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                   items: currentItem.items.map((item) => ({ ...item, id: generateId() })),
                   overallDiscount: currentItem.overallDiscount || 0,
                   overallDiscountType: currentItem.overallDiscountType || 'percentage',
+                  taxEnabled: currentItem.taxEnabled !== false,
                   notes: currentItem.notes,
                   createdAt: new Date().toISOString().split('T')[0],
                 };
@@ -2171,12 +2522,14 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           item={editingItem}
           savedItems={data.items}
           taxRate={taxRate}
+          applyDocumentTax={totals.taxEnabled}
           theme={activeTheme}
         />
       </div>
     );
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const InvoiceEdit = () => {
     const [form, setForm] = useState(
       currentItem || {
@@ -2190,11 +2543,15 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
         amountPaid: 0,
         overallDiscount: 0,
         overallDiscountType: 'percentage',
+        taxEnabled: true,
         notes: '',
       },
     );
     const [itemModalOpen, setItemModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
+    const taxRate = data.settings?.taxRate || 15;
+    const taxLabel = data.settings?.taxLabel || 'VAT';
+    const taxEnabled = isDocumentTaxEnabled(form);
 
     const isExistingInvoice = data.invoices.some((inv) => inv.id === form.id);
 
@@ -2287,7 +2644,9 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                         {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.notes}</p>}
                       </div>
                       <div className="flex items-center gap-2">
-                        <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(calculateItemTotal(item, data.settings?.taxRate || 15).total)}</p>
+                        <p className={`font-semibold ${activeTheme.textPrimary}`}>
+                          {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: taxEnabled }).total)}
+                        </p>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -2305,6 +2664,15 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
             )}
           </div>
 
+          <DocumentTotalsEditor
+            form={form}
+            setForm={setForm}
+            taxRate={taxRate}
+            taxLabel={taxLabel}
+            theme={activeTheme}
+            showPayments
+          />
+
           <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
             <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
           </div>
@@ -2316,7 +2684,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           onSave={handleSaveItem}
           item={editingItem}
           savedItems={data.items}
-          taxRate={data.settings?.taxRate || 15}
+          taxRate={taxRate}
+          applyDocumentTax={taxEnabled}
           theme={activeTheme}
         />
       </div>
@@ -2423,6 +2792,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                   items: [],
                   overallDiscount: 0,
                   overallDiscountType: 'percentage',
+                  taxEnabled: true,
                   notes: '',
                 });
                 setView('edit-estimate');
@@ -2628,7 +2998,9 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     const [editingItem, setEditingItem] = useState(null);
     const client = getClient(currentItem?.clientId);
     const taxRate = data.settings?.taxRate || 15;
-    const total = calculateDocumentTotal(currentItem, taxRate);
+    const taxLabel = data.settings?.taxLabel || 'VAT';
+    const totals = calculateDocumentTotals(currentItem, taxRate);
+    const total = totals.total;
 
     const saveEstimate = async (updatedEstimate) => {
       const updated = data.estimates.map((est) => (est.id === updatedEstimate.id ? updatedEstimate : est));
@@ -2743,7 +3115,9 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     </p>
                     <p className={`hidden md:block text-sm text-center ${activeTheme.textPrimary}`}>{item.qty || 0}</p>
                     <p className={`hidden md:block text-sm text-right ${activeTheme.textPrimary}`}>{formatCurrency(item.rate || 0)}</p>
-                    <p className={`font-semibold md:text-right ${activeTheme.textPrimary}`}>{formatCurrency(calculateItemTotal(item, taxRate).total)}</p>
+                    <p className={`font-semibold md:text-right ${activeTheme.textPrimary}`}>
+                      {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: totals.taxEnabled }).total)}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -2755,6 +3129,13 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               </div>
             </div>
           </div>
+
+          <DocumentTotalsSummary
+            doc={currentItem}
+            taxRate={taxRate}
+            taxLabel={taxLabel}
+            theme={activeTheme}
+          />
 
           <div className="flex gap-2">
             <button
@@ -2770,6 +3151,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                   amountPaid: 0,
                   overallDiscount: currentItem.overallDiscount || 0,
                   overallDiscountType: currentItem.overallDiscountType || 'percentage',
+                  taxEnabled: currentItem.taxEnabled !== false,
                   notes: currentItem.notes,
                   createdAt: new Date().toISOString().split('T')[0],
                 };
@@ -2794,6 +3176,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           item={editingItem}
           savedItems={data.items}
           taxRate={taxRate}
+          applyDocumentTax={totals.taxEnabled}
           theme={activeTheme}
         />
       </div>
@@ -2811,11 +3194,15 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
         items: [],
         overallDiscount: 0,
         overallDiscountType: 'percentage',
+        taxEnabled: true,
         notes: '',
       },
     );
     const [itemModalOpen, setItemModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
+    const taxRate = data.settings?.taxRate || 15;
+    const taxLabel = data.settings?.taxLabel || 'VAT';
+    const taxEnabled = isDocumentTaxEnabled(form);
 
     const isExistingEstimate = data.estimates.some((est) => est.id === form.id);
 
@@ -2905,7 +3292,9 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                         {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.notes}</p>}
                       </div>
                       <div className="flex items-center gap-2">
-                        <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(calculateItemTotal(item, data.settings?.taxRate || 15).total)}</p>
+                        <p className={`font-semibold ${activeTheme.textPrimary}`}>
+                          {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: taxEnabled }).total)}
+                        </p>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -2923,6 +3312,14 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
             )}
           </div>
 
+          <DocumentTotalsEditor
+            form={form}
+            setForm={setForm}
+            taxRate={taxRate}
+            taxLabel={taxLabel}
+            theme={activeTheme}
+          />
+
           <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
             <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
           </div>
@@ -2934,7 +3331,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           onSave={handleSaveItem}
           item={editingItem}
           savedItems={data.items}
-          taxRate={data.settings?.taxRate || 15}
+          taxRate={taxRate}
+          applyDocumentTax={taxEnabled}
           theme={activeTheme}
         />
       </div>
@@ -4488,6 +4886,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
             return <ClientsList />;
           case 'items':
             return <ItemsList />;
+          case 'finance':
+            return <FinancePage data={data} save={save} theme={activeTheme} />;
           case 'reports':
             return <ReportsPage />;
           case 'settings':

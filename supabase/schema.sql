@@ -656,3 +656,283 @@ begin
           taxable = excluded.taxable;
   end if;
 end $$;
+
+-- ============================================================================
+-- Add precomputed summary columns to invoices and estimates
+-- ============================================================================
+
+alter table public.invoices
+add column if not exists item_count integer not null default 0,
+add column if not exists subtotal numeric(12,2) not null default 0,
+add column if not exists item_discount_total numeric(12,2) not null default 0,
+add column if not exists overall_discount_amount numeric(12,2) not null default 0,
+add column if not exists tax_total numeric(12,2) not null default 0,
+add column if not exists total_amount numeric(12,2) not null default 0,
+add column if not exists balance_due numeric(12,2) not null default 0;
+
+alter table public.estimates
+add column if not exists item_count integer not null default 0,
+add column if not exists subtotal numeric(12,2) not null default 0,
+add column if not exists item_discount_total numeric(12,2) not null default 0,
+add column if not exists overall_discount_amount numeric(12,2) not null default 0,
+add column if not exists tax_total numeric(12,2) not null default 0,
+add column if not exists total_amount numeric(12,2) not null default 0;
+
+-- ============================================================================
+-- Backfill precomputed columns from line items
+-- ============================================================================
+
+-- INVOICES
+update public.invoices i
+set
+  item_count = calc.item_count,
+  subtotal = calc.subtotal,
+  item_discount_total = calc.item_discount_total,
+  overall_discount_amount = calc.overall_discount_amount,
+  tax_total = calc.tax_total,
+  total_amount = calc.total_amount,
+  balance_due = greatest(calc.total_amount - coalesce(i.amount_paid, 0), 0)
+from (
+  select
+    i.user_id,
+    i.id,
+    count(ii.id) as item_count,
+    coalesce(sum(ii.rate * ii.qty), 0) as subtotal,
+    coalesce(sum(
+      case
+        when ii.discount_type = 'percentage' then (ii.rate * ii.qty) * (ii.discount_amount / 100)
+        else ii.discount_amount
+      end
+    ), 0) as item_discount_total,
+    greatest(
+      case
+        when i.overall_discount_type = 'percentage' then
+          (
+            coalesce(sum(
+              greatest(
+                ii.rate * ii.qty -
+                case
+                  when ii.discount_type = 'percentage' then (ii.rate * ii.qty) * (ii.discount_amount / 100)
+                  else ii.discount_amount
+                end,
+                0
+              )
+            ), 0)
+          ) * (coalesce(i.overall_discount, 0) / 100)
+        else coalesce(i.overall_discount, 0)
+      end,
+      0
+    ) as overall_discount_amount,
+    coalesce(sum(
+      case
+        when ii.taxable then
+          greatest(
+            greatest(
+              ii.rate * ii.qty -
+              case
+                when ii.discount_type = 'percentage' then (ii.rate * ii.qty) * (ii.discount_amount / 100)
+                else ii.discount_amount
+              end,
+              0
+            ),
+            0
+          )
+        else 0
+      end
+    ), 0) as taxable_base,
+    coalesce(bs.tax_rate, 0) as tax_rate,
+    greatest(
+      (
+        coalesce(sum(
+          greatest(
+            ii.rate * ii.qty -
+            case
+              when ii.discount_type = 'percentage' then (ii.rate * ii.qty) * (ii.discount_amount / 100)
+              else ii.discount_amount
+            end,
+            0
+          )
+        ), 0)
+      )
+      -
+      greatest(
+        case
+          when i.overall_discount_type = 'percentage' then
+            (
+              coalesce(sum(
+                greatest(
+                  ii.rate * ii.qty -
+                  case
+                    when ii.discount_type = 'percentage' then (ii.rate * ii.qty) * (ii.discount_amount / 100)
+                    else ii.discount_amount
+                  end,
+                  0
+                )
+              ), 0)
+            ) * (coalesce(i.overall_discount, 0) / 100)
+          else coalesce(i.overall_discount, 0)
+        end,
+        0
+      )
+      +
+      (
+        coalesce(sum(
+          case
+            when ii.taxable then
+              greatest(
+                ii.rate * ii.qty -
+                case
+                  when ii.discount_type = 'percentage' then (ii.rate * ii.qty) * (ii.discount_amount / 100)
+                  else ii.discount_amount
+                end,
+                0
+              )
+            else 0
+          end
+        ), 0) * (coalesce(bs.tax_rate, 0) / 100)
+      ),
+      0
+    ) as total_amount,
+    (
+      coalesce(sum(
+        case
+          when ii.taxable then
+            greatest(
+              ii.rate * ii.qty -
+              case
+                when ii.discount_type = 'percentage' then (ii.rate * ii.qty) * (ii.discount_amount / 100)
+                else ii.discount_amount
+              end,
+              0
+            )
+          else 0
+        end
+      ), 0) * (coalesce(bs.tax_rate, 0) / 100)
+    ) as tax_total
+  from public.invoices i
+  left join public.invoice_items ii
+    on ii.user_id = i.user_id and ii.invoice_id = i.id
+  left join public.business_settings bs
+    on bs.user_id = i.user_id
+  group by i.user_id, i.id, i.overall_discount, i.overall_discount_type, bs.tax_rate
+) calc
+where calc.user_id = i.user_id
+  and calc.id = i.id;
+
+-- ESTIMATES
+update public.estimates e
+set
+  item_count = calc.item_count,
+  subtotal = calc.subtotal,
+  item_discount_total = calc.item_discount_total,
+  overall_discount_amount = calc.overall_discount_amount,
+  tax_total = calc.tax_total,
+  total_amount = calc.total_amount
+from (
+  select
+    e.user_id,
+    e.id,
+    count(ei.id) as item_count,
+    coalesce(sum(ei.rate * ei.qty), 0) as subtotal,
+    coalesce(sum(
+      case
+        when ei.discount_type = 'percentage' then (ei.rate * ei.qty) * (ei.discount_amount / 100)
+        else ei.discount_amount
+      end
+    ), 0) as item_discount_total,
+    greatest(
+      case
+        when e.overall_discount_type = 'percentage' then
+          (
+            coalesce(sum(
+              greatest(
+                ei.rate * ei.qty -
+                case
+                  when ei.discount_type = 'percentage' then (ei.rate * ei.qty) * (ei.discount_amount / 100)
+                  else ei.discount_amount
+                end,
+                0
+              )
+            ), 0)
+          ) * (coalesce(e.overall_discount, 0) / 100)
+        else coalesce(e.overall_discount, 0)
+      end,
+      0
+    ) as overall_discount_amount,
+    (
+      coalesce(sum(
+        case
+          when ei.taxable then
+            greatest(
+              ei.rate * ei.qty -
+              case
+                when ei.discount_type = 'percentage' then (ei.rate * ei.qty) * (ei.discount_amount / 100)
+                else ei.discount_amount
+              end,
+              0
+            )
+          else 0
+        end
+      ), 0) * (coalesce(bs.tax_rate, 0) / 100)
+    ) as tax_total,
+    greatest(
+      (
+        coalesce(sum(
+          greatest(
+            ei.rate * ei.qty -
+            case
+              when ei.discount_type = 'percentage' then (ei.rate * ei.qty) * (ei.discount_amount / 100)
+              else ei.discount_amount
+            end,
+            0
+          )
+        ), 0)
+      )
+      -
+      greatest(
+        case
+          when e.overall_discount_type = 'percentage' then
+            (
+              coalesce(sum(
+                greatest(
+                  ei.rate * ei.qty -
+                  case
+                    when ei.discount_type = 'percentage' then (ei.rate * ei.qty) * (ei.discount_amount / 100)
+                    else ei.discount_amount
+                  end,
+                  0
+                )
+              ), 0)
+            ) * (coalesce(e.overall_discount, 0) / 100)
+          else coalesce(e.overall_discount, 0)
+        end,
+        0
+      )
+      +
+      (
+        coalesce(sum(
+          case
+            when ei.taxable then
+              greatest(
+                ei.rate * ei.qty -
+                case
+                  when ei.discount_type = 'percentage' then (ei.rate * ei.qty) * (ei.discount_amount / 100)
+                  else ei.discount_amount
+                end,
+                0
+              )
+            else 0
+          end
+        ), 0) * (coalesce(bs.tax_rate, 0) / 100)
+      ),
+      0
+    ) as total_amount
+  from public.estimates e
+  left join public.estimate_items ei
+    on ei.user_id = e.user_id and ei.estimate_id = e.id
+  left join public.business_settings bs
+    on bs.user_id = e.user_id
+  group by e.user_id, e.id, e.overall_discount, e.overall_discount_type, bs.tax_rate
+) calc
+where calc.user_id = e.user_id
+  and calc.id = e.id;
