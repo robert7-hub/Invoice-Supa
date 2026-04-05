@@ -23,8 +23,25 @@ import {
   Printer,
   Palette,
   Wallet,
+  CalendarDays,
+  Upload,
 } from 'lucide-react';
 import FinancePage from './FinancePage';
+import StaffEventPage from './StaffEventPage';
+import ImportPdfModal from './ImportPdfModal';
+import { generatePDF } from './pdfGenerator';
+import {
+  isDocumentTaxEnabled,
+  calculateItemTotal,
+  calculateSubtotal,
+  calculateTotalDiscount,
+  calculateTotalTax,
+  calculateDocumentTotals,
+  calculateDocumentTotal,
+  parseDocumentNumber,
+  formatDocumentNumber,
+  generateDocumentNumber,
+} from './calculations';
 
 // ============================================================================
 // DATABASE LAYER - localStorage
@@ -141,7 +158,16 @@ const useDatabase = () => {
     }
   }, []);
 
-  return { data, save, loading, reload: loadAll };
+  // Theme-only update: merges appTheme into settings without replacing other data
+  const saveTheme = useCallback((themeName) => {
+    setData((prev) => {
+      const updated = { ...(prev.settings || {}), appTheme: themeName };
+      localStorage.setItem(DB_KEYS.settings, JSON.stringify(updated));
+      return { ...prev, settings: updated };
+    });
+  }, []);
+
+  return { data, save, saveTheme, loading, reload: loadAll };
 };
 
 // ============================================================================
@@ -188,6 +214,8 @@ const THEMES = {
     sidebarBg: 'bg-white',
     sidebarActive: 'bg-slate-900 text-white',
     sidebarInactive: 'text-slate-600 hover:bg-slate-100',
+    sidebarText: 'text-slate-900',
+    sidebarTextMuted: 'text-slate-500',
     border: 'border-slate-200',
     textPrimary: 'text-slate-900',
     textSecondary: 'text-slate-600',
@@ -222,6 +250,8 @@ const THEMES = {
     sidebarBg: 'bg-[#11212D]',
     sidebarActive: 'bg-[#4A5C6A] text-[#CCD0CF]',
     sidebarInactive: 'text-[#9BA8AB] hover:bg-[#253745]',
+    sidebarText: 'text-[#CCD0CF]',
+    sidebarTextMuted: 'text-[#9BA8AB]/70',
     border: 'border-[#4A5C6A]',
     textPrimary: 'text-[#CCD0CF]',
     textSecondary: 'text-[#9BA8AB]',
@@ -256,6 +286,8 @@ const THEMES = {
     sidebarBg: 'bg-[#072E33]',
     sidebarActive: 'bg-[#0F969C] text-white',
     sidebarInactive: 'text-[#6DA5C0]/80 hover:bg-[#0C7075]/30',
+    sidebarText: 'text-[#E0F2F7]',
+    sidebarTextMuted: 'text-[#6DA5C0]/60',
     border: 'border-[#0F969C]/30',
     textPrimary: 'text-[#E0F2F7]',
     textSecondary: 'text-[#6DA5C0]',
@@ -290,6 +322,8 @@ const THEMES = {
     sidebarBg: 'bg-[#0F0809]',
     sidebarActive: 'bg-[#8E1020] text-white',
     sidebarInactive: 'text-white/60 hover:bg-[#5C0B16]/40',
+    sidebarText: 'text-white',
+    sidebarTextMuted: 'text-white/45',
     border: 'border-white/10',
     textPrimary: 'text-white',
     textSecondary: 'text-white/70',
@@ -316,6 +350,42 @@ const THEMES = {
     mobileNavInactive: 'text-white/45',
     sectionHeaderBg: 'bg-[#0A0607]',
     spinner: 'border-white/15 border-t-[#D4142A]',
+  },
+  'graphite-noir': {
+    appBg: 'bg-[#c8c8c8]',
+    panelBg: 'bg-[#d8d8d8]',
+    cardBg: 'bg-[#e8e8e8]',
+    sidebarBg: 'bg-black',
+    sidebarActive: 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]',
+    sidebarInactive: 'text-white/55 hover:bg-white/8',
+    sidebarText: 'text-white',
+    sidebarTextMuted: 'text-white/40',
+    border: 'border-[#b8b8b8]',
+    textPrimary: 'text-[#1a1a1c]',
+    textSecondary: 'text-[#4a4a4a]',
+    textMuted: 'text-[#888888]',
+    accent: 'bg-[#1a1a1c] text-white',
+    accentHover: 'hover:bg-[#333336]',
+    inputBg: 'bg-[#dcdcdc]',
+    inputBorder: 'border-[#b8b8b8]',
+    modalBg: 'bg-[#d8d8d8]',
+    badgePending: 'bg-[#f5e6b8] text-[#7a6510]',
+    badgeAccepted: 'bg-[#d4e8d4] text-[#3a6a3a]',
+    badgeDeclined: 'bg-[#f0c8c8] text-[#a01a1a]',
+    badgeOutstanding: 'bg-[#cecece] text-[#5a5a5a]',
+    subtleBg: 'bg-[#d0d0d0]',
+    cardHover: 'hover:bg-[#e0e0e0]',
+    buttonHover: 'hover:bg-[#cccccc]',
+    iconColor: 'text-[#888888]',
+    labelColor: 'text-[#4a4a4a]',
+    toggleInactive: 'bg-[#b5b5b5]',
+    tableHeaderBg: 'bg-[#d0d0d0]',
+    tableRowHover: 'hover:bg-[#e0e0e0]',
+    mobileNavBg: 'bg-black border-t border-white/10',
+    mobileNavActive: 'text-white bg-white/15',
+    mobileNavInactive: 'text-white/45',
+    sectionHeaderBg: 'bg-[#d0d0d0]',
+    spinner: 'border-[#b8b8b8] border-t-[#1a1a1c]',
   },
 };
 
@@ -570,471 +640,6 @@ const formatClientAddress = (client, forHtml = false) => {
   }
 
   return '';
-};
-
-const isDocumentTaxEnabled = (doc) => doc?.taxEnabled !== false;
-
-const calculateItemTotal = (item, taxRate = 0, options = {}) => {
-  const applyTax = options.applyTax !== false;
-  const subtotal = (Number(item.rate) || 0) * (Number(item.qty) || 0);
-  let discountedTotal = subtotal;
-
-  if (item.discountAmount && item.discountAmount > 0) {
-    if (item.discountType === 'percentage') {
-      discountedTotal = subtotal * (1 - item.discountAmount / 100);
-    } else {
-      discountedTotal = subtotal - item.discountAmount;
-    }
-  }
-
-  const tax = applyTax && item.taxable ? discountedTotal * (taxRate / 100) : 0;
-  const total = discountedTotal + tax;
-
-  return {
-    subtotal,
-    discount: subtotal - discountedTotal,
-    tax,
-    total: Math.max(0, total),
-  };
-};
-
-const calculateSubtotal = (items) =>
-  items.reduce((sum, item) => sum + (Number(item.rate) || 0) * (Number(item.qty) || 0), 0);
-
-const calculateTotalDiscount = (items) =>
-  items.reduce((sum, item) => {
-    const subtotal = (Number(item.rate) || 0) * (Number(item.qty) || 0);
-    if (item.discountAmount > 0) {
-      if (item.discountType === 'percentage') {
-        return sum + subtotal * (item.discountAmount / 100);
-      }
-      return sum + item.discountAmount;
-    }
-    return sum;
-  }, 0);
-
-const calculateTotalTax = (items, taxRate = 0, options = {}) =>
-  items.reduce((sum, item) => sum + calculateItemTotal(item, taxRate, options).tax, 0);
-
-const calculateDocumentTotals = (doc = {}, taxRate = 0) => {
-  const items = doc.items || [];
-  const subtotal = calculateSubtotal(items);
-  const itemDiscount = calculateTotalDiscount(items);
-  const subtotalAfterItemDiscounts = subtotal - itemDiscount;
-  const rawOverallDiscountAmount =
-    doc.overallDiscountType === 'percentage'
-      ? subtotalAfterItemDiscounts * ((doc.overallDiscount || 0) / 100)
-      : doc.overallDiscount || 0;
-  const overallDiscountAmount = Math.min(
-    Math.max(Number(rawOverallDiscountAmount) || 0, 0),
-    Math.max(subtotalAfterItemDiscounts, 0),
-  );
-  const taxEnabled = isDocumentTaxEnabled(doc);
-  const totalTax = taxEnabled ? calculateTotalTax(items, taxRate, { applyTax: true }) : 0;
-  const total = Math.max(0, subtotalAfterItemDiscounts - overallDiscountAmount + totalTax);
-  const amountPaid = Math.min(Math.max(Number(doc.amountPaid) || 0, 0), total);
-  const balanceDue = Math.max(0, total - amountPaid);
-
-  return {
-    subtotal,
-    itemDiscount,
-    subtotalAfterItemDiscounts,
-    overallDiscountAmount,
-    totalTax,
-    total,
-    amountPaid,
-    balanceDue,
-    taxEnabled,
-  };
-};
-
-const calculateDocumentTotal = (doc, taxRate = 0) => calculateDocumentTotals(doc, taxRate).total;
-
-const resizeLogoForPdf = (src, maxW = 160, maxH = 70) =>
-  new Promise((resolve) => {
-    if (!src) { resolve(''); return; }
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      let w = img.naturalWidth, h = img.naturalHeight;
-      if (w > maxW) { h = h * (maxW / w); w = maxW; }
-      if (h > maxH) { w = w * (maxH / h); h = maxH; }
-      const c = document.createElement('canvas');
-      c.width = Math.round(w);
-      c.height = Math.round(h);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      resolve(c.toDataURL('image/png'));
-    };
-    img.onerror = () => resolve('');
-    img.src = src;
-  });
-
-const generatePDF = async (type, doc, client, settings) => {
-  const isInvoice = type === 'invoice';
-  const taxRate = settings?.taxRate || 15;
-  const taxLabel = settings?.taxLabel || 'VAT';
-  const documentLabel = isInvoice ? 'Invoice' : 'Estimate';
-  const title = isInvoice ? 'INVOICE' : 'ESTIMATE';
-  const escapeHtml = (value = '') =>
-    String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-
-  const toHtmlLines = (value = '') => escapeHtml(value).replace(/\n/g, '<br>');
-
-  const fmtMoney = (value) => {
-    const num = Number(value || 0);
-    return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
-  };
-
-  const formatPdfClientAddress = (pdfClient) => {
-    if (!pdfClient) return '';
-    const lines = [];
-    if (pdfClient.addressLine1) lines.push(pdfClient.addressLine1);
-    if (pdfClient.addressLine2) lines.push(pdfClient.addressLine2);
-    if (pdfClient.city || pdfClient.postalCode) {
-      lines.push([pdfClient.city, pdfClient.postalCode].filter(Boolean).join(', '));
-    }
-    if (lines.length > 0) return lines.join('<br>');
-    if (pdfClient.address) return String(pdfClient.address).replace(/\n/g, '<br>');
-    return '';
-  };
-
-  // --- Resize logo for html2canvas ---
-  const logoDataUrl = await resizeLogoForPdf(settings?.logo, 160, 70);
-
-  // --- Calculations ---
-  const {
-    subtotal, itemDiscount, overallDiscountAmount,
-    totalTax, total, amountPaid, balanceDue, taxEnabled,
-  } = calculateDocumentTotals(doc, taxRate);
-
-  // --- Notes: use doc notes, fallback to default notes from settings ---
-  const docNotes = String(doc.notes || '').trim();
-  const defaultNotes = isInvoice
-    ? String(settings?.defaultInvoiceNotes || '').trim()
-    : String(settings?.defaultEstimateNotes || '').trim();
-  const finalNotes = docNotes || defaultNotes;
-
-  // --- Design tokens ---
-  const P = {
-    dark: '#111827', text: '#1f2937', textMd: '#4b5563', textLt: '#6b7280',
-    red: '#991b1b', redLt: '#fef2f2', redBorder: '#e8c4c4',
-    border: '#e5e7eb', borderLt: '#f0f1f4', bgPage: '#f3f4f6',
-    bgCard: '#ffffff', bgSoft: '#fafafa',
-    bg: '#ffffff', fontStack: "Aptos, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-  };
-  const num = `text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;`;
-  const cardStyle = `background:${P.bgCard};border:1px solid ${P.border};border-radius:12px;padding:16px 20px;`;
-  const secLabel = `font-size:9.5px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${P.red};margin-bottom:10px;`;
-
-  // --- Addresses ---
-  const bizAddr = String(settings?.address || '').trim();
-  const clientAddr = formatPdfClientAddress(client);
-
-  // --- Banking fields (Invoice only) ---
-  const bankFields = [
-    { label: 'Bank Name', value: settings?.bankName },
-    { label: 'Account Number', value: settings?.accountNumber },
-    { label: 'Account Type', value: settings?.accountType },
-    { label: 'Branch Code', value: settings?.branchCode },
-    { label: 'Account Holder', value: settings?.businessName },
-  ].filter(f => String(f.value || '').trim());
-
-  const hasBank = isInvoice && bankFields.length > 0;
-  const hasNotes = finalNotes.length > 0;
-  const hasDiscount = (doc.items || []).some(item => item.discountAmount > 0);
-
-  // --- Item rows ---
-  const itemRows = (doc.items || [])
-    .map((item, idx) => {
-      const calc = calculateItemTotal(item, taxRate, { applyTax: taxEnabled });
-      const bg = idx % 2 === 1 ? P.bgSoft : P.bgCard;
-      const cellBase = `padding:10px 16px;font-size:12px;vertical-align:top;background:${bg};border-bottom:1px solid ${P.borderLt};`;
-      const discVal = item.discountAmount > 0
-        ? (item.discountType === 'percentage'
-          ? fmtMoney(item.rate * item.qty * item.discountAmount / 100)
-          : fmtMoney(item.discountAmount))
-        : '';
-      const meta = String(item.notes || '').trim();
-      return `<tr>
-        <td style="${cellBase}">
-          <div style="font-weight:600;color:${P.dark};line-height:1.35;">${escapeHtml(item.description || '')}</div>
-          ${meta ? `<div style="font-size:10.5px;line-height:1.4;color:${P.textLt};margin-top:2px;">${toHtmlLines(meta)}</div>` : ''}
-        </td>
-        <td style="${cellBase}text-align:center;">${escapeHtml(String(item.qty || 0))}</td>
-        <td style="${cellBase}${num}">${escapeHtml(fmtMoney(item.rate || 0))}</td>
-        ${hasDiscount ? `<td style="${cellBase}${num}">${discVal ? `-${escapeHtml(discVal)}` : ''}</td>` : ''}
-        <td style="${cellBase}${num}font-weight:700;">${escapeHtml(fmtMoney(calc.total))}</td>
-      </tr>`;
-    }).join('');
-
-  // --- Summary row helper ---
-  const sumLine = (label, value, bold) => `<tr>
-    <td style="padding:7px 0;font-size:12px;color:${P.textMd};border-bottom:1px solid ${P.borderLt};">${label}</td>
-    <td style="padding:7px 0;font-size:12px;font-weight:${bold ? '800' : '600'};color:${P.dark};${num}border-bottom:1px solid ${P.borderLt};">${value}</td>
-  </tr>`;
-
-  // --- Column widths ---
-  const descW = hasDiscount ? '36%' : '46%';
-  const qtyW = '10%';
-  const rateW = '18%';
-  const discW = '16%';
-  const amtW = hasDiscount ? '20%' : '26%';
-  const thBase = `padding:10px 16px;background:#f3f4f6;border-bottom:2px solid ${P.border};font-size:9.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:${P.textLt};`;
-
-  // --- Build full HTML (100% inline styles for html2canvas) ---
-  const html = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><title>${escapeHtml(title)} ${escapeHtml(doc.number || '')}</title></head>
-<body style="margin:0;padding:0;font-family:${P.fontStack};font-size:12px;line-height:1.5;color:${P.text};background:${P.bgPage};-webkit-print-color-adjust:exact;print-color-adjust:exact;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
-<div style="width:100%;max-width:760px;margin:0 auto;background:${P.bgPage};padding:0;">
-
-  <!-- ===== TOP ACCENT BAR ===== -->
-  <div style="height:5px;background:linear-gradient(90deg,${P.dark} 0%,#7f1d1d 50%,#dc2626 100%);"></div>
-
-  <!-- ===== HEADER CARD ===== -->
-  <div style="background:${P.bgCard};padding:28px 32px 24px;margin-bottom:4px;page-break-inside:avoid;">
-    <table style="width:100%;border-collapse:collapse;"><tr>
-      <td style="vertical-align:top;">
-        <div style="display:inline-block;padding:5px 16px;border-radius:999px;border:1px solid ${P.redBorder};background:${P.redLt};color:${P.red};font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;line-height:18px;text-align:center;margin-bottom:10px;">${escapeHtml(title)}</div>
-        <div style="font-size:26px;font-weight:900;color:${P.dark};letter-spacing:-0.5px;line-height:1.1;margin-bottom:8px;">${escapeHtml(settings?.businessName || '')}</div>
-        <div style="font-size:11px;line-height:1.7;color:${P.textMd};">
-          ${settings?.businessNumber ? `<span style="font-weight:700;color:${P.dark};">Reg No:</span> ${escapeHtml(settings.businessNumber)}<br>` : ''}
-          ${bizAddr ? `${toHtmlLines(bizAddr)}<br>` : ''}
-          ${settings?.phone ? `<span style="font-weight:700;color:${P.dark};">Phone:</span> ${escapeHtml(settings.phone)}<br>` : ''}
-          ${settings?.email ? `<span style="font-weight:700;color:${P.dark};">Email:</span> ${escapeHtml(settings.email)}` : ''}
-        </div>
-      </td>
-      <td style="width:170px;text-align:right;vertical-align:top;">
-        ${logoDataUrl ? `<div style="display:inline-block;padding:8px;border:1px solid ${P.border};border-radius:14px;background:${P.bgCard};overflow:hidden;"><img src="${logoDataUrl}" alt="Logo" style="display:block;border-radius:10px;max-width:150px;max-height:65px;"/></div>` : ''}
-      </td>
-    </tr></table>
-  </div>
-
-  <!-- ===== INFO CARDS ROW ===== -->
-  <div style="padding:0 16px;page-break-inside:avoid;">
-    <table style="width:100%;border-collapse:separate;border-spacing:8px;"><tr>
-      <!-- Invoice/Estimate Details Card -->
-      <td style="width:50%;vertical-align:top;${cardStyle}">
-        <div style="${secLabel}">${isInvoice ? 'Invoice Details' : 'Estimate Details'}</div>
-        <table style="width:100%;border-collapse:collapse;">
-          <tr>
-            <td style="padding:6px 0;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${P.textLt};width:42%;">${isInvoice ? 'Invoice No' : 'Estimate No'}</td>
-            <td style="padding:6px 0;font-size:12px;font-weight:700;color:${P.dark};text-align:right;">${escapeHtml(doc.number || '')}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 0;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${P.textLt};border-top:1px solid ${P.borderLt};">Date</td>
-            <td style="padding:6px 0;font-size:12px;font-weight:700;color:${P.dark};text-align:right;border-top:1px solid ${P.borderLt};">${escapeHtml(doc.date || '')}</td>
-          </tr>
-          ${isInvoice ? `<tr>
-            <td style="padding:6px 0;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${P.textLt};border-top:1px solid ${P.borderLt};">Due Date</td>
-            <td style="padding:6px 0;font-size:12px;font-weight:700;color:${P.dark};text-align:right;border-top:1px solid ${P.borderLt};">${escapeHtml(doc.dueDate || '')}</td>
-          </tr>` : ''}
-          <tr>
-            <td style="padding:6px 0;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${P.textLt};border-top:1px solid ${P.borderLt};">Status</td>
-            <td style="padding:6px 0;font-size:12px;font-weight:700;color:${P.dark};text-align:right;border-top:1px solid ${P.borderLt};">${escapeHtml(doc.status ? doc.status.charAt(0).toUpperCase() + doc.status.slice(1) : '')}</td>
-          </tr>
-        </table>
-      </td>
-      <!-- Bill To Card -->
-      <td style="width:50%;vertical-align:top;${cardStyle}">
-        <div style="${secLabel}">Bill To</div>
-        <div style="font-size:14px;font-weight:800;color:${P.dark};margin-bottom:6px;">${escapeHtml(client?.name || 'Client')}</div>
-        <div style="font-size:11px;line-height:1.7;color:${P.textMd};">
-          ${clientAddr ? `${clientAddr}<br>` : ''}
-          ${client?.vatNumber ? `VAT NR: ${escapeHtml(client.vatNumber)}<br>` : ''}
-          ${client?.email ? `${escapeHtml(client.email)}<br>` : ''}
-          ${client?.phone ? escapeHtml(client.phone) : ''}
-        </div>
-      </td>
-    </tr></table>
-  </div>
-
-  <!-- ===== LINE ITEMS TABLE CARD ===== -->
-  <div style="padding:0 16px;page-break-inside:avoid;">
-    <div style="margin-top:10px;${cardStyle}padding:0;overflow:hidden;">
-      <div style="padding:14px 20px 10px;">
-        <div style="font-size:14px;font-weight:800;color:${P.dark};">Line Items</div>
-        <div style="font-size:10px;color:${P.textLt};margin-top:1px;">${(doc.items || []).length} item${(doc.items || []).length === 1 ? '' : 's'}</div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;">
-        <thead><tr>
-          <th style="${thBase}width:${descW};text-align:left;">Description</th>
-          <th style="${thBase}width:${qtyW};text-align:center;">Qty</th>
-          <th style="${thBase}width:${rateW};${num}">Rate</th>
-          ${hasDiscount ? `<th style="${thBase}width:${discW};${num}">Discount</th>` : ''}
-          <th style="${thBase}width:${amtW};${num}">Amount</th>
-        </tr></thead>
-        <tbody>${itemRows}</tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ===== SUMMARY CARD (right-aligned) ===== -->
-  <div style="padding:0 16px;page-break-inside:avoid;">
-    <table style="width:100%;border-collapse:separate;border-spacing:8px;margin-top:2px;"><tr>
-      <td style="width:50%;vertical-align:top;"></td>
-      <td style="width:50%;vertical-align:top;${cardStyle}">
-        <div style="${secLabel}">Summary</div>
-        <table style="width:100%;border-collapse:collapse;">
-          ${sumLine('Subtotal', escapeHtml(fmtMoney(subtotal)))}
-          ${itemDiscount > 0 ? sumLine('Item Discount', `-${escapeHtml(fmtMoney(itemDiscount))}`) : ''}
-          ${overallDiscountAmount > 0 ? sumLine('Overall Discount', `-${escapeHtml(fmtMoney(overallDiscountAmount))}`) : ''}
-          ${sumLine(`${escapeHtml(taxLabel)} (${taxEnabled ? `${taxRate}%` : 'Off'})`, escapeHtml(fmtMoney(totalTax)))}
-        </table>
-        <!-- Total highlight bar -->
-        <div style="margin:8px 0;padding:10px 14px;border-radius:10px;background:linear-gradient(90deg,${P.dark} 0%,#7f1d1d 50%,#b91c1c 100%);">
-          <table style="width:100%;border-collapse:collapse;"><tr>
-            <td style="font-size:12px;font-weight:800;color:#ffffff;">Total</td>
-            <td style="font-size:17px;font-weight:900;${num}color:#ffffff;">${escapeHtml(fmtMoney(total))}</td>
-          </tr></table>
-        </div>
-        ${isInvoice ? `
-        <table style="width:100%;border-collapse:collapse;">
-          ${sumLine('Amount Paid', escapeHtml(fmtMoney(amountPaid)))}
-        </table>
-        <div style="margin-top:6px;">
-          <table style="width:100%;border-collapse:collapse;"><tr>
-            <td style="padding:4px 0;font-size:13px;font-weight:900;color:${P.dark};">BALANCE DUE</td>
-            <td style="padding:4px 0;font-size:16px;font-weight:900;${num}color:#b91c1c;">${escapeHtml(fmtMoney(balanceDue))}</td>
-          </tr></table>
-        </div>` : ''}
-      </td>
-    </tr></table>
-  </div>
-
-  <!-- ===== BANKING DETAILS CARD (Invoice only) ===== -->
-  ${hasBank ? `
-  <div style="padding:0 16px;page-break-inside:avoid;">
-    <div style="margin-top:10px;${cardStyle}page-break-inside:avoid;">
-      <div style="${secLabel}">Banking Details</div>
-      <table style="width:100%;border-collapse:collapse;">
-        ${bankFields.map(f => `<tr>
-          <td style="padding:7px 0;font-size:10.5px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${P.textLt};width:38%;vertical-align:top;border-bottom:1px solid ${P.borderLt};">${escapeHtml(f.label)}</td>
-          <td style="padding:7px 0;font-size:12px;font-weight:700;color:${P.dark};vertical-align:top;border-bottom:1px solid ${P.borderLt};">${escapeHtml(f.value)}</td>
-        </tr>`).join('')}
-      </table>
-    </div>
-  </div>
-  ` : ''}
-
-  <!-- ===== NOTES (full width) ===== -->
-  ${hasNotes ? `
-  <div style="padding:0 16px;page-break-inside:avoid;">
-    <div style="margin-top:10px;margin-bottom:8px;${cardStyle}page-break-inside:avoid;">
-      <div style="${secLabel}">${isInvoice ? 'Invoice Notes' : 'Estimate Notes'}</div>
-      <div style="font-size:11px;line-height:1.65;color:${P.textMd};white-space:pre-line;">${toHtmlLines(finalNotes)}</div>
-    </div>
-  </div>
-  ` : ''}
-
-  <!-- ===== FOOTER ===== -->
-  <div style="padding:14px 24px 18px;text-align:center;font-size:10px;color:#9ca3af;">
-    ${isInvoice ? 'Thank you for your business.' : 'This estimate is issued for review and approval.'}
-  </div>
-
-</div>
-</body></html>`;
-
-  let iframe = null;
-
-  try {
-    const html2pdfModule = await import('html2pdf.js');
-    const html2pdf = html2pdfModule?.default || html2pdfModule;
-
-    iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.left = '-10000px';
-    iframe.style.top = '0';
-    iframe.style.width = '794px';
-    iframe.style.height = '1123px';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
-
-    const iframeDoc = iframe.contentWindow.document;
-    iframeDoc.open();
-    iframeDoc.write(html);
-    iframeDoc.close();
-
-    await Promise.all(
-      Array.from(iframeDoc.images || [])
-        .filter((image) => !image.complete)
-        .map(
-          (image) =>
-            new Promise((resolve) => {
-              image.onload = resolve;
-              image.onerror = resolve;
-            })
-        )
-    );
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    const contentHeight = Math.max(
-      iframeDoc.documentElement?.scrollHeight || 0,
-      iframeDoc.body?.scrollHeight || 0,
-      1123
-    );
-    iframe.style.height = `${contentHeight}px`;
-
-    const safeNumber = String(doc?.number || documentLabel).replace(/[\\/:*?"<>|]+/g, '_');
-
-    await html2pdf()
-      .from(iframeDoc.body)
-      .set({
-        filename: `${documentLabel}_${safeNumber}.pdf`,
-        margin: [0, 0, 0, 0],
-        jsPDF: { format: 'a4', unit: 'mm' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', 'td'] },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          letterRendering: true,
-        },
-      })
-      .save();
-
-    return true;
-  } catch (error) {
-    console.error('Failed to generate PDF', error);
-    return false;
-  } finally {
-    if (iframe?.parentNode) iframe.parentNode.removeChild(iframe);
-  }
-};
-
-const parseDocumentNumber = (value, prefix, allowPlain = false) => {
-  const raw = String(value || '').trim().toUpperCase();
-  const match = raw.match(new RegExp(`^${prefix}(\\d+)$`))
-    || (allowPlain ? raw.match(/^(\d+)$/) : null);
-  if (!match) return null;
-  return {
-    number: parseInt(match[1], 10),
-    width: match[1].length,
-  };
-};
-
-const formatDocumentNumber = (prefix, number, width = 5) => `${prefix}${String(number).padStart(width, '0')}`;
-
-const generateDocumentNumber = (type, existingInvoices, existingEstimates, settings) => {
-  const prefix = type === 'invoice' ? 'INV' : 'EST';
-  const items = type === 'invoice' ? existingInvoices : existingEstimates;
-  const settingKey = type === 'invoice' ? 'nextInvoiceNumber' : 'nextEstimateNumber';
-  const configured = parseDocumentNumber(settings?.[settingKey], prefix, true);
-  const parsedItems = items
-    .map((item) => parseDocumentNumber(item.number, prefix))
-    .filter(Boolean);
-  const maxExisting = Math.max(0, ...parsedItems.map((item) => item.number));
-  const width = parsedItems.length > 0
-    ? Math.max(...parsedItems.map((item) => item.width))
-    : Math.max(configured?.width || 0, 3);
-  const nextFromSetting = configured ? configured.number + 1 : 1;
-  const nextNumber = Math.max(nextFromSetting, maxExisting + 1);
-  return formatDocumentNumber(prefix, nextNumber, width);
 };
 
 // ============================================================================
@@ -1692,7 +1297,7 @@ const LineItemModal = ({
 // SETTINGS PAGE (top-level component — must not be nested inside App)
 // ============================================================================
 
-const SettingsPage = ({ save, activeTheme }) => {
+const SettingsPage = ({ save, saveTheme, activeTheme }) => {
   const [form, setForm] = useState(() => {
     try {
       const raw = localStorage.getItem(DB_KEYS.settings);
@@ -1747,15 +1352,8 @@ const SettingsPage = ({ save, activeTheme }) => {
             <span className={`w-24 shrink-0 pt-2 text-sm font-medium ${activeTheme.labelColor}`}>Logo</span>
             <div className="flex-1 space-y-2">
               {form.logo ? (
-                <div className={`relative w-48 h-24 rounded-xl border ${activeTheme.border} ${activeTheme.inputBg} flex items-center justify-center overflow-hidden`}>
+                <div className={`w-48 h-24 rounded-xl border ${activeTheme.border} ${activeTheme.inputBg} flex items-center justify-center overflow-hidden`}>
                   <img src={form.logo} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, logo: null })}
-                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
                 </div>
               ) : (
                 <div className={`w-48 h-24 rounded-xl border-2 border-dashed ${activeTheme.border} ${activeTheme.inputBg} flex items-center justify-center`}>
@@ -1763,7 +1361,7 @@ const SettingsPage = ({ save, activeTheme }) => {
                 </div>
               )}
               <label className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-xl cursor-pointer ${activeTheme.accent} ${activeTheme.accentHover}`}>
-                <span>{form.logo ? 'Replace' : 'Upload Logo'}</span>
+                <span>{form.logo ? 'Replace Logo' : 'Upload Logo'}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -1892,10 +1490,10 @@ const SettingsPage = ({ save, activeTheme }) => {
             <Palette className={`w-5 h-5 ${activeTheme.iconColor}`} />
             <p className={`font-semibold ${activeTheme.textPrimary}`}>App Theme</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {/* Default */}
             <button
-              onClick={() => setForm({ ...form, appTheme: 'default' })}
+              onClick={() => { setForm({ ...form, appTheme: 'default' }); saveTheme('default'); }}
               className={`p-4 rounded-xl border-2 transition-all text-left ${
                 form.appTheme === 'default' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-300'
               }`}
@@ -1912,7 +1510,7 @@ const SettingsPage = ({ save, activeTheme }) => {
 
             {/* Aurora Teal */}
             <button
-              onClick={() => setForm({ ...form, appTheme: 'aurora-teal' })}
+              onClick={() => { setForm({ ...form, appTheme: 'aurora-teal' }); saveTheme('aurora-teal'); }}
               className={`p-4 rounded-xl border-2 transition-all text-left bg-[#061A1F] ${
                 form.appTheme === 'aurora-teal' ? 'border-[#0F969C]' : 'border-[#0F969C]/30 hover:border-[#0F969C]/60'
               }`}
@@ -1929,7 +1527,7 @@ const SettingsPage = ({ save, activeTheme }) => {
 
             {/* Crimson Glass */}
             <button
-              onClick={() => setForm({ ...form, appTheme: 'crimson-glass' })}
+              onClick={() => { setForm({ ...form, appTheme: 'crimson-glass' }); saveTheme('crimson-glass'); }}
               className={`p-4 rounded-xl border-2 transition-all text-left bg-[#0A0607] ${
                 form.appTheme === 'crimson-glass' ? 'border-[#D4142A]' : 'border-white/10 hover:border-[#D4142A]/50'
               }`}
@@ -1941,6 +1539,23 @@ const SettingsPage = ({ save, activeTheme }) => {
               <div className="space-y-2">
                 <div className="h-2 rounded" style={{ background: 'rgba(212,20,42,0.45)' }}></div>
                 <div className="h-2 rounded w-3/4" style={{ background: 'rgba(255,51,71,0.25)' }}></div>
+              </div>
+            </button>
+
+            {/* Lunar Stone */}
+            <button
+              onClick={() => { setForm({ ...form, appTheme: 'graphite-noir' }); saveTheme('graphite-noir'); }}
+              className={`p-4 rounded-xl border-2 transition-all text-left bg-[#c8c8c8] ${
+                form.appTheme === 'graphite-noir' ? 'border-[#1a1a1c]' : 'border-[#b8b8b8] hover:border-[#888888]'
+              }`}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-4 h-4 bg-black rounded-full"></div>
+                <span className="font-medium text-[#1a1a1c]">Lunar Stone</span>
+              </div>
+              <div className="space-y-2">
+                <div className="h-2 bg-[#b8b8b8] rounded"></div>
+                <div className="h-2 bg-[#d0d0d0] rounded w-3/4"></div>
               </div>
             </button>
           </div>
@@ -1955,7 +1570,7 @@ const SettingsPage = ({ save, activeTheme }) => {
 // ============================================================================
 
 export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null }) {
-  const { data, save, loading } = useDatabase();
+  const { data, save, saveTheme, loading } = useDatabase();
   const [activeTab, setActiveTab] = useState('invoices');
   const [view, setView] = useState('list');
   const [currentItem, setCurrentItem] = useState(null);
@@ -1963,6 +1578,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState('');
   const [confirmAction, setConfirmAction] = useState(() => () => {});
+  const [showImportPdf, setShowImportPdf] = useState(false);
 
   useEffect(() => {
     const initSampleData = async () => {
@@ -2005,12 +1621,54 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     }
   };
 
+  const handlePdfImport = async (importData) => {
+    let clientId = importData.clientId;
+    if (!clientId && importData.newClientName) {
+      const newClient = {
+        id: generateId(),
+        name: importData.newClientName,
+        phone: importData.newClientPhone || '',
+        email: '',
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        postalCode: '',
+        vatNumber: '',
+        notes: '',
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      await save('clients', [...data.clients, newClient]);
+      clientId = newClient.id;
+    }
+
+    const newInvoice = {
+      id: generateId(),
+      number: importData.number || generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
+      clientId: clientId || '',
+      date: importData.date || new Date().toISOString().split('T')[0],
+      dueDate: importData.dueDate || '',
+      status: 'outstanding',
+      amountPaid: 0,
+      items: (importData.items || []).map((item) => ({
+        ...item,
+        id: generateId(),
+      })),
+      notes: importData.notes || '',
+      overallDiscount: 0,
+      overallDiscountType: 'percentage',
+      taxEnabled: importData.taxEnabled || false,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    await save('invoices', [...data.invoices, newInvoice]);
+  };
+
   const navItems = [
     { id: 'invoices', icon: FileText, label: 'Invoices' },
     { id: 'estimates', icon: FileSignature, label: 'Estimates' },
     { id: 'clients', icon: Users, label: 'Clients' },
     { id: 'items', icon: Package, label: 'Items' },
     { id: 'finance', icon: Wallet, label: 'Finance' },
+    { id: 'staff-events', icon: CalendarDays, label: 'Staff & Events' },
     { id: 'reports', icon: BarChart3, label: 'Reports' },
   ];
 
@@ -2106,7 +1764,15 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
         <div className="p-4 lg:p-6 border-b">
           <div className="flex items-center justify-between">
             <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Invoices</h1>
-            <button
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowImportPdf(true)}
+                className={`flex items-center gap-2 px-4 py-2.5 border ${activeTheme.border} ${activeTheme.textPrimary} rounded-xl hover:bg-black/5`}
+              >
+                <Upload className="w-4 h-4" />
+                Import PDF
+              </button>
+              <button
               onClick={() => {
                 setCurrentItem({
                   id: generateId(),
@@ -2119,7 +1785,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                   amountPaid: 0,
                   overallDiscount: 0,
                   overallDiscountType: 'percentage',
-                  taxEnabled: true,
+                  taxEnabled: false,
                   notes: '',
                 });
                 setView('edit-invoice');
@@ -2129,6 +1795,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               <Plus className="w-4 h-4" />
               New Invoice
             </button>
+            </div>
           </div>
 
           <div className="relative mt-4 max-w-sm">
@@ -2792,7 +2459,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                   items: [],
                   overallDiscount: 0,
                   overallDiscountType: 'percentage',
-                  taxEnabled: true,
+                  taxEnabled: false,
                   notes: '',
                 });
                 setView('edit-estimate');
@@ -4888,10 +4555,12 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
             return <ItemsList />;
           case 'finance':
             return <FinancePage data={data} save={save} theme={activeTheme} />;
+          case 'staff-events':
+            return <StaffEventPage data={data} save={save} theme={activeTheme} />;
           case 'reports':
             return <ReportsPage />;
           case 'settings':
-            return <SettingsPage save={save} activeTheme={activeTheme} />;
+            return <SettingsPage save={save} saveTheme={saveTheme} activeTheme={activeTheme} />;
           default:
             return <InvoicesList />;
         }
@@ -4899,28 +4568,30 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
   };
 
   const DesktopSidebar = () => (
-    <aside className={`hidden lg:flex flex-col w-64 ${activeTheme.sidebarBg} border-r ${activeTheme.border} h-screen sticky top-0`}>
-      <div className={`border-b ${activeTheme.border}`}>
+    <aside className={`hidden lg:flex flex-col w-72 ${activeTheme.sidebarBg} border-r ${activeTheme.border} h-screen sticky top-0`}>
+      <div className="px-4 pt-5 pb-4">
         {data.settings?.logo ? (
-          <>
-            <img src={data.settings.logo} alt="Logo" className="w-full object-cover" />
-            <div className="px-5 py-3 text-center">
-              <h1 className={`font-bold tracking-wide ${activeTheme.textPrimary} text-sm leading-tight`}>
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="w-full rounded-2xl overflow-hidden flex-shrink-0">
+              <img src={data.settings.logo} alt="Logo" className="w-full h-auto object-contain" />
+            </div>
+            <div className="min-w-0 w-full">
+              <h1 className={`font-bold ${activeTheme.sidebarText} text-sm leading-tight truncate`}>
                 {data.settings?.businessName || 'Invoice App'}
               </h1>
-              <p className={`text-xs mt-0.5 ${activeTheme.textMuted}`}>Dashboard</p>
+              <p className={`text-xs mt-0.5 ${activeTheme.sidebarTextMuted}`}>Dashboard</p>
             </div>
-          </>
+          </div>
         ) : (
-          <div className="flex flex-col items-center gap-3 text-center px-5 pt-6 pb-5">
-            <div className={`w-16 h-16 ${activeTheme.accent} rounded-2xl flex items-center justify-center shadow-lg`}>
-              <FileText className="w-8 h-8 text-white" />
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className={`w-28 h-28 ${activeTheme.accent} rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg`}>
+              <FileText className="w-12 h-12 text-white" />
             </div>
-            <div>
-              <h1 className={`font-bold tracking-wide ${activeTheme.textPrimary} text-sm leading-tight`}>
+            <div className="min-w-0 w-full">
+              <h1 className={`font-bold ${activeTheme.sidebarText} text-sm leading-tight truncate`}>
                 {data.settings?.businessName || 'Invoice App'}
               </h1>
-              <p className={`text-xs mt-0.5 ${activeTheme.textMuted}`}>Dashboard</p>
+              <p className={`text-xs mt-0.5 ${activeTheme.sidebarTextMuted}`}>Dashboard</p>
             </div>
           </div>
         )}
@@ -5033,6 +4704,13 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           </div>
         </div>
       )}
+      <ImportPdfModal
+        isOpen={showImportPdf}
+        onClose={() => setShowImportPdf(false)}
+        onImport={handlePdfImport}
+        existingClients={data.clients}
+        theme={activeTheme}
+      />
     </div>
   );
 }

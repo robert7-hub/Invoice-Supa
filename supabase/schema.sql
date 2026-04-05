@@ -936,3 +936,220 @@ from (
 ) calc
 where calc.user_id = e.user_id
   and calc.id = e.id;
+
+-- ============================================================================
+-- STAFF & EVENT MANAGEMENT TABLES
+-- ============================================================================
+
+create table if not exists public.staff (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  first_name text not null default '',
+  surname text not null default '',
+  email text not null default '',
+  phone text not null default '',
+  roles text[] not null default '{}',
+  availability text not null default 'available',
+  rate numeric(12,2) not null default 0,
+  notes text not null default '',
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create index if not exists staff_user_id_idx on public.staff (user_id);
+
+create table if not exists public.events (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  estimate_id text not null default '',
+  client_id text not null default '',
+  title text not null default '',
+  venue text not null default '',
+  event_date date,
+  arrival_time text not null default '',
+  start_time text not null default '',
+  end_time text not null default '',
+  packdown_time text not null default '',
+  status text not null default 'pending',
+  notes text not null default '',
+  required_roles text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create index if not exists events_user_id_idx on public.events (user_id);
+
+create table if not exists public.event_staff_assignments (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  event_id text not null default '',
+  staff_id text not null default '',
+  role text not null default '',
+  assigned_pay numeric(12,2) not null default 0,
+  calendar_created boolean not null default false,
+  status text not null default 'assigned',
+  created_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create index if not exists event_staff_assignments_user_idx on public.event_staff_assignments (user_id);
+create index if not exists event_staff_assignments_event_idx on public.event_staff_assignments (event_id);
+
+create table if not exists public.staff_payments (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  staff_id text not null default '',
+  event_id text not null default '',
+  amount numeric(12,2) not null default 0,
+  status text not null default 'unpaid',
+  paid_date date,
+  created_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create index if not exists staff_payments_user_idx on public.staff_payments (user_id);
+
+-- RLS policies for staff & event tables
+
+alter table public.staff enable row level security;
+alter table public.events enable row level security;
+alter table public.event_staff_assignments enable row level security;
+alter table public.staff_payments enable row level security;
+
+drop policy if exists "Users manage own staff" on public.staff;
+create policy "Users manage own staff"
+on public.staff for all to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users manage own events" on public.events;
+create policy "Users manage own events"
+on public.events for all to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users manage own event_staff_assignments" on public.event_staff_assignments;
+create policy "Users manage own event_staff_assignments"
+on public.event_staff_assignments for all to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users manage own staff_payments" on public.staff_payments;
+create policy "Users manage own staff_payments"
+on public.staff_payments for all to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+-- ============================================================================
+-- FINANCE & BUDGETING TABLES
+-- ============================================================================
+
+create table if not exists public.expenses (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  title text not null default '',
+  amount numeric(12,2) not null default 0,
+  category text not null default 'other',
+  date date,
+  notes text not null default '',
+  type text not null default 'variable',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create index if not exists expenses_user_id_idx on public.expenses (user_id);
+
+create table if not exists public.savings_pockets (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  name text not null default '',
+  target numeric(12,2) not null default 0,
+  current numeric(12,2) not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create index if not exists savings_pockets_user_id_idx on public.savings_pockets (user_id);
+
+create table if not exists public.budgets (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  month_key text not null default '',
+  expected_income numeric(12,2) not null default 0,
+  categories jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create index if not exists budgets_user_id_idx on public.budgets (user_id);
+
+create table if not exists public.expense_categories (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  name text not null default '',
+  icon text not null default 'ShoppingCart',
+  color text not null default '#6b7280',
+  created_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create index if not exists expense_categories_user_id_idx on public.expense_categories (user_id);
+
+create table if not exists public.manual_income (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  title text not null default '',
+  amount numeric(12,2) not null default 0,
+  source text not null default '',
+  date date,
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create index if not exists manual_income_user_id_idx on public.manual_income (user_id);
+
+-- RLS policies for finance tables
+
+alter table public.expenses enable row level security;
+alter table public.savings_pockets enable row level security;
+alter table public.budgets enable row level security;
+alter table public.expense_categories enable row level security;
+alter table public.manual_income enable row level security;
+
+drop policy if exists "Users manage own expenses" on public.expenses;
+create policy "Users manage own expenses"
+on public.expenses for all to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users manage own savings_pockets" on public.savings_pockets;
+create policy "Users manage own savings_pockets"
+on public.savings_pockets for all to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users manage own budgets" on public.budgets;
+create policy "Users manage own budgets"
+on public.budgets for all to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users manage own expense_categories" on public.expense_categories;
+create policy "Users manage own expense_categories"
+on public.expense_categories for all to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users manage own manual_income" on public.manual_income;
+create policy "Users manage own manual_income"
+on public.manual_income for all to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);

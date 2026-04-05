@@ -98,6 +98,7 @@ const FINANCE_KEYS = {
   pockets: 'invoiceapp_pockets',
   budgets: 'invoiceapp_budgets',
   categories: 'invoiceapp_expense_categories',
+  manualIncome: 'invoiceapp_manual_income',
 };
 
 const loadFinanceData = () => {
@@ -112,6 +113,7 @@ const loadFinanceData = () => {
     pockets: load(FINANCE_KEYS.pockets, []),
     budgets: load(FINANCE_KEYS.budgets, []),
     categories: load(FINANCE_KEYS.categories, null),
+    manualIncome: load(FINANCE_KEYS.manualIncome, []),
   };
 };
 
@@ -168,6 +170,7 @@ export default function FinancePage({ data, save, theme }) {
   const savePockets = useCallback((val) => { saveFinance('pockets', val); setFinanceData(p => ({ ...p, pockets: val })); }, []);
   const saveBudgets = useCallback((val) => { saveFinance('budgets', val); setFinanceData(p => ({ ...p, budgets: val })); }, []);
   const saveCategories = useCallback((val) => { saveFinance('categories', val); setFinanceData(p => ({ ...p, categories: val })); }, []);
+  const saveManualIncome = useCallback((val) => { saveFinance('manualIncome', val); setFinanceData(p => ({ ...p, manualIncome: val })); }, []);
 
   const taxRate = data.settings?.taxRate || 15;
   const now = new Date();
@@ -179,15 +182,19 @@ export default function FinancePage({ data, save, theme }) {
   // --- Derived Income Data ---
   const incomeData = useMemo(() => {
     const invoices = data.invoices || [];
+    const manual = financeData.manualIncome || [];
     const paidInvoices = invoices.filter(i => i.status === 'paid');
     const outstandingInvoices = invoices.filter(i => i.status !== 'paid');
 
     const paidThisMonth = paidInvoices.filter(i => { const d = getMonthYear(i.date); return d.month === cm && d.year === cy; });
     const outstandingThisMonth = outstandingInvoices.filter(i => { const d = getMonthYear(i.date); return d.month === cm && d.year === cy; });
+    const manualThisMonth = manual.filter(m => { const d = getMonthYear(m.date); return d.month === cm && d.year === cy; });
 
     const totalPaid = paidInvoices.reduce((s, i) => s + calculateDocumentTotal(i, taxRate), 0);
+    const totalManual = manual.reduce((s, m) => s + Number(m.amount || 0), 0);
     const totalOutstanding = outstandingInvoices.reduce((s, i) => s + calculateDocumentTotal(i, taxRate), 0);
     const paidMonth = paidThisMonth.reduce((s, i) => s + calculateDocumentTotal(i, taxRate), 0);
+    const manualMonth = manualThisMonth.reduce((s, m) => s + Number(m.amount || 0), 0);
     const outstandingMonth = outstandingThisMonth.reduce((s, i) => s + calculateDocumentTotal(i, taxRate), 0);
 
     // Monthly breakdown for chart (last 6 months)
@@ -197,11 +204,18 @@ export default function FinancePage({ data, save, theme }) {
       const mm = m.getMonth(), yy = m.getFullYear();
       const paid = paidInvoices.filter(inv => { const d = getMonthYear(inv.date); return d.month === mm && d.year === yy; })
         .reduce((s, inv) => s + calculateDocumentTotal(inv, taxRate), 0);
-      monthly.push({ label: `${MONTHS[mm]} ${yy}`, income: paid, month: mm, year: yy });
+      const manualM = manual.filter(mi => { const d = getMonthYear(mi.date); return d.month === mm && d.year === yy; })
+        .reduce((s, mi) => s + Number(mi.amount || 0), 0);
+      monthly.push({ label: `${MONTHS[mm]} ${yy}`, income: paid + manualM, month: mm, year: yy });
     }
 
-    return { totalPaid, totalOutstanding, paidMonth, outstandingMonth, paidInvoices, outstandingInvoices, monthly };
-  }, [data.invoices, taxRate, cm, cy]);
+    return {
+      totalPaid: totalPaid + totalManual, totalOutstanding,
+      paidMonth: paidMonth + manualMonth, outstandingMonth,
+      paidInvoices, outstandingInvoices, monthly,
+      manualTotal: totalManual, manualMonth,
+    };
+  }, [data.invoices, financeData.manualIncome, taxRate, cm, cy]);
 
   // --- Derived Expense Data ---
   const expenseData = useMemo(() => {
@@ -528,6 +542,30 @@ export default function FinancePage({ data, save, theme }) {
   // ============================================================================
 
   const IncomeTab = () => {
+    const [showForm, setShowForm] = useState(false);
+    const [editItem, setEditItem] = useState(null);
+    const [form, setForm] = useState({ title: '', amount: '', date: today(), source: '', notes: '' });
+
+    const manualEntries = financeData.manualIncome || [];
+
+    const openAdd = () => { setEditItem(null); setForm({ title: '', amount: '', date: today(), source: '', notes: '' }); setShowForm(true); };
+    const openEdit = (item) => { setEditItem(item); setForm({ ...item }); setShowForm(true); };
+
+    const handleSave = () => {
+      const sanitizedTitle = String(form.title || '').trim();
+      if (!sanitizedTitle) return;
+      const entry = { ...form, title: sanitizedTitle, amount: Math.max(0, Number(form.amount) || 0), id: editItem?.id || generateId() };
+      const updated = editItem
+        ? manualEntries.map(e => e.id === editItem.id ? entry : e)
+        : [...manualEntries, entry];
+      saveManualIncome(updated);
+      setShowForm(false);
+    };
+
+    const handleDelete = (id) => {
+      saveManualIncome(manualEntries.filter(e => e.id !== id));
+    };
+
     const paidByMonth = useMemo(() => {
       const map = {};
       incomeData.paidInvoices.forEach(inv => {
@@ -535,20 +573,30 @@ export default function FinancePage({ data, save, theme }) {
         const key = `${d.year}-${String(d.month).padStart(2, '0')}`;
         map[key] = (map[key] || 0) + calculateDocumentTotal(inv, taxRate);
       });
+      manualEntries.forEach(m => {
+        const d = getMonthYear(m.date);
+        const key = `${d.year}-${String(d.month).padStart(2, '0')}`;
+        map[key] = (map[key] || 0) + Number(m.amount || 0);
+      });
       return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0])).map(([k, v]) => {
         const [y, m] = k.split('-').map(Number);
         return { label: `${MONTHS[m]} ${y}`, value: v };
       });
-    }, [incomeData.paidInvoices, taxRate]);
+    }, [incomeData.paidInvoices, manualEntries, taxRate]);
 
     return (
       <div className="space-y-5">
         {/* Income Summary */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className={`text-lg font-bold ${theme.textPrimary}`}>Income</h2>
+          <button onClick={openAdd} className={`flex items-center gap-2 px-4 py-2.5 ${theme.accent} rounded-xl text-sm font-semibold ${theme.accentHover}`}><Plus size={16} /> Add Income</button>
+        </div>
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Actual Income</p>
             <p className="text-2xl font-bold text-emerald-700 mt-2">{formatCurrency(incomeData.totalPaid)}</p>
-            <p className="text-xs text-emerald-500 mt-1">{incomeData.paidInvoices.length} paid invoices</p>
+            <p className="text-xs text-emerald-500 mt-1">{incomeData.paidInvoices.length} invoices + {manualEntries.length} manual</p>
           </div>
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Projected Income</p>
@@ -562,6 +610,34 @@ export default function FinancePage({ data, save, theme }) {
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Expected (This Month)</p>
             <p className="text-2xl font-bold text-amber-700 mt-2">{formatCurrency(incomeData.outstandingMonth)}</p>
+          </div>
+        </div>
+
+        {/* Manual Income Entries */}
+        <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
+          <div className={`p-4 border-b ${theme.border}`}>
+            <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Manual Income</h3>
+          </div>
+          <div className={`divide-y ${theme.border} max-h-80 overflow-y-auto`}>
+            {manualEntries.length === 0 ? (
+              <div className={`p-8 text-center ${theme.textMuted}`}>No manual income added yet.</div>
+            ) : manualEntries.sort((a, b) => b.date.localeCompare(a.date)).map(entry => (
+              <div key={entry.id} className={`p-4 flex items-center gap-4 ${theme.tableRowHover}`}>
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <DollarSign size={16} className="text-emerald-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium ${theme.textPrimary} truncate`}>{entry.title}</p>
+                  <p className={`text-xs ${theme.textMuted}`}>{entry.source ? `${entry.source} • ` : ''}{entry.date}</p>
+                  {entry.notes && <p className={`text-xs ${theme.textMuted} mt-0.5`}>{entry.notes}</p>}
+                </div>
+                <p className="text-sm font-bold text-emerald-600 whitespace-nowrap">{formatCurrency(entry.amount)}</p>
+                <div className="flex gap-1">
+                  <button onClick={() => openEdit(entry)} className={`p-1.5 ${theme.buttonHover} rounded-lg`}><Edit size={14} className={theme.iconColor} /></button>
+                  <button onClick={() => handleDelete(entry.id)} className="p-1.5 hover:bg-red-50 rounded-lg"><Trash2 size={14} className="text-red-400" /></button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -633,6 +709,29 @@ export default function FinancePage({ data, save, theme }) {
             })}
           </div>
         </div>
+
+        {/* Add/Edit Income Modal */}
+        {showForm && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className={`${theme.modalBg} rounded-2xl w-full max-w-md shadow-xl border ${theme.border}`}>
+              <div className={`p-5 border-b ${theme.border} flex items-center justify-between`}>
+                <h3 className={`text-lg font-bold ${theme.textPrimary}`}>{editItem ? 'Edit Income' : 'Add Income'}</h3>
+                <button onClick={() => setShowForm(false)} className={`p-1.5 ${theme.buttonHover} rounded-lg`}><X size={18} /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                <FormInput label="Description" value={form.title} onChange={v => setForm({ ...form, title: v })} placeholder="e.g. Freelance gig, Cash payment" theme={theme} />
+                <FormInput label="Amount (R)" type="number" value={form.amount} onChange={v => setForm({ ...form, amount: v })} theme={theme} />
+                <FormInput label="Source" value={form.source} onChange={v => setForm({ ...form, source: v })} placeholder="e.g. Client name, Cash, EFT" theme={theme} />
+                <FormInput label="Date" type="date" value={form.date} onChange={v => setForm({ ...form, date: v })} theme={theme} />
+                <FormInput label="Notes" value={form.notes} onChange={v => setForm({ ...form, notes: v })} multiline theme={theme} />
+              </div>
+              <div className={`p-5 border-t ${theme.border} flex gap-3`}>
+                <button onClick={() => setShowForm(false)} className={`flex-1 py-2.5 border ${theme.border} rounded-xl font-medium ${theme.textPrimary} ${theme.buttonHover}`}>Cancel</button>
+                <button onClick={handleSave} className={`flex-1 py-2.5 ${theme.accent} rounded-xl font-semibold ${theme.accentHover}`}>Save</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -991,46 +1090,86 @@ export default function FinancePage({ data, save, theme }) {
   // ============================================================================
 
   const ReportsTab = () => {
-    const [period, setPeriod] = useState('monthly');
+    const [mode, setMode] = useState('year'); // 'year' | 'custom'
+    const [selectedYear, setSelectedYear] = useState(cy);
+    const [customFrom, setCustomFrom] = useState(`${cy}-01-01`);
+    const [customTo, setCustomTo] = useState(`${cy}-12-31`);
 
-    // Monthly financial summaries (last 12 months)
+    // Available years (scan invoices + expenses for years present)
+    const availableYears = useMemo(() => {
+      const yrs = new Set([cy]);
+      (data.invoices || []).forEach(inv => { if (inv.date) yrs.add(new Date(inv.date).getFullYear()); });
+      (financeData.expenses || []).forEach(e => { if (e.date) yrs.add(new Date(e.date).getFullYear()); });
+      (financeData.manualIncome || []).forEach(m => { if (m.date) yrs.add(new Date(m.date).getFullYear()); });
+      return [...yrs].sort((a, b) => b - a);
+    }, [data.invoices, financeData.expenses, financeData.manualIncome, cy]);
+
+    // Helper: get income for a month
+    const getMonthIncome = (mm, yy) => {
+      const inv = (data.invoices || []).filter(i => i.status === 'paid').filter(i => {
+        const mk = getMonthYear(i.date);
+        return mk.month === mm && mk.year === yy;
+      }).reduce((s, i) => s + calculateDocumentTotal(i, taxRate), 0);
+      const manual = (financeData.manualIncome || []).filter(m => {
+        const mk = getMonthYear(m.date);
+        return mk.month === mm && mk.year === yy;
+      }).reduce((s, m) => s + Number(m.amount || 0), 0);
+      return inv + manual;
+    };
+
+    // Helper: get expenses for a month
+    const getMonthExpenses = (mm, yy) => {
+      return (financeData.expenses || []).filter(e => {
+        const mk = getMonthYear(e.date);
+        return mk.month === mm && mk.year === yy;
+      }).reduce((s, e) => s + Number(e.amount || 0), 0);
+    };
+
+    // Monthly summaries: full Jan-Dec for selected year
     const monthlySummaries = useMemo(() => {
+      if (mode === 'custom') {
+        const from = new Date(customFrom + 'T00:00:00');
+        const to = new Date(customTo + 'T00:00:00');
+        if (isNaN(from) || isNaN(to) || from > to) return [];
+        const rows = [];
+        let cur = new Date(from.getFullYear(), from.getMonth(), 1);
+        const end = new Date(to.getFullYear(), to.getMonth(), 1);
+        while (cur <= end) {
+          const mm = cur.getMonth(), yy = cur.getFullYear();
+          const income = getMonthIncome(mm, yy);
+          const expenses = getMonthExpenses(mm, yy);
+          rows.push({ label: `${MONTHS[mm]} ${yy}`, income, expenses, profit: income - expenses, month: mm, year: yy });
+          cur.setMonth(cur.getMonth() + 1);
+        }
+        return rows;
+      }
+      // Year mode: Jan-Dec
       const rows = [];
-      for (let i = 11; i >= 0; i--) {
-        const d = new Date(cy, cm - i, 1);
-        const mm = d.getMonth(), yy = d.getFullYear();
-        const income = (data.invoices || []).filter(inv => inv.status === 'paid').filter(inv => {
-          const mk = getMonthYear(inv.date);
-          return mk.month === mm && mk.year === yy;
-        }).reduce((s, inv) => s + calculateDocumentTotal(inv, taxRate), 0);
-
-        const expenses = (financeData.expenses || []).filter(e => {
-          const mk = getMonthYear(e.date);
-          return mk.month === mm && mk.year === yy;
-        }).reduce((s, e) => s + Number(e.amount || 0), 0);
-
-        rows.push({ label: `${MONTHS[mm]} ${yy}`, income, expenses, profit: income - expenses, month: mm, year: yy });
+      for (let mm = 0; mm < 12; mm++) {
+        const income = getMonthIncome(mm, selectedYear);
+        const expenses = getMonthExpenses(mm, selectedYear);
+        rows.push({ label: `${MONTHS[mm]} ${selectedYear}`, income, expenses, profit: income - expenses, month: mm, year: selectedYear });
       }
       return rows;
-    }, [data.invoices, financeData.expenses, taxRate, cm, cy]);
+    }, [mode, selectedYear, customFrom, customTo, data.invoices, financeData.expenses, financeData.manualIncome, taxRate]);
 
-    // Yearly summaries
-    const yearlySummaries = useMemo(() => {
-      const map = {};
-      monthlySummaries.forEach(r => {
-        const y = r.year;
-        if (!map[y]) map[y] = { label: String(y), income: 0, expenses: 0, profit: 0 };
-        map[y].income += r.income;
-        map[y].expenses += r.expenses;
-        map[y].profit += r.profit;
-      });
-      return Object.values(map).sort((a, b) => b.label.localeCompare(a.label));
+    // Totals row
+    const totalsRow = useMemo(() => {
+      const t = { income: 0, expenses: 0, profit: 0 };
+      monthlySummaries.forEach(r => { t.income += r.income; t.expenses += r.expenses; t.profit += r.profit; });
+      return t;
     }, [monthlySummaries]);
 
-    // Top spending categories
+    // Top spending categories (scoped to selected period)
     const topCategories = useMemo(() => {
       const map = {};
-      (financeData.expenses || []).forEach(e => { map[e.category] = (map[e.category] || 0) + Number(e.amount || 0); });
+      let filtered = financeData.expenses || [];
+      if (mode === 'year') {
+        filtered = filtered.filter(e => { const mk = getMonthYear(e.date); return mk.year === selectedYear; });
+      } else {
+        filtered = filtered.filter(e => e.date >= customFrom && e.date <= customTo);
+      }
+      filtered.forEach(e => { map[e.category] = (map[e.category] || 0) + Number(e.amount || 0); });
       return Object.entries(map)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 8)
@@ -1038,31 +1177,66 @@ export default function FinancePage({ data, save, theme }) {
           const cat = categories.find(c => c.id === catId) || { name: catId, color: '#6b7280', icon: 'ShoppingCart' };
           return { ...cat, total };
         });
-    }, [financeData.expenses, categories]);
+    }, [financeData.expenses, categories, mode, selectedYear, customFrom, customTo]);
 
     const profitTrend = monthlySummaries.map(r => ({ label: r.label, value: r.profit }));
     const maxProfit = Math.max(1, ...profitTrend.map(r => Math.abs(r.value)));
 
-    const summaryData = period === 'monthly' ? monthlySummaries : yearlySummaries;
+    const periodLabel = mode === 'year' ? String(selectedYear) : `${customFrom} to ${customTo}`;
 
     return (
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className={`text-lg font-bold ${theme.textPrimary}`}>Financial Reports</h2>
-          <div className="flex gap-2">
-            {['monthly', 'yearly'].map(p => (
-              <button key={p} onClick={() => setPeriod(p)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium ${period === p ? theme.accent : `border ${theme.border} ${theme.textSecondary} ${theme.buttonHover}`}`}>
-                {p.charAt(0).toUpperCase() + p.slice(1)}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <button onClick={() => setMode('year')}
+              className={`px-4 py-2 rounded-xl text-sm font-medium ${mode === 'year' ? theme.accent : `border ${theme.border} ${theme.textSecondary} ${theme.buttonHover}`}`}>
+              Yearly
+            </button>
+            <button onClick={() => setMode('custom')}
+              className={`px-4 py-2 rounded-xl text-sm font-medium ${mode === 'custom' ? theme.accent : `border ${theme.border} ${theme.textSecondary} ${theme.buttonHover}`}`}>
+              Custom
+            </button>
           </div>
+        </div>
+
+        {/* Period selector */}
+        <div className={`${theme.cardBg} border ${theme.border} rounded-2xl p-4 flex flex-wrap items-center gap-3`}>
+          {mode === 'year' ? (
+            <div className="flex items-center gap-2">
+              <button onClick={() => setSelectedYear(y => y - 1)}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg border ${theme.border} ${theme.buttonHover} ${theme.textPrimary}`}>
+                &lsaquo;
+              </button>
+              <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
+                className={`px-3 py-2 rounded-xl border ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary} text-sm font-medium`}>
+                {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <button onClick={() => setSelectedYear(y => y + 1)}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg border ${theme.border} ${theme.buttonHover} ${theme.textPrimary}`}>
+                &rsaquo;
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className={`text-sm ${theme.textSecondary}`}>From</label>
+                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                  className={`px-3 py-2 rounded-xl border ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary} text-sm`} />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className={`text-sm ${theme.textSecondary}`}>To</label>
+                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                  className={`px-3 py-2 rounded-xl border ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary} text-sm`} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Summary table */}
         <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
           <div className={`p-4 border-b ${theme.border}`}>
-            <h3 className={`text-base font-semibold ${theme.textPrimary}`}>{period === 'monthly' ? 'Monthly' : 'Yearly'} Financial Summary</h3>
+            <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Monthly Financial Summary — {periodLabel}</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -1075,7 +1249,7 @@ export default function FinancePage({ data, save, theme }) {
                 </tr>
               </thead>
               <tbody className={`divide-y ${theme.border}`}>
-                {summaryData.map(r => (
+                {monthlySummaries.map(r => (
                   <tr key={r.label} className={theme.tableRowHover}>
                     <td className={`px-4 py-3 text-sm font-medium ${theme.textPrimary}`}>{r.label}</td>
                     <td className="px-4 py-3 text-sm text-right text-emerald-600">{formatCurrency(r.income)}</td>
@@ -1083,6 +1257,12 @@ export default function FinancePage({ data, save, theme }) {
                     <td className={`px-4 py-3 text-sm text-right font-bold ${r.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(r.profit)}</td>
                   </tr>
                 ))}
+                <tr className={`font-bold border-t-2 ${theme.border}`}>
+                  <td className={`px-4 py-3 text-sm ${theme.textPrimary}`}>Total</td>
+                  <td className="px-4 py-3 text-sm text-right text-emerald-600">{formatCurrency(totalsRow.income)}</td>
+                  <td className="px-4 py-3 text-sm text-right text-red-500">{formatCurrency(totalsRow.expenses)}</td>
+                  <td className={`px-4 py-3 text-sm text-right ${totalsRow.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(totalsRow.profit)}</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1091,7 +1271,7 @@ export default function FinancePage({ data, save, theme }) {
         {/* Profit Trend */}
         <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
           <div className={`p-4 border-b ${theme.border}`}>
-            <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Profit Trend (12 Months)</h3>
+            <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Profit Trend — {periodLabel}</h3>
           </div>
           <div className="p-4">
             <div className="flex items-end gap-3 overflow-x-auto pb-2" style={{ minHeight: 220 }}>
@@ -1117,7 +1297,7 @@ export default function FinancePage({ data, save, theme }) {
         {topCategories.length > 0 && (
           <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
             <div className={`p-4 border-b ${theme.border}`}>
-              <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Top Spending Categories (All Time)</h3>
+              <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Top Spending Categories — {periodLabel}</h3>
             </div>
             <div className="p-4 space-y-3">
               {topCategories.map(cat => {

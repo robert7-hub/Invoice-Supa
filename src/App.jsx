@@ -9,6 +9,15 @@ const STORAGE_KEYS = [
   'invoiceapp_items',
   'invoiceapp_invoices',
   'invoiceapp_estimates',
+  'invoiceapp_staff',
+  'invoiceapp_events',
+  'invoiceapp_event_assignments',
+  'invoiceapp_staff_payments',
+  'invoiceapp_expenses',
+  'invoiceapp_pockets',
+  'invoiceapp_budgets',
+  'invoiceapp_expense_categories',
+  'invoiceapp_manual_income',
 ];
 
 const TABLES = {
@@ -19,6 +28,15 @@ const TABLES = {
   invoiceItems: 'invoice_items',
   estimates: 'estimates',
   estimateItems: 'estimate_items',
+  staff: 'staff',
+  events: 'events',
+  assignments: 'event_staff_assignments',
+  payments: 'staff_payments',
+  expenses: 'expenses',
+  pockets: 'savings_pockets',
+  budgets: 'budgets',
+  expenseCategories: 'expense_categories',
+  manualIncome: 'manual_income',
 };
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -49,6 +67,15 @@ function getLocalState() {
     items: parse('invoiceapp_items', []),
     invoices: parse('invoiceapp_invoices', []),
     estimates: parse('invoiceapp_estimates', []),
+    staff: parse('invoiceapp_staff', []),
+    events: parse('invoiceapp_events', []),
+    assignments: parse('invoiceapp_event_assignments', []),
+    payments: parse('invoiceapp_staff_payments', []),
+    expenses: parse('invoiceapp_expenses', []),
+    pockets: parse('invoiceapp_pockets', []),
+    budgets: parse('invoiceapp_budgets', []),
+    expenseCategories: parse('invoiceapp_expense_categories', null),
+    manualIncome: parse('invoiceapp_manual_income', []),
   };
 }
 
@@ -58,6 +85,15 @@ function writeLocalState(state) {
   localStorage.setItem('invoiceapp_items', JSON.stringify(state.items ?? []));
   localStorage.setItem('invoiceapp_invoices', JSON.stringify(state.invoices ?? []));
   localStorage.setItem('invoiceapp_estimates', JSON.stringify(state.estimates ?? []));
+  localStorage.setItem('invoiceapp_staff', JSON.stringify(state.staff ?? []));
+  localStorage.setItem('invoiceapp_events', JSON.stringify(state.events ?? []));
+  localStorage.setItem('invoiceapp_event_assignments', JSON.stringify(state.assignments ?? []));
+  localStorage.setItem('invoiceapp_staff_payments', JSON.stringify(state.payments ?? []));
+  localStorage.setItem('invoiceapp_expenses', JSON.stringify(state.expenses ?? []));
+  localStorage.setItem('invoiceapp_pockets', JSON.stringify(state.pockets ?? []));
+  localStorage.setItem('invoiceapp_budgets', JSON.stringify(state.budgets ?? []));
+  localStorage.setItem('invoiceapp_expense_categories', JSON.stringify(state.expenseCategories ?? null));
+  localStorage.setItem('invoiceapp_manual_income', JSON.stringify(state.manualIncome ?? []));
   window.dispatchEvent(new Event('invoiceapp:reload'));
 }
 
@@ -308,6 +344,237 @@ function mapEstimateLineItemLocalToRow(item, estimateId, position) {
   };
 }
 
+// --- Staff & Event Mappers ---
+
+function mapStaffRowToLocal(row) {
+  return {
+    id: row.id,
+    firstName: row.first_name ?? '',
+    surname: row.surname ?? '',
+    email: row.email ?? '',
+    phone: row.phone ?? '',
+    roles: row.roles ?? [],
+    availability: row.availability ?? 'available',
+    rate: Number(row.rate ?? 0),
+    notes: row.notes ?? '',
+    active: row.active !== false,
+  };
+}
+
+function mapStaffLocalToRow(userId, s) {
+  return {
+    user_id: userId,
+    id: s.id,
+    first_name: s.firstName ?? '',
+    surname: s.surname ?? '',
+    email: s.email ?? '',
+    phone: s.phone ?? '',
+    roles: s.roles ?? [],
+    availability: s.availability ?? 'available',
+    rate: Number(s.rate ?? 0),
+    notes: s.notes ?? '',
+    active: s.active !== false,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function mapEventRowToLocal(row) {
+  return {
+    id: row.id,
+    estimateId: row.estimate_id ?? '',
+    clientId: row.client_id ?? '',
+    title: row.title ?? '',
+    venue: row.venue ?? '',
+    eventDate: row.event_date ?? '',
+    arrivalTime: row.arrival_time ?? '',
+    startTime: row.start_time ?? '',
+    endTime: row.end_time ?? '',
+    packdownTime: row.packdown_time ?? '',
+    status: row.status ?? 'pending',
+    notes: row.notes ?? '',
+    requiredRoles: row.required_roles ?? [],
+  };
+}
+
+function mapEventLocalToRow(userId, e) {
+  return {
+    user_id: userId,
+    id: e.id,
+    estimate_id: e.estimateId ?? '',
+    client_id: e.clientId ?? '',
+    title: e.title ?? '',
+    venue: e.venue ?? '',
+    event_date: e.eventDate || null,
+    arrival_time: e.arrivalTime ?? '',
+    start_time: e.startTime ?? '',
+    end_time: e.endTime ?? '',
+    packdown_time: e.packdownTime ?? '',
+    status: e.status ?? 'pending',
+    notes: e.notes ?? '',
+    required_roles: e.requiredRoles ?? [],
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function mapAssignmentRowToLocal(row) {
+  return {
+    id: row.id,
+    eventId: row.event_id ?? '',
+    staffId: row.staff_id ?? '',
+    role: row.role ?? '',
+    assignedPay: Number(row.assigned_pay ?? 0),
+    calendarCreated: Boolean(row.calendar_created),
+    status: row.status ?? 'assigned',
+  };
+}
+
+function mapAssignmentLocalToRow(userId, a) {
+  return {
+    user_id: userId,
+    id: a.id,
+    event_id: a.eventId ?? '',
+    staff_id: a.staffId ?? '',
+    role: a.role ?? '',
+    assigned_pay: Number(a.assignedPay ?? 0),
+    calendar_created: Boolean(a.calendarCreated),
+    status: a.status ?? 'assigned',
+  };
+}
+
+function mapPaymentRowToLocal(row) {
+  return {
+    id: row.id,
+    staffId: row.staff_id ?? '',
+    eventId: row.event_id ?? '',
+    amount: Number(row.amount ?? 0),
+    status: row.status ?? 'unpaid',
+    paidDate: row.paid_date ?? '',
+  };
+}
+
+function mapPaymentLocalToRow(userId, p) {
+  return {
+    user_id: userId,
+    id: p.id,
+    staff_id: p.staffId ?? '',
+    event_id: p.eventId ?? '',
+    amount: Number(p.amount ?? 0),
+    status: p.status ?? 'unpaid',
+    paid_date: p.paidDate || null,
+  };
+}
+
+// --- Finance Mappers ---
+
+function mapExpenseRowToLocal(row) {
+  return {
+    id: row.id,
+    title: row.title ?? '',
+    amount: Number(row.amount ?? 0),
+    category: row.category ?? 'other',
+    date: row.date ?? '',
+    notes: row.notes ?? '',
+    type: row.type ?? 'variable',
+  };
+}
+
+function mapExpenseLocalToRow(userId, e) {
+  return {
+    user_id: userId,
+    id: e.id,
+    title: e.title ?? '',
+    amount: Number(e.amount ?? 0),
+    category: e.category ?? 'other',
+    date: e.date || null,
+    notes: e.notes ?? '',
+    type: e.type ?? 'variable',
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function mapPocketRowToLocal(row) {
+  return {
+    id: row.id,
+    name: row.name ?? '',
+    target: Number(row.target ?? 0),
+    current: Number(row.current ?? 0),
+  };
+}
+
+function mapPocketLocalToRow(userId, p) {
+  return {
+    user_id: userId,
+    id: p.id,
+    name: p.name ?? '',
+    target: Number(p.target ?? 0),
+    current: Number(p.current ?? 0),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function mapBudgetRowToLocal(row) {
+  return {
+    id: row.id,
+    monthKey: row.month_key ?? '',
+    expectedIncome: Number(row.expected_income ?? 0),
+    categories: row.categories ?? {},
+  };
+}
+
+function mapBudgetLocalToRow(userId, b) {
+  return {
+    user_id: userId,
+    id: b.id,
+    month_key: b.monthKey ?? '',
+    expected_income: Number(b.expectedIncome ?? 0),
+    categories: b.categories ?? {},
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function mapExpenseCategoryRowToLocal(row) {
+  return {
+    id: row.id,
+    name: row.name ?? '',
+    icon: row.icon ?? 'ShoppingCart',
+    color: row.color ?? '#6b7280',
+  };
+}
+
+function mapExpenseCategoryLocalToRow(userId, c) {
+  return {
+    user_id: userId,
+    id: c.id,
+    name: c.name ?? '',
+    icon: c.icon ?? 'ShoppingCart',
+    color: c.color ?? '#6b7280',
+  };
+}
+
+function mapManualIncomeRowToLocal(row) {
+  return {
+    id: row.id,
+    title: row.title ?? '',
+    amount: Number(row.amount ?? 0),
+    source: row.source ?? '',
+    date: row.date ?? '',
+    notes: row.notes ?? '',
+  };
+}
+
+function mapManualIncomeLocalToRow(userId, m) {
+  return {
+    user_id: userId,
+    id: m.id,
+    title: m.title ?? '',
+    amount: Number(m.amount ?? 0),
+    source: m.source ?? '',
+    date: m.date || null,
+    notes: m.notes ?? '',
+    updated_at: new Date().toISOString(),
+  };
+}
+
 async function syncUserOwnedRows(table, userId, rows) {
   const { data: existingRows, error: existingError } = await supabase
     .from(table)
@@ -339,7 +606,11 @@ async function replaceChildRows(table, userId, parentColumn, parentIds, rows) {
   if (deleteError) throw deleteError;
 
   if (rows.length) {
-    const { error: insertError } = await supabase.from(table).insert(rows);
+    // Deduplicate by id — keep last occurrence (in case of duplicate item ids across documents)
+    const seen = new Map();
+    rows.forEach((r) => seen.set(r.id, r));
+    const deduped = [...seen.values()];
+    const { error: insertError } = await supabase.from(table).upsert(deduped, { onConflict: 'user_id,id' });
     if (insertError) throw insertError;
   }
 }
@@ -352,12 +623,30 @@ async function pullRemoteState(userId) {
     { data: itemRows, error: itemsError },
     { data: invoiceRows, error: invoicesError },
     { data: estimateRows, error: estimatesError },
+    { data: staffRows, error: staffError },
+    { data: eventRows, error: eventsError },
+    { data: assignmentRows, error: assignmentsError },
+    { data: paymentRows, error: paymentsError },
+    { data: expenseRows, error: expensesError },
+    { data: pocketRows, error: pocketsError },
+    { data: budgetRows, error: budgetsError },
+    { data: expCatRows, error: expCatsError },
+    { data: manualIncomeRows, error: manualIncomeError },
   ] = await Promise.all([
     supabase.from(TABLES.settings).select('*').eq('user_id', userId).maybeSingle(),
     supabase.from(TABLES.clients).select('*').eq('user_id', userId).order('name', { ascending: true }),
     supabase.from(TABLES.items).select('*').eq('user_id', userId).order('name', { ascending: true }),
     supabase.from(TABLES.invoices).select('*').eq('user_id', userId).order('invoice_date', { ascending: false }),
     supabase.from(TABLES.estimates).select('*').eq('user_id', userId).order('estimate_date', { ascending: false }),
+    supabase.from(TABLES.staff).select('*').eq('user_id', userId).order('first_name', { ascending: true }),
+    supabase.from(TABLES.events).select('*').eq('user_id', userId).order('event_date', { ascending: false }),
+    supabase.from(TABLES.assignments).select('*').eq('user_id', userId),
+    supabase.from(TABLES.payments).select('*').eq('user_id', userId),
+    supabase.from(TABLES.expenses).select('*').eq('user_id', userId).order('date', { ascending: false }),
+    supabase.from(TABLES.pockets).select('*').eq('user_id', userId),
+    supabase.from(TABLES.budgets).select('*').eq('user_id', userId),
+    supabase.from(TABLES.expenseCategories).select('*').eq('user_id', userId),
+    supabase.from(TABLES.manualIncome).select('*').eq('user_id', userId).order('date', { ascending: false }),
   ]);
 
   if (settingsError) throw settingsError;
@@ -365,6 +654,15 @@ async function pullRemoteState(userId) {
   if (itemsError) throw itemsError;
   if (invoicesError) throw invoicesError;
   if (estimatesError) throw estimatesError;
+  if (staffError) throw staffError;
+  if (eventsError) throw eventsError;
+  if (assignmentsError) throw assignmentsError;
+  if (paymentsError) throw paymentsError;
+  if (expensesError) throw expensesError;
+  if (pocketsError) throw pocketsError;
+  if (budgetsError) throw budgetsError;
+  if (expCatsError) throw expCatsError;
+  if (manualIncomeError) throw manualIncomeError;
 
   const invoiceIds = (invoiceRows ?? []).map((row) => row.id);
   const estimateIds = (estimateRows ?? []).map((row) => row.id);
@@ -389,7 +687,9 @@ async function pullRemoteState(userId) {
     (clientRows?.length ?? 0) > 0 ||
     (itemRows?.length ?? 0) > 0 ||
     (invoiceRows?.length ?? 0) > 0 ||
-    (estimateRows?.length ?? 0) > 0;
+    (estimateRows?.length ?? 0) > 0 ||
+    (staffRows?.length ?? 0) > 0 ||
+    (eventRows?.length ?? 0) > 0;
 
   if (!hasRemoteData) return null;
 
@@ -413,11 +713,26 @@ async function pullRemoteState(userId) {
     items: (itemRows ?? []).map(mapItemRowToLocal),
     invoices: (invoiceRows ?? []).map((row) => mapInvoiceRowToLocal(row, invoiceItemsByInvoiceId.get(row.id) ?? [])),
     estimates: (estimateRows ?? []).map((row) => mapEstimateRowToLocal(row, estimateItemsByEstimateId.get(row.id) ?? [])),
+    staff: (staffRows ?? []).map(mapStaffRowToLocal),
+    events: (eventRows ?? []).map(mapEventRowToLocal),
+    assignments: (assignmentRows ?? []).map(mapAssignmentRowToLocal),
+    payments: (paymentRows ?? []).map(mapPaymentRowToLocal),
+    expenses: (expenseRows ?? []).map(mapExpenseRowToLocal),
+    pockets: (pocketRows ?? []).map(mapPocketRowToLocal),
+    budgets: (budgetRows ?? []).map(mapBudgetRowToLocal),
+    expenseCategories: (expCatRows ?? []).length > 0 ? (expCatRows ?? []).map(mapExpenseCategoryRowToLocal) : null,
+    manualIncome: (manualIncomeRows ?? []).map(mapManualIncomeRowToLocal),
   };
 }
 
 async function pushRemoteState(userId, state) {
   if (!supabase || !userId) return;
+  const errors = [];
+
+  const trySync = async (label, fn) => {
+    try { await fn(); } catch (e) { errors.push(`${label}: ${e.message}`); }
+  };
+
   const settingsRow = mapSettingsLocalToRow(userId, state.settings ?? {});
   const clientRows = (state.clients ?? []).map((client) => mapClientLocalToRow(userId, client));
   const itemRows = (state.items ?? []).map((item) => mapItemLocalToRow(userId, item));
@@ -430,15 +745,43 @@ async function pushRemoteState(userId, state) {
     (estimate.items ?? []).map((item, index) => ({ ...mapEstimateLineItemLocalToRow(item, estimate.id, index), user_id: userId })),
   );
 
-  const { error: settingsError } = await supabase.from(TABLES.settings).upsert(settingsRow, { onConflict: 'user_id' });
-  if (settingsError) throw settingsError;
+  await trySync('settings', async () => {
+    const { error } = await supabase.from(TABLES.settings).upsert(settingsRow, { onConflict: 'user_id' });
+    if (error) throw error;
+  });
 
-  await syncUserOwnedRows(TABLES.clients, userId, clientRows);
-  await syncUserOwnedRows(TABLES.items, userId, itemRows);
-  await syncUserOwnedRows(TABLES.invoices, userId, invoiceRows);
-  await replaceChildRows(TABLES.invoiceItems, userId, 'invoice_id', invoiceRows.map((row) => row.id), invoiceItemRows);
-  await syncUserOwnedRows(TABLES.estimates, userId, estimateRows);
-  await replaceChildRows(TABLES.estimateItems, userId, 'estimate_id', estimateRows.map((row) => row.id), estimateItemRows);
+  await trySync('clients', () => syncUserOwnedRows(TABLES.clients, userId, clientRows));
+  await trySync('items', () => syncUserOwnedRows(TABLES.items, userId, itemRows));
+  await trySync('invoices', () => syncUserOwnedRows(TABLES.invoices, userId, invoiceRows));
+  await trySync('invoice_items', () => replaceChildRows(TABLES.invoiceItems, userId, 'invoice_id', invoiceRows.map((row) => row.id), invoiceItemRows));
+  await trySync('estimates', () => syncUserOwnedRows(TABLES.estimates, userId, estimateRows));
+  await trySync('estimate_items', () => replaceChildRows(TABLES.estimateItems, userId, 'estimate_id', estimateRows.map((row) => row.id), estimateItemRows));
+
+  // Staff & Events
+  const staffRowsMapped = (state.staff ?? []).map((s) => mapStaffLocalToRow(userId, s));
+  const eventRowsMapped = (state.events ?? []).map((e) => mapEventLocalToRow(userId, e));
+  const assignmentRowsMapped = (state.assignments ?? []).map((a) => mapAssignmentLocalToRow(userId, a));
+  const paymentRowsMapped = (state.payments ?? []).map((p) => mapPaymentLocalToRow(userId, p));
+
+  await trySync('staff', () => syncUserOwnedRows(TABLES.staff, userId, staffRowsMapped));
+  await trySync('events', () => syncUserOwnedRows(TABLES.events, userId, eventRowsMapped));
+  await trySync('assignments', () => syncUserOwnedRows(TABLES.assignments, userId, assignmentRowsMapped));
+  await trySync('payments', () => syncUserOwnedRows(TABLES.payments, userId, paymentRowsMapped));
+
+  // Finance & Budgeting
+  const expenseRowsMapped = (state.expenses ?? []).map((e) => mapExpenseLocalToRow(userId, e));
+  const pocketRowsMapped = (state.pockets ?? []).map((p) => mapPocketLocalToRow(userId, p));
+  const budgetRowsMapped = (state.budgets ?? []).map((b) => mapBudgetLocalToRow(userId, b));
+  const expCatRowsMapped = (state.expenseCategories ?? []).map((c) => mapExpenseCategoryLocalToRow(userId, c));
+  const manualIncomeRowsMapped = (state.manualIncome ?? []).map((m) => mapManualIncomeLocalToRow(userId, m));
+
+  await trySync('expenses', () => syncUserOwnedRows(TABLES.expenses, userId, expenseRowsMapped));
+  await trySync('pockets', () => syncUserOwnedRows(TABLES.pockets, userId, pocketRowsMapped));
+  await trySync('budgets', () => syncUserOwnedRows(TABLES.budgets, userId, budgetRowsMapped));
+  await trySync('expense_categories', () => syncUserOwnedRows(TABLES.expenseCategories, userId, expCatRowsMapped));
+  await trySync('manual_income', () => syncUserOwnedRows(TABLES.manualIncome, userId, manualIncomeRowsMapped));
+
+  if (errors.length) throw new Error(errors.join('; '));
 }
 
 function ConnectionBanner() {
