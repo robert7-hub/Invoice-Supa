@@ -619,6 +619,18 @@ const SAMPLE_ESTIMATES = [
 
 const generateId = () => Math.random().toString(36).slice(2, 11);
 
+const getBusinessMonogram = (businessName = 'Invoice App') => {
+  const initials = String(businessName)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join('')
+    .toUpperCase();
+
+  return initials || 'IA';
+};
+
 const formatCurrency = (amount) =>
   `R${Number(amount || 0).toLocaleString('en-ZA', {
     minimumFractionDigits: 2,
@@ -1340,6 +1352,7 @@ const SettingsPage = ({ save, saveTheme, activeTheme }) => {
     setSavedState(true);
     setTimeout(() => setSavedState(false), 1500);
   };
+  const businessMonogram = getBusinessMonogram(form.businessName);
 
   return (
     <div className="flex flex-col h-full">
@@ -1359,35 +1372,80 @@ const SettingsPage = ({ save, saveTheme, activeTheme }) => {
             <Building2 className={`w-5 h-5 ${activeTheme.iconColor}`} />
             <p className={`font-semibold ${activeTheme.textPrimary}`}>Business Details</p>
           </div>
-          {/* Logo uploader */}
-          <div className="flex items-start gap-5">
-            <span className={`w-24 shrink-0 pt-2 text-sm font-medium ${activeTheme.labelColor}`}>Logo</span>
-            <div className="flex-1 space-y-2">
-              {form.logo ? (
-                <div className={`w-48 h-24 rounded-xl border ${activeTheme.border} ${activeTheme.inputBg} flex items-center justify-center overflow-hidden`}>
-                  <img src={form.logo} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
+          <div className={`rounded-[24px] border ${activeTheme.border} ${activeTheme.subtleBg} p-4 lg:p-5`}>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>Brand Logo</p>
+                <p className={`mt-1 text-sm ${activeTheme.textMuted}`}>
+                  This logo appears in the mobile menu and helps carry your branding through the app.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <label className={`inline-flex items-center gap-2 px-3 py-2 text-sm rounded-xl cursor-pointer ${activeTheme.accent} ${activeTheme.accentHover}`}>
+                  <span>{form.logo ? 'Replace Logo' : 'Upload Logo'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => setForm({ ...form, logo: ev.target.result });
+                      reader.readAsDataURL(file);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                {form.logo ? (
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, logo: null })}
+                    className={`inline-flex items-center gap-2 rounded-xl border ${activeTheme.border} px-3 py-2 text-sm ${activeTheme.textPrimary} ${activeTheme.buttonHover}`}
+                  >
+                    Remove Logo
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+              <div className={`flex min-h-[140px] items-center justify-center rounded-[24px] border ${form.logo ? activeTheme.border : `border-dashed ${activeTheme.border}`} ${activeTheme.inputBg} p-4`}>
+                {form.logo ? (
+                  <img src={form.logo} alt="Logo preview" className="max-h-24 max-w-full object-contain" />
+                ) : (
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-900 text-2xl font-black tracking-[0.12em] text-white">
+                      {businessMonogram}
+                    </div>
+                    <p className={`text-xs ${activeTheme.textMuted}`}>Upload a logo to replace the monogram.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-[28px] bg-[#050505] p-5 text-white shadow-[0_20px_44px_rgba(15,23,42,0.18)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/42">Menu Preview</p>
+                <div className="mt-5 flex flex-col items-center gap-4 text-center">
+                  {form.logo ? (
+                    <div className="flex w-full items-center justify-center rounded-[24px] bg-white/[0.04] px-4 py-4">
+                      <img src={form.logo} alt="Menu logo preview" className="max-h-20 w-auto object-contain" />
+                    </div>
+                  ) : (
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,rgba(239,68,68,0.92),rgba(168,85,247,0.8)_55%,rgba(15,23,42,0.92))] text-[24px] font-black tracking-[0.1em] text-white">
+                      {businessMonogram}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate text-lg font-bold uppercase tracking-[0.04em] text-white">
+                      {form.businessName || 'Invoice App'}
+                    </p>
+                    <p className="truncate text-sm text-white/65">{form.email || 'Dashboard'}</p>
+                    {form.email ? (
+                      <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/38">Dashboard</p>
+                    ) : null}
+                  </div>
                 </div>
-              ) : (
-                <div className={`w-48 h-24 rounded-xl border-2 border-dashed ${activeTheme.border} ${activeTheme.inputBg} flex items-center justify-center`}>
-                  <span className={`text-xs ${activeTheme.textMuted}`}>No logo</span>
-                </div>
-              )}
-              <label className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-xl cursor-pointer ${activeTheme.accent} ${activeTheme.accentHover}`}>
-                <span>{form.logo ? 'Replace Logo' : 'Upload Logo'}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => setForm({ ...form, logo: ev.target.result });
-                    reader.readAsDataURL(file);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
+              </div>
             </div>
           </div>
           <FormInput label="Business Name" value={form.businessName} onChange={(v) => setForm({ ...form, businessName: v })} theme={activeTheme} />
@@ -4729,6 +4787,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           onClose={() => setMobileDrawerOpen(false)}
           activeTheme={activeTheme}
           businessName={data.settings?.businessName}
+          businessEmail={data.settings?.email}
           logo={data.settings?.logo}
           navItems={mobileNavItems}
           activeTab={activeTab}
