@@ -113,12 +113,12 @@ export const getInvoiceAppShellLayout = ({ activeTab, deviceLayout }) => {
   return {
     usePhoneLayout,
     useTabletLayout,
-    rootOverflowClass: usePhoneLayout ? 'overflow-hidden' : 'overflow-x-auto overflow-y-hidden',
+    rootOverflowClass: usePhoneLayout ? 'overflow-y-auto' : 'overflow-x-auto overflow-y-hidden',
     frameStyle: !usePhoneLayout ? { minWidth: useTabletLayout ? '980px' : '1180px' } : undefined,
     mainContentPaddingClass:
       activeTab === 'settings'
         ? usePhoneLayout
-          ? 'px-0 pt-0 pb-32'
+          ? 'px-0 pt-0 pb-0'
           : useTabletLayout
             ? 'p-4'
             : 'p-4 xl:p-6'
@@ -139,27 +139,26 @@ export const getInvoiceAppShellLayout = ({ activeTab, deviceLayout }) => {
 };
 
 const InvoiceAppMobileBrandBlock = ({ businessName, businessEmail, logo, subtitle = 'Dashboard' }) => (
-  <div className="overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(24,24,27,0.96),rgba(9,9,11,0.98))] px-4 py-1 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-    <div className="flex flex-col items-center gap-2">
+  <div className="overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(34,34,37,0.96),rgba(23,23,26,0.98))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_12px_28px_rgba(0,0,0,0.28)]">
+    <div className="flex items-center gap-4">
       {logo ? (
-        <div className="flex w-full items-center justify-center rounded-[20px] bg-white/[0.04] px-3 py-2">
-          <img src={logo} alt="Business logo" className="max-h-14 w-auto object-contain" />
+        <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[8px] bg-black">
+          <img src={logo} alt="Business logo" className="h-full w-full object-cover" />
         </div>
       ) : (
-        <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[radial-gradient(circle_at_30%_30%,rgba(239,68,68,0.92),rgba(168,85,247,0.8)_55%,rgba(15,23,42,0.92))] shadow-[0_14px_28px_rgba(0,0,0,0.32)]">
-          <span className="text-[20px] font-black tracking-[0.08em] text-white">
+        <div className="relative flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-white/10 bg-[radial-gradient(circle_at_30%_30%,rgba(239,68,68,0.92),rgba(168,85,247,0.8)_55%,rgba(15,23,42,0.92))] shadow-[0_14px_28px_rgba(0,0,0,0.32)]">
+          <span className="text-[24px] font-black tracking-[0.08em] text-white">
             {getBusinessMonogram(businessName)}
           </span>
         </div>
       )}
-      <div className="min-w-0 space-y-0.5">
-        <p className="truncate text-[12px] font-bold uppercase tracking-[0.18em] text-white/92">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[16px] font-semibold uppercase tracking-[0.08em] text-white">
           {businessName || 'Invoice App'}
         </p>
-        <p className="truncate text-[13px] text-zinc-400">{businessEmail || subtitle}</p>
-        {businessEmail ? (
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-white/38">{subtitle}</p>
-        ) : null}
+        <p className="mt-1 truncate text-[13px] text-white/42">
+          {businessEmail || subtitle}
+        </p>
       </div>
     </div>
   </div>
@@ -167,52 +166,66 @@ const InvoiceAppMobileBrandBlock = ({ businessName, businessEmail, logo, subtitl
 
 export const MobileHeader = ({
   title,
+  activeTheme,
   showSearch = false,
   searchTerm = '',
   onSearchChange,
   onMenu,
   onSettings,
-}) => (
-  <div className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/95 shadow-[0_8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-    <div className="px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-      <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onMenu}
-          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-200 bg-white text-zinc-900 shadow-[0_6px_18px_rgba(15,23,42,0.07)] transition hover:bg-zinc-50"
-          aria-label="Open navigation menu"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-        <div className="min-w-0 text-center">
-          <p className="truncate text-base font-bold tracking-tight text-zinc-950">{title}</p>
+  RightIcon = Settings,
+  rightAriaLabel = 'Open settings',
+}) => {
+  const shellBg = activeTheme?.panelBg || 'bg-white';
+  const shellBorder = activeTheme?.border || 'border-zinc-200';
+  const shellText = activeTheme?.textPrimary || 'text-zinc-950';
+  const shellMuted = activeTheme?.iconColor || 'text-zinc-400';
+  const controlBg = activeTheme?.subtleBg || 'bg-zinc-50';
+  const controlBorder = activeTheme?.inputBorder || 'border-zinc-200';
+  const controlHover = activeTheme?.buttonHover || 'hover:bg-zinc-100';
+  const inputBg = activeTheme?.inputBg || 'bg-white';
+
+  return (
+    <div className={`sticky top-0 z-30 border-b ${shellBorder} ${shellBg} shadow-[0_8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl`}>
+      <div className="px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onMenu}
+            className={`flex h-9 w-9 items-center justify-center rounded-[18px] border ${controlBorder} ${controlBg} ${shellText} shadow-[0_6px_18px_rgba(15,23,42,0.07)] transition ${controlHover}`}
+            aria-label="Open navigation menu"
+          >
+            <Menu className="h-4.5 w-4.5" />
+          </button>
+          <div className="min-w-0 text-center">
+            <p className={`truncate text-[15px] font-bold tracking-tight ${shellText}`}>{title}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onSettings}
+            className={`flex h-9 w-9 items-center justify-center rounded-[18px] border ${controlBorder} ${controlBg} ${shellText} shadow-[0_6px_18px_rgba(15,23,42,0.07)] transition ${controlHover}`}
+            aria-label={rightAriaLabel}
+          >
+            <RightIcon className="h-4.5 w-4.5" />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onSettings}
-          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-200 bg-white text-zinc-900 shadow-[0_6px_18px_rgba(15,23,42,0.07)] transition hover:bg-zinc-50"
-          aria-label="Open settings"
-        >
-          <Settings className="h-5 w-5" />
-        </button>
       </div>
+      {showSearch ? (
+        <div className="px-4 pb-3">
+          <div className="relative">
+            <Search className={`absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${shellMuted}`} />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={`Search ${title.toLowerCase()}...`}
+              className={`h-10 w-full rounded-[18px] border ${controlBorder} ${inputBg} pl-9 pr-4 text-sm ${shellText} shadow-[0_6px_18px_rgba(15,23,42,0.05)] placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-200`}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
-    {showSearch ? (
-      <div className="px-4 pb-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={`Search ${title.toLowerCase()}...`}
-            className="h-11 w-full rounded-2xl border border-zinc-200 bg-white pl-9 pr-4 text-sm text-zinc-950 shadow-[0_6px_18px_rgba(15,23,42,0.05)] placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-200"
-          />
-        </div>
-      </div>
-    ) : null}
-  </div>
-);
+  );
+};
 
 export const InvoiceAppMobileDrawer = ({
   open,
@@ -228,28 +241,16 @@ export const InvoiceAppMobileDrawer = ({
     <div className={`fixed inset-0 z-50 transition-all duration-300 ${open ? 'pointer-events-auto' : 'pointer-events-none'}`}>
       <button
         type="button"
-        className={`absolute inset-0 bg-black/55 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose}
         aria-label="Close navigation menu"
       />
       <aside
-        className={`absolute left-0 top-0 flex h-full w-[84%] max-w-[300px] flex-col border-r border-white/8 bg-[#050505] text-white shadow-[0_28px_80px_rgba(0,0,0,0.46)] transition-transform duration-300 ${
+        className={`absolute left-0 top-0 flex h-full w-[84%] max-w-[320px] flex-col border-r border-white/70 bg-black text-white shadow-[0_28px_80px_rgba(0,0,0,0.46)] transition-transform duration-300 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between px-4 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-white/42">Menu</p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1.5 text-white/85 transition hover:bg-white/10"
-            aria-label="Close menu"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="px-4 pb-3 pt-1">
+        <div className="px-4 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))]">
           <InvoiceAppMobileBrandBlock
             businessName={businessName}
             businessEmail={businessEmail}
@@ -258,54 +259,35 @@ export const InvoiceAppMobileDrawer = ({
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 pb-3 pt-1">
-          <div className="space-y-1">
-            {navItems
-              .filter((item) => item.id !== 'settings')
-              .map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    onSelectTab(item.id);
-                    onClose();
-                  }}
-                  className={`flex w-full items-center gap-3 rounded-[20px] px-4 py-2.5 text-left text-sm font-semibold transition-all ${
-                    activeTab === item.id
-                      ? 'bg-zinc-800 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_14px_30px_rgba(0,0,0,0.22)]'
-                      : 'text-zinc-300 hover:bg-white/5'
-                  }`}
-                >
-                  <item.icon className={`h-5 w-5 ${activeTab === item.id ? 'text-white' : 'text-zinc-400'}`} />
-                  <span className="flex-1">{item.label}</span>
-                </button>
-              ))}
+        <div className="flex-1 overflow-y-auto px-4 pb-8">
+          <div className="space-y-2.5">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onSelectTab(item.id);
+                  onClose();
+                }}
+                className={`flex w-full items-center gap-4 rounded-[28px] px-4 py-3.5 text-left text-[18px] font-medium tracking-[-0.01em] transition-all ${
+                  activeTab === item.id
+                    ? 'border border-white/12 bg-[linear-gradient(180deg,rgba(45,45,48,0.98),rgba(34,34,36,0.98))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_24px_rgba(0,0,0,0.2)]'
+                    : 'border border-transparent bg-transparent text-white/74 hover:bg-white/[0.03]'
+                }`}
+              >
+                <item.icon className={`h-7 w-7 shrink-0 ${activeTab === item.id ? 'text-white' : 'text-white/62'}`} strokeWidth={1.9} />
+                <span className="flex-1 truncate">{item.label}</span>
+              </button>
+            ))}
           </div>
-        </div>
-
-        <div className="border-t border-white/8 px-2 py-3">
-          <button
-            type="button"
-            onClick={() => {
-              onSelectTab('settings');
-              onClose();
-            }}
-            className={`flex w-full items-center gap-3 rounded-[20px] px-4 py-2.5 text-left text-sm font-semibold transition-all ${
-              activeTab === 'settings'
-                ? 'bg-zinc-800 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_14px_30px_rgba(0,0,0,0.22)]'
-                : 'text-zinc-300 hover:bg-white/5'
-            }`}
-          >
-            <Settings className={`h-5 w-5 ${activeTab === 'settings' ? 'text-white' : 'text-zinc-400'}`} />
-            <span className="flex-1">Settings</span>
-          </button>
+          <div className="mx-2 mt-8 border-t border-white/20" />
         </div>
       </aside>
     </div>
   );
 };
 
-export const CreateSheet = ({
+export const QuickCreateSheet = ({
   open,
   onClose,
   onNavigate,
@@ -448,12 +430,12 @@ export const InvoiceAppDesktopSidebar = ({
   );
 };
 
-export const InvoiceAppMobileBottomNav = ({
+export const MobileBottomDock = ({
   visible,
   navItems,
   activeTab,
   onSelectTab,
-  onOpenCreate,
+  onOpenQuickCreate,
 }) => {
   const dockItems = useMemo(
     () => navItems.filter((item) => item.id !== 'settings'),
@@ -466,48 +448,54 @@ export const InvoiceAppMobileBottomNav = ({
 
   return (
     <div
-      className="fixed bottom-0 left-1/2 z-40 w-full max-w-md -translate-x-1/2 px-3"
-      style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      className="fixed bottom-0 left-1/2 z-40 w-full max-w-md -translate-x-1/2 px-2.5"
+      style={{ paddingBottom: 'max(0.85rem, env(safe-area-inset-bottom))' }}
     >
-      <div className="relative rounded-[30px] border border-zinc-200/80 bg-white/90 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-2xl">
+      <div className="relative rounded-t-[28px] rounded-b-[24px] border border-zinc-200/90 bg-white/98 shadow-[0_-8px_30px_rgba(15,23,42,0.12),0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur-xl">
         <button
           type="button"
-          onClick={onOpenCreate}
-          className="absolute left-1/2 top-0 z-10 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-[6px] border-slate-100 bg-gradient-to-br from-violet-600 via-violet-600 to-indigo-600 text-white shadow-[0_16px_30px_rgba(109,40,217,0.34)] transition-transform hover:scale-105 active:scale-95"
+          onClick={onOpenQuickCreate}
+          className="absolute left-1/2 top-0 z-10 flex h-[60px] w-[60px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white bg-black text-white shadow-[0_10px_28px_rgba(0,0,0,0.28)] transition-all duration-200 hover:scale-105 active:scale-[0.98]"
           aria-label="Open create menu"
         >
           <Plus className="h-6 w-6" />
         </button>
 
-        <div className="mobile-nav-scroll overflow-x-auto px-2 pb-3 pt-4">
-          <div className="flex min-w-max items-end gap-2 px-1">
+        <div className="mobile-nav-scroll overflow-x-auto px-2 pb-3 pt-5">
+          <div className="flex min-w-max items-center gap-3 px-2">
             {dockItems.map((item) => {
               const isActive = activeTab === item.id;
 
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onSelectTab(item.id)}
-                  className={`flex min-w-[82px] flex-none flex-col items-center justify-center rounded-[22px] px-3 py-2 text-[12px] transition-all ${
-                    isActive ? 'text-zinc-950' : 'text-zinc-400 hover:text-zinc-600'
-                  }`}
-                  style={item.id === 'clients' ? { marginRight: '64px' } : undefined}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  <div
-                    className={`mb-1 rounded-2xl p-2 transition-all ${
+                <React.Fragment key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab(item.id)}
+                    className={`flex min-h-[74px] min-w-[92px] flex-none flex-col items-center justify-center rounded-[20px] px-3 py-2.5 text-[12px] transition-all duration-200 active:scale-[0.98] ${
                       isActive
-                        ? 'bg-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_rgba(15,23,42,0.08)]'
-                        : 'bg-transparent'
+                        ? 'bg-zinc-50 text-zinc-950 shadow-[0_8px_20px_rgba(15,23,42,0.08)] ring-1 ring-zinc-200/80'
+                        : 'text-zinc-500 hover:bg-zinc-100/80'
                     }`}
+                    aria-current={isActive ? 'page' : undefined}
                   >
-                    <item.icon className="h-5 w-5" />
-                  </div>
-                  <span className={`whitespace-nowrap text-center leading-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>
-                    {item.label}
-                  </span>
-                </button>
+                    <div
+                      className={`mb-1.5 flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
+                        isActive
+                          ? 'bg-zinc-100 text-zinc-900 shadow-sm'
+                          : 'bg-transparent text-zinc-500'
+                      }`}
+                    >
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <span
+                      className={`text-center leading-tight whitespace-nowrap ${
+                        isActive ? 'font-semibold text-zinc-950' : 'font-medium text-zinc-500'
+                      }`}
+                    >
+                      {item.label}
+                    </span>
+                  </button>
+                </React.Fragment>
               );
             })}
           </div>

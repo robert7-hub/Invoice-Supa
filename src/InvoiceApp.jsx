@@ -24,17 +24,16 @@ import {
   Palette,
   Wallet,
   CalendarDays,
-  Upload,
 } from 'lucide-react';
 import FinancePage from './FinancePage';
 import StaffEventPage from './StaffEventPage';
 import ImportPdfModal from './ImportPdfModal';
 import {
-  CreateSheet,
+  QuickCreateSheet,
   getInvoiceAppShellLayout,
   InvoiceAppDesktopSidebar,
   InvoiceAppMobileDrawer,
-  InvoiceAppMobileBottomNav,
+  MobileBottomDock,
   MobileHeader,
   useDeviceLayout,
 } from './InvoiceAppLayout.jsx';
@@ -222,35 +221,35 @@ const THEMES = {
     cardBg: 'bg-white',
     sidebarBg: 'bg-white',
     sidebarActive: 'bg-slate-900 text-white',
-    sidebarInactive: 'text-slate-600 hover:bg-slate-100',
-    sidebarText: 'text-slate-900',
-    sidebarTextMuted: 'text-slate-500',
-    border: 'border-slate-200',
-    textPrimary: 'text-slate-900',
-    textSecondary: 'text-slate-600',
-    textMuted: 'text-slate-500',
+    sidebarInactive: 'text-slate-700 hover:bg-slate-200',
+    sidebarText: 'text-slate-900 font-semibold text-base',
+    sidebarTextMuted: 'text-slate-500 font-medium',
+    border: 'border-slate-300',
+    textPrimary: 'text-slate-900 font-bold text-base',
+    textSecondary: 'text-slate-700 font-medium',
+    textMuted: 'text-slate-500 font-normal',
     accent: 'bg-slate-900 text-white',
     accentHover: 'hover:bg-slate-800',
     inputBg: 'bg-white',
-    inputBorder: 'border-slate-300',
+    inputBorder: 'border-slate-400',
     modalBg: 'bg-white',
     badgePending: 'bg-yellow-100 text-yellow-800',
     badgeAccepted: 'bg-emerald-100 text-emerald-800',
     badgeDeclined: 'bg-red-100 text-red-800',
     badgeOutstanding: 'bg-slate-100 text-slate-800',
     subtleBg: 'bg-slate-50',
-    cardHover: 'hover:bg-slate-50',
-    buttonHover: 'hover:bg-slate-100',
-    iconColor: 'text-slate-400',
-    labelColor: 'text-slate-700',
-    toggleInactive: 'bg-slate-200',
-    tableHeaderBg: 'bg-slate-50',
-    tableRowHover: 'hover:bg-slate-50',
-    mobileNavBg: 'bg-white border-t border-slate-200',
-    mobileNavActive: 'text-slate-900 bg-slate-100',
-    mobileNavInactive: 'text-slate-400',
-    sectionHeaderBg: 'bg-slate-50',
-    spinner: 'border-slate-200 border-t-slate-900',
+    cardHover: 'hover:bg-slate-100',
+    buttonHover: 'hover:bg-slate-200',
+    iconColor: 'text-slate-700',
+    labelColor: 'text-slate-800 font-semibold',
+    toggleInactive: 'bg-slate-300',
+    tableHeaderBg: 'bg-slate-100',
+    tableRowHover: 'hover:bg-slate-100',
+    mobileNavBg: 'bg-white border-t border-slate-300',
+    mobileNavActive: 'text-slate-900 bg-slate-200',
+    mobileNavInactive: 'text-slate-500',
+    sectionHeaderBg: 'bg-slate-100',
+    spinner: 'border-slate-300 border-t-slate-900',
   },
   'crimson-dusk': {
     appBg: 'bg-[#06141B]',
@@ -1318,7 +1317,7 @@ const LineItemModal = ({
 // SETTINGS PAGE (top-level component — must not be nested inside App)
 // ============================================================================
 
-const SettingsPage = ({ save, saveTheme, activeTheme }) => {
+const SettingsPage = ({ save, saveTheme, activeTheme, uploadLogo }) => {
   const [form, setForm] = useState(() => {
     try {
       const raw = localStorage.getItem(DB_KEYS.settings);
@@ -1356,128 +1355,98 @@ const SettingsPage = ({ save, saveTheme, activeTheme }) => {
 
   return (
     <div className="flex flex-col h-full">
-      <div className={`p-5 lg:p-8 ${activeTheme.border} flex items-center justify-between`}>
-        <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Settings</h1>
-        <button onClick={handleSave} className={`px-4 py-2 ${activeTheme.accent} rounded-xl ${activeTheme.accentHover}`}>
+      <div className={`px-4 py-3 lg:px-8 lg:py-5 border-b ${activeTheme.border} flex items-center justify-between`}>
+        <h1 className={`text-lg font-bold lg:text-2xl ${activeTheme.textPrimary}`}>Settings</h1>
+        <button onClick={handleSave} className={`px-3 py-1.5 text-sm font-medium ${activeTheme.accent} rounded-xl ${activeTheme.accentHover}`}>
           {savedState ? 'Saved!' : 'Save Changes'}
         </button>
       </div>
 
       <div
-        className="flex-1 overflow-auto p-5 lg:p-8 space-y-6"
-        style={{ paddingBottom: 'calc(7rem + env(safe-area-inset-bottom))' }}
+        className="flex-1 overflow-y-auto px-4 py-4 lg:px-8 lg:py-8 space-y-4"
+        style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
       >
-        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6 space-y-5`}>
-          <div className={`flex items-center gap-2 pb-2 ${activeTheme.border}`}>
-            <Building2 className={`w-5 h-5 ${activeTheme.iconColor}`} />
-            <p className={`font-semibold ${activeTheme.textPrimary}`}>Business Details</p>
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
+          <div className={`flex items-center gap-2 pb-1 border-b ${activeTheme.border}`}>
+            <Building2 className={`w-4 h-4 ${activeTheme.iconColor}`} />
+            <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>Business Details</p>
           </div>
-          <div className={`rounded-[24px] border ${activeTheme.border} ${activeTheme.subtleBg} p-4 lg:p-5`}>
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>Brand Logo</p>
-                <p className={`mt-1 text-sm ${activeTheme.textMuted}`}>
-                  This logo appears in the mobile menu and helps carry your branding through the app.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <label className={`inline-flex items-center gap-2 px-3 py-2 text-sm rounded-xl cursor-pointer ${activeTheme.accent} ${activeTheme.accentHover}`}>
-                  <span>{form.logo ? 'Replace Logo' : 'Upload Logo'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = (ev) => setForm({ ...form, logo: ev.target.result });
-                      reader.readAsDataURL(file);
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
-                {form.logo ? (
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, logo: null })}
-                    className={`inline-flex items-center gap-2 rounded-xl border ${activeTheme.border} px-3 py-2 text-sm ${activeTheme.textPrimary} ${activeTheme.buttonHover}`}
-                  >
-                    Remove Logo
-                  </button>
-                ) : null}
-              </div>
-            </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-              <div className={`flex min-h-[140px] items-center justify-center rounded-[24px] border ${form.logo ? activeTheme.border : `border-dashed ${activeTheme.border}`} ${activeTheme.inputBg} p-4`}>
+          {/* Compact logo block */}
+          <div className={`rounded-2xl border ${activeTheme.border} ${activeTheme.subtleBg} p-3`}>
+            <div className="flex items-center gap-3">
+              {/* Preview */}
+              <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border ${form.logo ? activeTheme.border : `border-dashed ${activeTheme.border}`} ${activeTheme.inputBg} overflow-hidden`}>
                 {form.logo ? (
-                  <img src={form.logo} alt="Logo preview" className="max-h-24 max-w-full object-contain" />
+                  <img src={form.logo} alt="Logo" className="max-h-full max-w-full object-contain p-1" />
                 ) : (
-                  <div className="flex flex-col items-center gap-3 text-center">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-900 text-2xl font-black tracking-[0.12em] text-white">
-                      {businessMonogram}
-                    </div>
-                    <p className={`text-xs ${activeTheme.textMuted}`}>Upload a logo to replace the monogram.</p>
-                  </div>
+                  <span className="text-[18px] font-black tracking-wide text-slate-400">{businessMonogram}</span>
                 )}
               </div>
-
-              <div className="rounded-[28px] bg-[#050505] p-5 text-white shadow-[0_20px_44px_rgba(15,23,42,0.18)]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/42">Menu Preview</p>
-                <div className="mt-5 flex flex-col items-center gap-4 text-center">
+              {/* Actions */}
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>Brand Logo</p>
+                <p className={`text-xs ${activeTheme.textMuted} mt-0.5`}>Shown in the sidebar and drawer.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium ${activeTheme.accent} ${activeTheme.accentHover}`}>
+                    <span>{form.logo ? 'Replace' : 'Upload Logo'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        e.target.value = '';
+                        let logoValue = null;
+                        if (uploadLogo) {
+                          const url = await uploadLogo(file);
+                          if (url) logoValue = url;
+                        }
+                        if (!logoValue) {
+                          logoValue = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => resolve(ev.target.result);
+                            reader.readAsDataURL(file);
+                          });
+                        }
+                        setForm((prev) => {
+                          const next = { ...prev, logo: logoValue };
+                          localStorage.setItem(DB_KEYS.settings, JSON.stringify(next));
+                          return next;
+                        });
+                      }}
+                    />
+                  </label>
                   {form.logo ? (
-                    <div className="flex w-full items-center justify-center rounded-[24px] bg-white/[0.04] px-4 py-4">
-                      <img src={form.logo} alt="Menu logo preview" className="max-h-20 w-auto object-contain" />
-                    </div>
-                  ) : (
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,rgba(239,68,68,0.92),rgba(168,85,247,0.8)_55%,rgba(15,23,42,0.92))] text-[24px] font-black tracking-[0.1em] text-white">
-                      {businessMonogram}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="truncate text-lg font-bold uppercase tracking-[0.04em] text-white">
-                      {form.businessName || 'Invoice App'}
-                    </p>
-                    <p className="truncate text-sm text-white/65">{form.email || 'Dashboard'}</p>
-                    {form.email ? (
-                      <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/38">Dashboard</p>
-                    ) : null}
-                  </div>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, logo: null })}
+                      className={`inline-flex items-center gap-1.5 rounded-xl border ${activeTheme.border} px-3 py-1.5 text-xs font-medium ${activeTheme.textPrimary} ${activeTheme.buttonHover}`}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
           </div>
+
           <FormInput label="Business Name" value={form.businessName} onChange={(v) => setForm({ ...form, businessName: v })} theme={activeTheme} />
-          <FormInput
-            label="Business Number"
-            value={form.businessNumber}
-            onChange={(v) => setForm({ ...form, businessNumber: v })}
-            theme={activeTheme}
-          />
+          <FormInput label="Business Number" value={form.businessNumber} onChange={(v) => setForm({ ...form, businessNumber: v })} theme={activeTheme} />
           <FormInput label="Address" value={form.address} onChange={(v) => setForm({ ...form, address: v })} multiline theme={activeTheme} />
           <FormInput label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} theme={activeTheme} />
           <FormInput label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} theme={activeTheme} />
         </div>
 
-        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6 space-y-5`}>
-          <div className={`flex items-center gap-2 pb-2 ${activeTheme.border}`}>
-            <CreditCard className={`w-5 h-5 ${activeTheme.iconColor}`} />
-            <p className={`font-semibold ${activeTheme.textPrimary}`}>Banking Details</p>
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
+          <div className={`flex items-center gap-2 pb-1 border-b ${activeTheme.border}`}>
+            <CreditCard className={`w-4 h-4 ${activeTheme.iconColor}`} />
+            <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>Banking Details</p>
           </div>
           <FormInput label="Bank Name" value={form.bankName} onChange={(v) => setForm({ ...form, bankName: v })} theme={activeTheme} />
-          <FormInput
-            label="Account Number"
-            value={form.accountNumber}
-            onChange={(v) => setForm({ ...form, accountNumber: v })}
-            theme={activeTheme}
-          />
-          <FormInput
-            label="Account Type"
-            value={form.accountType}
-            onChange={(v) => setForm({ ...form, accountType: v })}
-            theme={activeTheme}
-          />
+          <FormInput label="Account Number" value={form.accountNumber} onChange={(v) => setForm({ ...form, accountNumber: v })} theme={activeTheme} />
+          <FormInput label="Account Type" value={form.accountType} onChange={(v) => setForm({ ...form, accountType: v })} theme={activeTheme} />
           <div className="grid grid-cols-2 gap-3">
             <FormInput label="Branch Code" value={form.branchCode} onChange={(v) => setForm({ ...form, branchCode: v })} theme={activeTheme} />
             <FormInput label="Branch Name" value={form.branchName} onChange={(v) => setForm({ ...form, branchName: v })} theme={activeTheme} />
@@ -1485,80 +1454,74 @@ const SettingsPage = ({ save, saveTheme, activeTheme }) => {
           <FormInput label="Swift Code" value={form.swiftCode} onChange={(v) => setForm({ ...form, swiftCode: v })} theme={activeTheme} />
         </div>
 
-        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6 space-y-5`}>
-          <div className={`flex items-center gap-2 pb-2 ${activeTheme.border}`}>
-            <BarChart3 className={`w-5 h-5 ${activeTheme.iconColor}`} />
-            <p className={`font-semibold ${activeTheme.textPrimary}`}>Tax</p>
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
+          <div className={`flex items-center gap-2 pb-1 border-b ${activeTheme.border}`}>
+            <BarChart3 className={`w-4 h-4 ${activeTheme.iconColor}`} />
+            <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>Tax</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <FormInput
-              label="Tax Rate (%)"
-              type="number"
-              value={form.taxRate}
-              onChange={(v) => setForm({ ...form, taxRate: parseFloat(v) || 0 })}
-              theme={activeTheme}
-            />
+            <FormInput label="Tax Rate (%)" type="number" value={form.taxRate} onChange={(v) => setForm({ ...form, taxRate: parseFloat(v) || 0 })} theme={activeTheme} />
             <FormInput label="Tax Label" value={form.taxLabel} onChange={(v) => setForm({ ...form, taxLabel: v })} theme={activeTheme} />
           </div>
         </div>
 
-        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6`}>
-          <div className={`flex items-center gap-2 pb-3 mb-5 border-b ${activeTheme.border}`}>
-            <FileSignature className={`w-5 h-5 ${activeTheme.iconColor}`} />
-            <p className={`font-semibold ${activeTheme.textPrimary}`}>Invoice Number</p>
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+          <div className={`flex items-center gap-2 pb-2 mb-3 border-b ${activeTheme.border}`}>
+            <FileSignature className={`w-4 h-4 ${activeTheme.iconColor}`} />
+            <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>Document Numbers</p>
           </div>
-          <div className="space-y-5">
+          <div className="space-y-3">
             {[
-              { label: 'Invoice Number', field: 'nextInvoiceNumber', placeholder: '00000', prefix: 'INV' },
-              { label: 'Estimate Number', field: 'nextEstimateNumber', placeholder: '00000', prefix: 'EST' },
+              { label: 'Invoice No', field: 'nextInvoiceNumber', placeholder: '00000', prefix: 'INV' },
+              { label: 'Estimate No', field: 'nextEstimateNumber', placeholder: '00000', prefix: 'EST' },
             ].map(({ label, field, placeholder, prefix }) => (
-              <div key={field} className="flex items-center gap-5">
-                <span className={`w-32 shrink-0 text-sm font-medium ${activeTheme.labelColor}`}>{label}</span>
+              <div key={field} className="flex items-center gap-3">
+                <span className={`w-24 shrink-0 text-xs font-medium ${activeTheme.labelColor}`}>{label}</span>
                 <div className="flex-1 relative flex items-center">
-                  <span className={`px-4 py-2.5 border border-r-0 ${activeTheme.inputBorder} ${activeTheme.subtleBg} ${activeTheme.textSecondary} rounded-l-xl text-sm font-semibold`}>
+                  <span className={`px-3 py-2 border border-r-0 ${activeTheme.inputBorder} ${activeTheme.subtleBg} ${activeTheme.textSecondary} rounded-l-xl text-xs font-semibold`}>
                     {prefix}
                   </span>
                   <input
                     value={form[field] || ''}
                     onChange={(e) => setForm({ ...form, [field]: e.target.value.replace(/\D/g, '') })}
                     placeholder={placeholder}
-                    className={`w-full px-4 py-2.5 pr-11 border ${activeTheme.inputBorder} ${activeTheme.inputBg} ${activeTheme.textPrimary} rounded-r-xl rounded-l-none text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400`}
+                    className={`w-full px-3 py-2 pr-9 border ${activeTheme.inputBorder} ${activeTheme.inputBg} ${activeTheme.textPrimary} rounded-r-xl rounded-l-none text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400`}
                   />
-                  <Check className="w-5 h-5 text-emerald-500 absolute right-4 top-1/2 -translate-y-1/2" />
+                  <Check className="w-4 h-4 text-emerald-500 absolute right-3 top-1/2 -translate-y-1/2" />
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6`}>
-          <div className={`flex items-center gap-2 pb-3 mb-5 border-b ${activeTheme.border}`}>
-            <FileText className={`w-5 h-5 ${activeTheme.iconColor}`} />
-            <p className={`font-semibold ${activeTheme.textPrimary}`}>Default Notes</p>
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+          <div className={`flex items-center gap-2 pb-2 mb-3 border-b ${activeTheme.border}`}>
+            <FileText className={`w-4 h-4 ${activeTheme.iconColor}`} />
+            <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>Default Notes</p>
           </div>
-          <div className="space-y-5">
+          <div className="space-y-4">
             {[
               { label: 'Invoices', field: 'defaultInvoiceNotes' },
               { label: 'Estimates', field: 'defaultEstimateNotes' },
             ].map(({ label, field }) => (
-              <div key={field} className="flex items-start gap-5">
-                <span className={`w-24 shrink-0 pt-2.5 text-sm font-medium ${activeTheme.labelColor}`}>{label}</span>
+              <div key={field} className="flex items-start gap-3">
+                <span className={`w-20 shrink-0 pt-2 text-xs font-medium ${activeTheme.labelColor}`}>{label}</span>
                 <textarea
                   value={form[field] || ''}
                   onChange={(e) => setForm({ ...form, [field]: e.target.value })}
-                  rows={5}
+                  rows={4}
                   placeholder={`Default notes for ${label.toLowerCase()}…`}
-                  className={`flex-1 px-3 py-2.5 border ${activeTheme.inputBorder} ${activeTheme.inputBg} ${activeTheme.textPrimary} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0F969C]/50 resize-none overflow-y-auto`}
+                  className={`flex-1 px-3 py-2 border ${activeTheme.inputBorder} ${activeTheme.inputBg} ${activeTheme.textPrimary} rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-slate-400/50 resize-none`}
                 />
               </div>
             ))}
           </div>
         </div>
 
-        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6 space-y-5`}>
-          <div className={`flex items-center gap-2 pb-2 border-b ${activeTheme.border}`}>
-            <Palette className={`w-5 h-5 ${activeTheme.iconColor}`} />
-            <p className={`font-semibold ${activeTheme.textPrimary}`}>App Theme</p>
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
+          <div className={`flex items-center gap-2 pb-1 border-b ${activeTheme.border}`}>
+            <Palette className={`w-4 h-4 ${activeTheme.iconColor}`} />
+            <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>App Theme</p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {/* Default */}
@@ -1639,7 +1602,7 @@ const SettingsPage = ({ save, saveTheme, activeTheme }) => {
 // APP
 // ============================================================================
 
-export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null }) {
+export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null, uploadLogo = null }) {
   const { data, save, saveTheme, loading } = useDatabase();
   const deviceLayout = useDeviceLayout();
   const [activeTab, setActiveTab] = useState('invoices');
@@ -1651,7 +1614,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
   const [confirmAction, setConfirmAction] = useState(() => () => {});
   const [showImportPdf, setShowImportPdf] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const [mobileCreateOpen, setMobileCreateOpen] = useState(false);
+  const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
 
   useEffect(() => {
     const initSampleData = async () => {
@@ -1757,6 +1720,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     panelShellClass,
   } = getInvoiceAppShellLayout({ activeTab, deviceLayout });
   const showPhoneShell = usePhoneLayout && view === 'list';
+  const isSettingsOnPhone = usePhoneLayout && activeTab === 'settings';
   const mobileSearchTabs = ['invoices', 'estimates', 'clients', 'items'];
   const showMobileSearch = showPhoneShell && mobileSearchTabs.includes(activeTab);
   const mobileHeaderTitle = {
@@ -1775,13 +1739,13 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     setView('list');
     setSearchTerm('');
     setMobileDrawerOpen(false);
-    setMobileCreateOpen(false);
+    setIsQuickCreateOpen(false);
   }, []);
 
   useEffect(() => {
     if (!showPhoneShell) {
       setMobileDrawerOpen(false);
-      setMobileCreateOpen(false);
+      setIsQuickCreateOpen(false);
     }
   }, [showPhoneShell]);
 
@@ -1872,58 +1836,51 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
     return (
       <div className="flex flex-col h-full">
-        <div className="p-4 lg:p-6 border-b">
+        <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
           <div className={`flex items-center gap-2 ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
-            {!usePhoneLayout ? <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Invoices</h1> : null}
+            {!usePhoneLayout ? <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Invoices</h1> : null}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowImportPdf(true)}
-                className={`flex items-center gap-2 px-4 py-2.5 border ${activeTheme.border} ${activeTheme.textPrimary} rounded-xl hover:bg-black/5`}
+                onClick={() => {
+                  setCurrentItem({
+                    id: generateId(),
+                    number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
+                    date: new Date().toISOString().split('T')[0],
+                    dueDate: '',
+                    status: 'outstanding',
+                    clientId: '',
+                    items: [],
+                    amountPaid: 0,
+                    overallDiscount: 0,
+                    overallDiscountType: 'percentage',
+                    taxEnabled: false,
+                    notes: '',
+                  });
+                  setView('edit-invoice');
+                }}
+                className={`flex items-center ${usePhoneLayout ? 'gap-1.5 px-3 py-1.5 text-sm' : 'gap-1.5 px-3 py-1.5 text-sm'} ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
               >
-                <Upload className="w-4 h-4" />
-                Import PDF
+                <Plus className="w-3.5 h-3.5" />
+                New Invoice
               </button>
-              <button
-              onClick={() => {
-                setCurrentItem({
-                  id: generateId(),
-                  number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
-                  date: new Date().toISOString().split('T')[0],
-                  dueDate: '',
-                  status: 'outstanding',
-                  clientId: '',
-                  items: [],
-                  amountPaid: 0,
-                  overallDiscount: 0,
-                  overallDiscountType: 'percentage',
-                  taxEnabled: false,
-                  notes: '',
-                });
-                setView('edit-invoice');
-              }}
-              className={`flex items-center gap-2 px-4 py-2.5 ${activeTheme.accent} rounded-xl`}
-            >
-              <Plus className="w-4 h-4" />
-              New Invoice
-            </button>
             </div>
           </div>
 
           {!usePhoneLayout ? (
-            <div className="relative mt-4 max-w-sm">
+            <div className="relative mt-3 max-w-sm">
               <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
               <input
                 type="text"
                 placeholder="Search invoices..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+                className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
               />
             </div>
           ) : null}
         </div>
 
-        <div className="flex-1 overflow-auto p-4 lg:p-6">
+        <div className="flex-1 overflow-auto px-3 pt-3 pb-24 lg:px-5 lg:pt-4">
           {filtered.length === 0 ? (
             <EmptyState
               icon={FileText}
@@ -1937,7 +1894,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               }
             />
           ) : (
-            <div className={usePhoneLayout ? 'space-y-4' : 'space-y-3'}>
+            <div className="space-y-2">
               {filtered.map((invoice) => {
                 const client = getClient(invoice.clientId);
                 const total = calculateDocumentTotal(invoice, data.settings?.taxRate || 15);
@@ -1945,8 +1902,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 return (
                   <div
                     key={invoice.id}
-                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] active:scale-[0.97]' : `${activeTheme.border} rounded-2xl p-4`} ${activeTheme.cardHover} group transition-all duration-200 ${
-                      isLongPressed ? 'bg-blue-50 border-blue-200 scale-105' : ''
+                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.98]' : `${activeTheme.border}`} rounded-xl ${activeTheme.cardHover} group transition-all duration-150 ${
+                      isLongPressed ? 'bg-blue-50 border-blue-200 scale-[1.02]' : ''
                     }`}
                     onMouseDown={() => handleMouseDown(invoice)}
                     onMouseUp={handleMouseUp}
@@ -1954,7 +1911,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     onTouchStart={() => handleMouseDown(invoice)}
                     onTouchEnd={handleMouseUp}
                   >
-                    <div className="flex justify-between items-start gap-3">
+                    <div className="flex items-center gap-2 px-3 py-2.5">
                       <div
                         onClick={() => {
                           if (!isLongPressed) {
@@ -1962,19 +1919,21 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                             setView('view-invoice');
                           }
                         }}
-                        className="flex-1 cursor-pointer"
+                        className="flex-1 min-w-0 cursor-pointer"
                       >
-                        <p className={`${usePhoneLayout ? 'text-[16px] font-bold' : 'font-semibold'} ${activeTheme.textPrimary}`}>{invoice.number}</p>
-                        <p className={`text-sm ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
-                        <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{formatDate(invoice.date)}</p>
+                        <div className="flex items-baseline gap-2">
+                          <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{invoice.number}</p>
+                          <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
+                        </div>
+                        <p className={`text-[11px] ${activeTheme.iconColor} mt-0.5`}>{formatDate(invoice.date)}</p>
                         {isLongPressed && (
-                          <p className="text-xs text-blue-600 mt-1 font-medium">Hold to change status...</p>
+                          <p className="text-[11px] text-blue-600 mt-0.5 font-medium">Hold to change status…</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 relative">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <div className="text-right">
                           <StatusBadge status={invoice.status} theme={activeTheme} />
-                          <p className={`font-semibold mt-2 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
+                          <p className={`text-sm font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
                         </div>
                         <button
                           onClick={(e) => {
@@ -1994,7 +1953,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           }}
                           onMouseDown={(e) => e.stopPropagation()}
                           onTouchStart={(e) => e.stopPropagation()}
-                          className={`p-2 ${activeTheme.buttonHover} rounded-xl ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+                          className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
                         >
                           <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
                         </button>
@@ -2009,7 +1968,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                             });
                             setConfirmOpen(true);
                           }}
-                          className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-2 hover:bg-red-50 rounded-xl transition-opacity`}
+                          className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
                         >
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </button>
@@ -2570,9 +2529,9 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
     return (
       <div className="flex flex-col h-full">
-        <div className="p-4 lg:p-6 border-b">
+        <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
           <div className={`flex items-center ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
-            {!usePhoneLayout ? <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Estimates</h1> : null}
+            {!usePhoneLayout ? <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Estimates</h1> : null}
             <button
               onClick={() => {
                 setCurrentItem({
@@ -2589,32 +2548,32 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 });
                 setView('edit-estimate');
               }}
-              className={`flex items-center gap-2 px-4 py-2.5 ${activeTheme.accent} rounded-xl`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               New Estimate
             </button>
           </div>
 
           {!usePhoneLayout ? (
-            <div className="relative mt-4 max-w-sm">
+            <div className="relative mt-3 max-w-sm">
               <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
               <input
                 type="text"
                 placeholder="Search estimates..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+                className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
               />
             </div>
           ) : null}
         </div>
 
-        <div className="flex-1 overflow-auto p-4 lg:p-6">
+        <div className="flex-1 overflow-auto px-3 pt-3 pb-24 lg:px-5 lg:pt-4">
           {filtered.length === 0 ? (
             <EmptyState icon={FileSignature} title="No estimates yet" description="Create your first estimate" theme={activeTheme} />
           ) : (
-            <div className={usePhoneLayout ? 'space-y-4' : 'space-y-3'}>
+            <div className="space-y-2">
               {filtered.map((estimate) => {
                 const client = getClient(estimate.clientId);
                 const total = calculateDocumentTotal(estimate, data.settings?.taxRate || 15);
@@ -2622,8 +2581,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 return (
                   <div
                     key={estimate.id}
-                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] active:scale-[0.97]' : `${activeTheme.border} rounded-2xl p-4`} ${activeTheme.cardHover} group transition-all duration-200 ${
-                      isLongPressed ? 'bg-blue-50 border-blue-200 scale-105' : ''
+                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.98]' : `${activeTheme.border}`} rounded-xl ${activeTheme.cardHover} group transition-all duration-150 ${
+                      isLongPressed ? 'bg-blue-50 border-blue-200 scale-[1.02]' : ''
                     }`}
                     onMouseDown={() => handleMouseDown(estimate)}
                     onMouseUp={handleMouseUp}
@@ -2631,7 +2590,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     onTouchStart={() => handleMouseDown(estimate)}
                     onTouchEnd={handleMouseUp}
                   >
-                    <div className="flex justify-between items-start gap-3">
+                    <div className="flex items-center gap-2 px-3 py-2.5">
                       <div
                         onClick={() => {
                           if (!isLongPressed) {
@@ -2639,19 +2598,21 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                             setView('view-estimate');
                           }
                         }}
-                        className="flex-1 cursor-pointer"
+                        className="flex-1 min-w-0 cursor-pointer"
                       >
-                        <p className={`${usePhoneLayout ? 'text-[16px] font-bold' : 'font-semibold'} ${activeTheme.textPrimary}`}>{estimate.number}</p>
-                        <p className={`text-sm ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
-                        <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{formatDate(estimate.date)}</p>
+                        <div className="flex items-baseline gap-2">
+                          <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{estimate.number}</p>
+                          <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
+                        </div>
+                        <p className={`text-[11px] ${activeTheme.iconColor} mt-0.5`}>{formatDate(estimate.date)}</p>
                         {isLongPressed && (
-                          <p className="text-xs text-blue-600 mt-1 font-medium">Hold to change status...</p>
+                          <p className="text-[11px] text-blue-600 mt-0.5 font-medium">Hold to change status…</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 relative">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <div className="text-right">
                           <StatusBadge status={estimate.status} theme={activeTheme} />
-                          <p className={`font-semibold mt-2 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
+                          <p className={`text-sm font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
                         </div>
                         <button
                           onClick={(e) => {
@@ -2671,7 +2632,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           }}
                           onMouseDown={(e) => e.stopPropagation()}
                           onTouchStart={(e) => e.stopPropagation()}
-                          className={`p-2 ${activeTheme.buttonHover} rounded-xl ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+                          className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
                         >
                           <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
                         </button>
@@ -2686,7 +2647,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                             });
                             setConfirmOpen(true);
                           }}
-                          className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-2 hover:bg-red-50 rounded-xl transition-opacity`}
+                          className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
                         >
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </button>
@@ -3160,9 +3121,9 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
     return (
       <div className="flex flex-col h-full">
-        <div className="p-4 lg:p-6 border-b">
+        <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
           <div className={`flex items-center ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
-            {!usePhoneLayout ? <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Clients</h1> : null}
+            {!usePhoneLayout ? <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Clients</h1> : null}
             <button
               onClick={() => {
                 setCurrentItem({
@@ -3184,48 +3145,51 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 });
                 setView('edit-client');
               }}
-              className={`flex items-center gap-2 px-4 py-2.5 ${activeTheme.accent} rounded-xl`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               Add Client
             </button>
           </div>
 
           {!usePhoneLayout ? (
-            <div className="relative mt-4 max-w-sm">
+            <div className="relative mt-3 max-w-sm">
               <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
               <input
                 type="text"
                 placeholder="Search clients..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+                className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
               />
             </div>
           ) : null}
         </div>
 
-        <div className="flex-1 overflow-auto p-4 lg:p-6">
+        <div className="flex-1 overflow-auto px-3 pt-3 pb-24 lg:px-5 lg:pt-4">
           {filtered.length === 0 ? (
             <EmptyState icon={Users} title="No clients yet" description="Add your first client" theme={activeTheme} />
           ) : (
-            <div className={usePhoneLayout ? 'space-y-4' : 'space-y-3'}>
+            <div className="space-y-2">
               {filtered.map((client) => (
                 <div
                   key={client.id}
-                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] active:scale-[0.97]' : `${activeTheme.border} rounded-2xl p-4`} ${activeTheme.cardHover} group transition-all duration-200`}
+                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.98]' : `${activeTheme.border}`} rounded-xl ${activeTheme.cardHover} group transition-all duration-150`}
                 >
-                  <div className="flex justify-between items-start gap-3">
+                  <div className="flex items-center gap-2 px-3 py-2.5">
                     <div
                       onClick={() => {
                         setCurrentItem(client);
                         setView('view-client');
                       }}
-                      className="flex-1 cursor-pointer"
+                      className="flex-1 min-w-0 cursor-pointer"
                     >
-                      <p className={`${usePhoneLayout ? 'text-[16px] font-bold' : 'font-semibold'} ${activeTheme.textPrimary}`}>{client.name}</p>
-                      {client.email && <p className={`text-sm ${activeTheme.textMuted}`}>{client.email}</p>}
-                      {client.phone && <p className={`text-sm ${activeTheme.textMuted}`}>{client.phone}</p>}
+                      <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{client.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {client.email && <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client.email}</p>}
+                        {client.email && client.phone && <span className={`text-xs ${activeTheme.textMuted}`}>·</span>}
+                        {client.phone && <p className={`text-xs ${activeTheme.textMuted}`}>{client.phone}</p>}
+                      </div>
                     </div>
                     <button
                       onClick={(e) => {
@@ -3236,7 +3200,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                         });
                         setConfirmOpen(true);
                       }}
-                      className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-2 hover:bg-red-50 rounded-xl transition-opacity`}
+                      className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity shrink-0`}
                     >
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </button>
@@ -3408,9 +3372,9 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
     return (
       <div className="flex flex-col h-full">
-        <div className="p-4 lg:p-6 border-b">
+        <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
           <div className={`flex items-center ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
-            {!usePhoneLayout ? <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Items</h1> : null}
+            {!usePhoneLayout ? <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Items</h1> : null}
             <button
               onClick={() => {
                 setCurrentItem({
@@ -3427,52 +3391,56 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 });
                 setView('edit-item');
               }}
-              className={`flex items-center gap-2 px-4 py-2.5 ${activeTheme.accent} rounded-xl`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               Add Item
             </button>
           </div>
 
           {!usePhoneLayout ? (
-            <div className="relative mt-4 max-w-sm">
+            <div className="relative mt-3 max-w-sm">
               <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
               <input
                 type="text"
                 placeholder="Search items..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+                className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
               />
             </div>
           ) : null}
         </div>
 
-        <div className="flex-1 overflow-auto p-4 lg:p-6">
+        <div className="flex-1 overflow-auto px-3 pt-3 pb-24 lg:px-5 lg:pt-4">
           {filtered.length === 0 ? (
             <EmptyState icon={Package} title="No items yet" description="Add your products and services" theme={activeTheme} />
           ) : (
-            <div className={usePhoneLayout ? 'space-y-4' : 'space-y-3'}>
+            <div className="space-y-2">
               {filtered.map((item) => (
                 <div
                   key={item.id}
-                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] active:scale-[0.97]' : `${activeTheme.border} rounded-2xl p-4`} ${activeTheme.cardHover} group transition-all duration-200`}
+                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.98]' : `${activeTheme.border}`} rounded-xl ${activeTheme.cardHover} group transition-all duration-150`}
                 >
-                  <div className="flex justify-between items-start gap-3">
+                  <div className="flex items-center gap-2 px-3 py-2.5">
                     <div
                       onClick={() => {
                         setCurrentItem(item);
                         setView('edit-item');
                       }}
-                      className="flex-1 cursor-pointer"
+                      className="flex-1 min-w-0 cursor-pointer"
                     >
-                      <p className={`${usePhoneLayout ? 'text-[16px] font-bold' : 'font-semibold'} ${activeTheme.textPrimary}`}>{item.name}</p>
-                      {item.description && <p className={`text-sm ${activeTheme.textMuted}`}>{item.description}</p>}
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {item.unit && <span className={`text-xs ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-2 py-0.5 rounded`}>per {item.unit}</span>}
-                        {item.taxable && <span className="text-xs bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded">Taxable</span>}
+                      <div className="flex items-baseline gap-2">
+                        <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{item.name}</p>
+                        {item.description && (
+                          <p className={`text-xs truncate ${activeTheme.textMuted}`}>{item.description}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        {item.unit && <span className={`text-[10px] ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-1.5 py-0.5 rounded`}>per {item.unit}</span>}
+                        {item.taxable && <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded">Taxable</span>}
                         {item.discountAmount > 0 && (
-                          <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+                          <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
                             {item.discountType === 'percentage'
                               ? `${item.discountAmount}% off`
                               : `${formatCurrency(item.discountAmount)} off`}
@@ -3480,8 +3448,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.unitCost || 0)}</p>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <p className={`text-sm font-bold ${activeTheme.textPrimary}`}>{formatCurrency(item.unitCost || 0)}</p>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -3491,7 +3459,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           });
                           setConfirmOpen(true);
                         }}
-                        className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-2 hover:bg-red-50 rounded-xl transition-opacity`}
+                        className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
                       >
                         <Trash2 className="w-4 h-4 text-red-500" />
                       </button>
@@ -4731,7 +4699,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           case 'reports':
             return <ReportsPage />;
           case 'settings':
-            return <SettingsPage save={save} saveTheme={saveTheme} activeTheme={activeTheme} />;
+            return <SettingsPage save={save} saveTheme={saveTheme} activeTheme={activeTheme} uploadLogo={uploadLogo ?? null} />;
           default:
             return <InvoicesList />;
         }
@@ -4770,7 +4738,9 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
                     onMenu={() => setMobileDrawerOpen(true)}
-                    onSettings={() => selectAppTab('settings')}
+                    onSettings={() => isSettingsOnPhone ? selectAppTab('invoices') : selectAppTab('settings')}
+                    RightIcon={isSettingsOnPhone ? X : Settings}
+                    rightAriaLabel={isSettingsOnPhone ? 'Back to invoices' : 'Open settings'}
                   />
                 ) : null}
                 <div className="min-h-0 flex-1 overflow-hidden">
@@ -4794,20 +4764,20 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           onSelectTab={selectAppTab}
         />
       ) : null}
-      {showPhoneShell ? (
-        <InvoiceAppMobileBottomNav
-          visible={showPhoneShell}
+      {showPhoneShell && !isSettingsOnPhone ? (
+        <MobileBottomDock
+          visible
           activeTheme={activeTheme}
           navItems={mobileNavItems}
           activeTab={activeTab}
           onSelectTab={selectAppTab}
-          onOpenCreate={() => setMobileCreateOpen(true)}
+          onOpenQuickCreate={() => setIsQuickCreateOpen(true)}
         />
       ) : null}
-      {showPhoneShell ? (
-        <CreateSheet
-          open={mobileCreateOpen}
-          onClose={() => setMobileCreateOpen(false)}
+      {showPhoneShell && !isSettingsOnPhone ? (
+        <QuickCreateSheet
+          open={isQuickCreateOpen}
+          onClose={() => setIsQuickCreateOpen(false)}
           onNavigate={selectAppTab}
         />
       ) : null}
