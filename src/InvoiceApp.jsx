@@ -29,6 +29,12 @@ import {
 import FinancePage from './FinancePage';
 import StaffEventPage from './StaffEventPage';
 import ImportPdfModal from './ImportPdfModal';
+import {
+  getInvoiceAppShellLayout,
+  InvoiceAppDesktopSidebar,
+  InvoiceAppMobileBottomNav,
+  useDeviceLayout,
+} from './InvoiceAppLayout.jsx';
 import { generatePDF } from './pdfGenerator.jsx';
 import {
   isDocumentTaxEnabled,
@@ -775,7 +781,7 @@ const DonutChart = ({ data, centerLabel, centerValue, theme = THEMES.default }) 
 
   return (
     <div className="grid gap-4 md:grid-cols-[220px_1fr] md:items-center">
-      <div className="mx-auto relative h-[220px] w-[220px]">
+      <div className="mx-auto h-[220px] w-[220px]">
         <svg viewBox="0 0 220 220" className="h-full w-full -rotate-90">
           <circle cx="110" cy="110" r={radius} fill="none" stroke="rgba(148,163,184,0.15)" strokeWidth={strokeWidth} />
           {data.map((item) => {
@@ -799,7 +805,7 @@ const DonutChart = ({ data, centerLabel, centerValue, theme = THEMES.default }) 
             return element;
           })}
         </svg>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+        <div className="pointer-events-none -mt-[138px] flex h-[220px] flex-col items-center justify-center text-center">
           <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${theme.textMuted}`}>{centerLabel}</p>
           <p className={`mt-2 text-3xl font-bold ${theme.textPrimary}`}>{centerValue}</p>
         </div>
@@ -1341,7 +1347,10 @@ const SettingsPage = ({ save, saveTheme, activeTheme }) => {
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto p-5 lg:p-8 space-y-6">
+      <div
+        className="flex-1 overflow-auto p-5 lg:p-8 space-y-6"
+        style={{ paddingBottom: 'calc(7rem + env(safe-area-inset-bottom))' }}
+      >
         <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5 lg:p-6 space-y-5`}>
           <div className={`flex items-center gap-2 pb-2 ${activeTheme.border}`}>
             <Building2 className={`w-5 h-5 ${activeTheme.iconColor}`} />
@@ -1571,6 +1580,7 @@ const SettingsPage = ({ save, saveTheme, activeTheme }) => {
 
 export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null }) {
   const { data, save, saveTheme, loading } = useDatabase();
+  const deviceLayout = useDeviceLayout();
   const [activeTab, setActiveTab] = useState('invoices');
   const [view, setView] = useState('list');
   const [currentItem, setCurrentItem] = useState(null);
@@ -1672,8 +1682,17 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     { id: 'staff-events', icon: CalendarDays, label: 'Staff & Events' },
     { id: 'reports', icon: BarChart3, label: 'Reports' },
   ];
+  const mobileNavItems = [...navItems, { id: 'settings', icon: Settings, label: 'Settings' }];
 
   const activeTheme = THEMES[data.settings?.appTheme] || THEMES.default;
+  const {
+    usePhoneLayout,
+    useTabletLayout,
+    rootOverflowClass,
+    frameStyle,
+    mainContentPaddingClass,
+    panelShellClass,
+  } = getInvoiceAppShellLayout({ activeTab, deviceLayout });
 
   // ============================================================================
   // INVOICES
@@ -2089,7 +2108,11 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
               <span className={`text-xs ${activeTheme.iconColor}`}>Tap to edit</span>
             </div>
-            <div className={`hidden md:grid grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] gap-4 px-4 py-3 border-b ${activeTheme.border} ${activeTheme.tableHeaderBg}`}>
+            <div
+              className={`${
+                usePhoneLayout ? 'hidden' : 'grid'
+              } grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] gap-4 px-4 py-3 border-b ${activeTheme.border} ${activeTheme.tableHeaderBg}`}
+            >
               <span className={`text-xs font-semibold uppercase tracking-wide ${activeTheme.textMuted}`}>Description</span>
               <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Discount</span>
               <span className={`text-xs font-semibold uppercase tracking-wide text-center ${activeTheme.textMuted}`}>Qty</span>
@@ -2106,10 +2129,14 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     setItemModalOpen(true);
                   }}
                 >
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] md:items-start">
+                  <div
+                    className={`grid gap-3 ${
+                      usePhoneLayout ? '' : 'grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] items-start'
+                    }`}
+                  >
                     <div className="min-w-0">
                       <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
-                      <div className={`md:hidden text-xs ${activeTheme.textMuted} mt-1 space-y-1`}>
+                      <div className={`${usePhoneLayout ? 'block' : 'hidden'} text-xs ${activeTheme.textMuted} mt-1 space-y-1`}>
                         <p>{`${item.qty || 0} x ${formatCurrency(item.rate || 0)}`}</p>
                         {item.discountAmount > 0 && (
                           <p>
@@ -2121,16 +2148,20 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                       </div>
                       {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1 whitespace-pre-line`}>{item.notes}</p>}
                     </div>
-                    <p className={`hidden md:block text-sm text-right ${activeTheme.textPrimary}`}>
+                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-right ${activeTheme.textPrimary}`}>
                       {item.discountAmount > 0
                         ? item.discountType === 'percentage'
                           ? `${item.discountAmount}%`
                           : formatCurrency(item.discountAmount)
                         : '—'}
                     </p>
-                    <p className={`hidden md:block text-sm text-center ${activeTheme.textPrimary}`}>{item.qty || 0}</p>
-                    <p className={`hidden md:block text-sm text-right ${activeTheme.textPrimary}`}>{formatCurrency(item.rate || 0)}</p>
-                    <p className={`font-semibold md:text-right ${activeTheme.textPrimary}`}>
+                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-center ${activeTheme.textPrimary}`}>
+                      {item.qty || 0}
+                    </p>
+                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-right ${activeTheme.textPrimary}`}>
+                      {formatCurrency(item.rate || 0)}
+                    </p>
+                    <p className={`font-semibold ${usePhoneLayout ? '' : 'text-right'} ${activeTheme.textPrimary}`}>
                       {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: totals.taxEnabled }).total)}
                     </p>
                   </div>
@@ -2742,7 +2773,11 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
               <span className={`text-xs ${activeTheme.iconColor}`}>Tap to edit</span>
             </div>
-            <div className={`hidden md:grid grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] gap-4 px-4 py-3 border-b ${activeTheme.border} ${activeTheme.tableHeaderBg}`}>
+            <div
+              className={`${
+                usePhoneLayout ? 'hidden' : 'grid'
+              } grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] gap-4 px-4 py-3 border-b ${activeTheme.border} ${activeTheme.tableHeaderBg}`}
+            >
               <span className={`text-xs font-semibold uppercase tracking-wide ${activeTheme.textMuted}`}>Description</span>
               <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Discount</span>
               <span className={`text-xs font-semibold uppercase tracking-wide text-center ${activeTheme.textMuted}`}>Qty</span>
@@ -2759,10 +2794,14 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     setItemModalOpen(true);
                   }}
                 >
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] md:items-start">
+                  <div
+                    className={`grid gap-3 ${
+                      usePhoneLayout ? '' : 'grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] items-start'
+                    }`}
+                  >
                     <div className="min-w-0">
                       <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
-                      <div className={`md:hidden text-xs ${activeTheme.textMuted} mt-1 space-y-1`}>
+                      <div className={`${usePhoneLayout ? 'block' : 'hidden'} text-xs ${activeTheme.textMuted} mt-1 space-y-1`}>
                         <p>{`${item.qty || 0} x ${formatCurrency(item.rate || 0)}`}</p>
                         {item.discountAmount > 0 && (
                           <p>
@@ -2774,16 +2813,20 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                       </div>
                       {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1 whitespace-pre-line`}>{item.notes}</p>}
                     </div>
-                    <p className={`hidden md:block text-sm text-right ${activeTheme.textPrimary}`}>
+                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-right ${activeTheme.textPrimary}`}>
                       {item.discountAmount > 0
                         ? item.discountType === 'percentage'
                           ? `${item.discountAmount}%`
                           : formatCurrency(item.discountAmount)
                         : '—'}
                     </p>
-                    <p className={`hidden md:block text-sm text-center ${activeTheme.textPrimary}`}>{item.qty || 0}</p>
-                    <p className={`hidden md:block text-sm text-right ${activeTheme.textPrimary}`}>{formatCurrency(item.rate || 0)}</p>
-                    <p className={`font-semibold md:text-right ${activeTheme.textPrimary}`}>
+                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-center ${activeTheme.textPrimary}`}>
+                      {item.qty || 0}
+                    </p>
+                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-right ${activeTheme.textPrimary}`}>
+                      {formatCurrency(item.rate || 0)}
+                    </p>
+                    <p className={`font-semibold ${usePhoneLayout ? '' : 'text-right'} ${activeTheme.textPrimary}`}>
                       {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: totals.taxEnabled }).total)}
                     </p>
                   </div>
@@ -4568,106 +4611,31 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     }
   };
 
-  const DesktopSidebar = () => (
-    <aside className={`hidden lg:flex flex-col w-72 ${activeTheme.sidebarBg} border-r ${activeTheme.border} h-screen sticky top-0`}>
-      <div className="px-4 pt-5 pb-4">
-        {data.settings?.logo ? (
-          <div className="flex flex-col items-center gap-3 text-center">
-            <div className="w-full rounded-2xl overflow-hidden flex-shrink-0">
-              <img src={data.settings.logo} alt="Logo" className="w-full h-auto object-contain" />
-            </div>
-            <div className="min-w-0 w-full">
-              <h1 className={`font-bold ${activeTheme.sidebarText} text-sm leading-tight truncate`}>
-                {data.settings?.businessName || 'Invoice App'}
-              </h1>
-              <p className={`text-xs mt-0.5 ${activeTheme.sidebarTextMuted}`}>Dashboard</p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-3 text-center">
-            <div className={`w-28 h-28 ${activeTheme.accent} rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg`}>
-              <FileText className="w-12 h-12 text-white" />
-            </div>
-            <div className="min-w-0 w-full">
-              <h1 className={`font-bold ${activeTheme.sidebarText} text-sm leading-tight truncate`}>
-                {data.settings?.businessName || 'Invoice App'}
-              </h1>
-              <p className={`text-xs mt-0.5 ${activeTheme.sidebarTextMuted}`}>Dashboard</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => {
-              setActiveTab(item.id);
-              setView('list');
-              setSearchTerm('');
-            }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-              activeTab === item.id ? activeTheme.sidebarActive : activeTheme.sidebarInactive
-            }`}
-          >
-            <item.icon className="w-5 h-5" />
-            {item.label}
-          </button>
-        ))}
-      </nav>
-
-      <div className={`p-4 border-t ${activeTheme.border}`}>
-        <button
-          onClick={() => {
-            setActiveTab('settings');
-            setView('list');
-          }}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium ${
-            activeTab === 'settings' ? activeTheme.sidebarActive : activeTheme.sidebarInactive
-          }`}
-        >
-          <Settings className="w-5 h-5" />
-          Settings
-        </button>
-      </div>
-    </aside>
-  );
-
-  const MobileBottomNav = () => (
-    <div className={`lg:hidden fixed bottom-0 left-0 right-0 ${activeTheme.mobileNavBg} z-40`}>
-      <div className="flex items-center justify-around py-2 px-2">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => {
-              setActiveTab(item.id);
-              setView('list');
-              setSearchTerm('');
-            }}
-            className={`flex flex-col items-center py-2 px-3 rounded-xl ${
-              activeTab === item.id ? activeTheme.mobileNavActive : activeTheme.mobileNavInactive
-            }`}
-          >
-            <item.icon className="w-5 h-5" />
-            <span className="text-xs mt-1 font-medium">{item.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
   return (
-    <div className={`h-screen overflow-hidden ${activeTheme.appBg}`} style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}>
-      <div className="flex h-full">
-        <DesktopSidebar />
+    <div
+      className={`h-screen ${rootOverflowClass} ${activeTheme.appBg}`}
+      style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
+    >
+      <div className="flex h-full" style={frameStyle}>
+        <InvoiceAppDesktopSidebar
+          visible={!usePhoneLayout}
+          isTablet={useTabletLayout}
+          activeTheme={activeTheme}
+          businessName={data.settings?.businessName}
+          logo={data.settings?.logo}
+          navItems={navItems}
+          activeTab={activeTab}
+          onSelectTab={(tab) => {
+            setActiveTab(tab);
+            setView('list');
+            setSearchTerm('');
+          }}
+        />
         <main className="flex flex-1 flex-col overflow-hidden">
           {activeTab === 'settings' && cloudToolbarProps && renderCloudToolbar ? renderCloudToolbar(cloudToolbarProps) : null}
-          <div className={`min-h-0 flex-1 ${activeTab === 'settings' ? 'p-0 md:p-4 xl:p-6' : 'p-2 md:p-6 xl:p-8'}`}>
+          <div className={`min-h-0 flex-1 ${mainContentPaddingClass}`}>
             <div
-              className={`${activeTheme.panelBg} shadow-sm ${activeTheme.border} h-full overflow-hidden ${
-                activeTab === 'settings' ? 'w-full rounded-none md:rounded-2xl' : 'max-w-[90vw] mx-auto rounded-2xl'
-              }`}
+              className={`${activeTheme.panelBg} shadow-sm ${activeTheme.border} h-full overflow-hidden ${panelShellClass}`}
               style={activeTab === 'settings' ? undefined : { maxWidth: '1600px' }}
             >
               {renderContent()}
@@ -4675,7 +4643,21 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           </div>
         </main>
       </div>
-      {view === 'list' && activeTab !== 'settings' && <MobileBottomNav />}
+      {view === 'list' && (
+        <InvoiceAppMobileBottomNav
+          visible={usePhoneLayout}
+          activeTheme={activeTheme}
+          businessName={data.settings?.businessName}
+          logo={data.settings?.logo}
+          navItems={mobileNavItems}
+          activeTab={activeTab}
+          onSelectTab={(tab) => {
+            setActiveTab(tab);
+            setView('list');
+            setSearchTerm('');
+          }}
+        />
+      )}
       {/* Confirm Modal */}
       {confirmOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">

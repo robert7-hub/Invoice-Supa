@@ -949,7 +949,6 @@ create table if not exists public.staff (
   email text not null default '',
   phone text not null default '',
   roles text[] not null default '{}',
-  availability text not null default 'available',
   rate numeric(12,2) not null default 0,
   notes text not null default '',
   active boolean not null default true,

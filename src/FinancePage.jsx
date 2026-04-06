@@ -1355,10 +1355,8 @@ export default function FinancePage({ data, save, theme }) {
         <div className="flex gap-1 overflow-x-auto pb-1 -mb-1">
           {subTabs.map(tab => (
             <button key={tab.id} onClick={() => setSubTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
-                subTab === tab.id
-                  ? `${theme.accent} shadow-md ring-1 ring-black/10`
-                  : `${theme.textMuted} ${theme.buttonHover}`
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+                subTab === tab.id ? theme.sidebarActive : `${theme.textSecondary} ${theme.buttonHover}`
               }`}>
               <tab.icon size={16} />
               {tab.label}
