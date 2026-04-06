@@ -95,22 +95,22 @@ export const getInvoiceAppShellLayout = ({ activeTab, deviceLayout }) => {
     mainContentPaddingClass:
       activeTab === 'settings'
         ? usePhoneLayout
-          ? 'p-0'
+          ? 'px-3 pt-3 pb-32'
           : useTabletLayout
             ? 'p-4'
             : 'p-4 xl:p-6'
         : usePhoneLayout
-          ? 'p-2 pb-28'
+          ? 'px-3 pt-3 pb-32'
           : useTabletLayout
             ? 'p-4'
             : 'p-2 md:p-6 xl:p-8',
     panelShellClass:
       activeTab === 'settings'
         ? usePhoneLayout
-          ? 'w-full rounded-none'
+          ? 'invoice-phone-panel w-full mx-auto rounded-[28px]'
           : 'w-full rounded-2xl'
         : usePhoneLayout
-          ? 'w-full mx-auto rounded-[28px] shadow-[0_20px_50px_rgba(15,23,42,0.16)]'
+          ? 'invoice-phone-panel w-full mx-auto rounded-[28px]'
           : 'w-full mx-auto rounded-2xl',
   };
 };
@@ -352,7 +352,7 @@ export const InvoiceAppMobileBottomNav = ({
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
-          className={`absolute left-5 top-0 flex h-12 items-center gap-2 rounded-full border px-4 text-sm font-semibold shadow-lg backdrop-blur-xl transition-transform active:scale-[0.98] ${activeTheme.border} ${activeTheme.cardBg} ${activeTheme.textPrimary}`}
+          className={`absolute left-5 top-0 flex h-12 items-center gap-2 rounded-full border border-white/40 bg-white/80 px-4 text-sm font-semibold text-zinc-900 shadow-[0_10px_30px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-all hover:scale-[1.01] active:scale-[0.98]`}
           style={{ transform: 'translateY(-38%)' }}
           aria-label="Open navigation menu"
         >
@@ -361,20 +361,20 @@ export const InvoiceAppMobileBottomNav = ({
         </button>
 
         <div
-          className={`rounded-[30px] border ${activeTheme.border} ${activeTheme.cardBg} shadow-[0_22px_60px_rgba(15,23,42,0.22)] backdrop-blur-xl`}
+          className="rounded-t-[30px] rounded-b-[26px] bg-white/80 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-xl"
         >
           <div className="flex items-center justify-between px-4 pb-1 pt-4">
             <div className="min-w-0">
-              <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${activeTheme.textMuted}`}>Quick nav</p>
-              <p className={`truncate text-sm font-semibold ${activeTheme.textPrimary}`}>{activeItem?.label || 'Dashboard'}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Quick nav</p>
+              <p className="truncate text-sm font-semibold text-zinc-950">{activeItem?.label || 'Dashboard'}</p>
             </div>
             <button
               type="button"
               onClick={() => onSelectTab('settings')}
-              className={`rounded-2xl border p-3 transition-all ${
+              className={`rounded-2xl p-3 transition-all ${
                 activeTab === 'settings'
-                  ? `${activeTheme.mobileNavActive} ${activeTheme.border}`
-                  : `${activeTheme.border} ${activeTheme.buttonHover} ${activeTheme.textPrimary}`
+                  ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
+                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
               }`}
               aria-label="Open settings"
             >
@@ -391,8 +391,8 @@ export const InvoiceAppMobileBottomNav = ({
                   onClick={() => onSelectTab(item.id)}
                   className={`flex min-w-[88px] flex-none flex-col items-center gap-1.5 rounded-[22px] px-4 py-3 text-[11px] font-semibold transition-all ${
                     activeTab === item.id
-                      ? `${activeTheme.mobileNavActive} shadow-sm`
-                      : `${activeTheme.mobileNavInactive} ${activeTheme.buttonHover}`
+                      ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
+                      : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
                   }`}
                 >
                   <item.icon className="h-5 w-5" />

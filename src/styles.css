@@ -9,7 +9,7 @@ html, body, #root {
 body {
   margin: 0;
   font-family: Inter, Aptos, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: rgb(241 245 249);
+  background: linear-gradient(to bottom, rgb(241 245 249), rgb(226 232 240));
 }
 
 * {
@@ -23,4 +23,66 @@ body {
 
 .mobile-nav-scroll::-webkit-scrollbar {
   display: none;
+}
+
+.invoice-phone-stage {
+  padding: 0.75rem;
+}
+
+.invoice-phone-frame {
+  justify-content: center;
+}
+
+.invoice-phone-panel {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.45) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12) !important;
+  backdrop-filter: blur(18px);
+}
+
+.invoice-phone-panel > .flex.flex-col.h-full > .border-b:first-child {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 1px 0 rgba(148, 163, 184, 0.12), 0 6px 18px rgba(15, 23, 42, 0.05);
+}
+
+.invoice-phone-panel .flex-1.overflow-auto.p-4 {
+  padding: 1.25rem !important;
+}
+
+.invoice-phone-panel .rounded-2xl.border:not(.border-dashed),
+.invoice-phone-panel .rounded-\[24px\].border:not(.border-dashed),
+.invoice-phone-panel .shadow-sm {
+  border-color: transparent !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.invoice-phone-panel .rounded-2xl.border:not(.border-dashed):active,
+.invoice-phone-panel .rounded-\[24px\].border:not(.border-dashed):active,
+.invoice-phone-panel .shadow-sm:active {
+  transform: scale(0.985);
+}
+
+.invoice-phone-panel .rounded-2xl.border:not(.border-dashed):hover,
+.invoice-phone-panel .rounded-\[24px\].border:not(.border-dashed):hover,
+.invoice-phone-panel .shadow-sm:hover {
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
+}
+
+.invoice-phone-panel .rounded-2xl.border.p-4,
+.invoice-phone-panel .rounded-\[24px\].border.p-4,
+.invoice-phone-panel .rounded-2xl.shadow-sm.p-4 {
+  padding: 1.25rem !important;
+}
+
+.invoice-phone-panel .space-y-3 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem !important;
+}
+
+.invoice-phone-panel .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1.25rem !important;
 }

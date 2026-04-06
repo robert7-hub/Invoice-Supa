@@ -689,17 +689,17 @@ const ChartEmptyState = ({ title = 'No data available', description = 'Adjust yo
 );
 
 const AnalyticsCard = ({ title, subtitle, children, theme = THEMES.default, className = '' }) => (
-  <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden ${className}`}>
-    <div className={`p-4 border-b ${theme.border}`}>
-      <h3 className={`text-base font-semibold ${theme.textPrimary}`}>{title}</h3>
+  <div className={`${theme.cardBg} border border-transparent rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden transition hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)] ${className}`}>
+    <div className={`p-5 border-b ${theme.border}`}>
+      <h3 className={`text-[16px] font-bold ${theme.textPrimary}`}>{title}</h3>
       {subtitle ? <p className={`mt-1 text-sm ${theme.textMuted}`}>{subtitle}</p> : null}
     </div>
-    <div className="p-4">{children}</div>
+    <div className="p-5">{children}</div>
   </div>
 );
 
 const SummaryMetricCard = ({ title, value, detail, accentClass, theme = THEMES.default }) => (
-  <div className={`${theme.cardBg} border ${theme.border} rounded-2xl p-4 shadow-sm`}>
+  <div className={`${theme.cardBg} border border-transparent rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)]`}>
     <div className="flex items-start justify-between gap-3">
       <div>
         <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${theme.textMuted}`}>{title}</p>
@@ -960,7 +960,7 @@ const DocumentTotalsEditor = ({
   const taxEnabled = isDocumentTaxEnabled(form);
 
   return (
-    <div className={`${theme.cardBg} border ${theme.border} rounded-2xl p-4 space-y-4`}>
+    <div className={`${theme.cardBg} border border-transparent rounded-[24px] p-5 space-y-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)]`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className={`font-semibold ${theme.textPrimary}`}>Totals</p>
@@ -1844,7 +1844,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               }
             />
           ) : (
-            <div className="space-y-3">
+            <div className={usePhoneLayout ? 'space-y-4' : 'space-y-3'}>
               {filtered.map((invoice) => {
                 const client = getClient(invoice.clientId);
                 const total = calculateDocumentTotal(invoice, data.settings?.taxRate || 15);
@@ -1852,7 +1852,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 return (
                   <div
                     key={invoice.id}
-                    className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 ${activeTheme.cardHover} group transition-all duration-200 ${
+                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] active:scale-[0.97]' : `${activeTheme.border} rounded-2xl p-4`} ${activeTheme.cardHover} group transition-all duration-200 ${
                       isLongPressed ? 'bg-blue-50 border-blue-200 scale-105' : ''
                     }`}
                     onMouseDown={() => handleMouseDown(invoice)}
@@ -1871,7 +1871,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                         }}
                         className="flex-1 cursor-pointer"
                       >
-                        <p className={`font-semibold ${activeTheme.textPrimary}`}>{invoice.number}</p>
+                        <p className={`${usePhoneLayout ? 'text-[16px] font-bold' : 'font-semibold'} ${activeTheme.textPrimary}`}>{invoice.number}</p>
                         <p className={`text-sm ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
                         <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{formatDate(invoice.date)}</p>
                         {isLongPressed && (
@@ -1901,7 +1901,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           }}
                           onMouseDown={(e) => e.stopPropagation()}
                           onTouchStart={(e) => e.stopPropagation()}
-                          className={`p-2 ${activeTheme.buttonHover} rounded-xl opacity-0 group-hover:opacity-100 transition-opacity`}
+                          className={`p-2 ${activeTheme.buttonHover} rounded-xl ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
                         >
                           <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
                         </button>
@@ -1916,7 +1916,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                             });
                             setConfirmOpen(true);
                           }}
-                          className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 rounded-xl transition-opacity"
+                          className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-2 hover:bg-red-50 rounded-xl transition-opacity`}
                         >
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </button>
@@ -2519,7 +2519,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           {filtered.length === 0 ? (
             <EmptyState icon={FileSignature} title="No estimates yet" description="Create your first estimate" theme={activeTheme} />
           ) : (
-            <div className="space-y-3">
+            <div className={usePhoneLayout ? 'space-y-4' : 'space-y-3'}>
               {filtered.map((estimate) => {
                 const client = getClient(estimate.clientId);
                 const total = calculateDocumentTotal(estimate, data.settings?.taxRate || 15);
@@ -2527,7 +2527,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 return (
                   <div
                     key={estimate.id}
-                    className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 ${activeTheme.cardHover} group transition-all duration-200 ${
+                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] active:scale-[0.97]' : `${activeTheme.border} rounded-2xl p-4`} ${activeTheme.cardHover} group transition-all duration-200 ${
                       isLongPressed ? 'bg-blue-50 border-blue-200 scale-105' : ''
                     }`}
                     onMouseDown={() => handleMouseDown(estimate)}
@@ -2546,7 +2546,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                         }}
                         className="flex-1 cursor-pointer"
                       >
-                        <p className={`font-semibold ${activeTheme.textPrimary}`}>{estimate.number}</p>
+                        <p className={`${usePhoneLayout ? 'text-[16px] font-bold' : 'font-semibold'} ${activeTheme.textPrimary}`}>{estimate.number}</p>
                         <p className={`text-sm ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
                         <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{formatDate(estimate.date)}</p>
                         {isLongPressed && (
@@ -2576,7 +2576,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           }}
                           onMouseDown={(e) => e.stopPropagation()}
                           onTouchStart={(e) => e.stopPropagation()}
-                          className={`p-2 ${activeTheme.buttonHover} rounded-xl opacity-0 group-hover:opacity-100 transition-opacity`}
+                          className={`p-2 ${activeTheme.buttonHover} rounded-xl ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
                         >
                           <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
                         </button>
@@ -2591,7 +2591,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                             });
                             setConfirmOpen(true);
                           }}
-                          className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 rounded-xl transition-opacity"
+                          className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-2 hover:bg-red-50 rounded-xl transition-opacity`}
                         >
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </button>
@@ -3112,11 +3112,11 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           {filtered.length === 0 ? (
             <EmptyState icon={Users} title="No clients yet" description="Add your first client" theme={activeTheme} />
           ) : (
-            <div className="space-y-3">
+            <div className={usePhoneLayout ? 'space-y-4' : 'space-y-3'}>
               {filtered.map((client) => (
                 <div
                   key={client.id}
-                  className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 ${activeTheme.cardHover} group transition-all duration-200`}
+                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] active:scale-[0.97]' : `${activeTheme.border} rounded-2xl p-4`} ${activeTheme.cardHover} group transition-all duration-200`}
                 >
                   <div className="flex justify-between items-start gap-3">
                     <div
@@ -3126,7 +3126,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                       }}
                       className="flex-1 cursor-pointer"
                     >
-                      <p className={`font-semibold ${activeTheme.textPrimary}`}>{client.name}</p>
+                      <p className={`${usePhoneLayout ? 'text-[16px] font-bold' : 'font-semibold'} ${activeTheme.textPrimary}`}>{client.name}</p>
                       {client.email && <p className={`text-sm ${activeTheme.textMuted}`}>{client.email}</p>}
                       {client.phone && <p className={`text-sm ${activeTheme.textMuted}`}>{client.phone}</p>}
                     </div>
@@ -3139,7 +3139,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                         });
                         setConfirmOpen(true);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 rounded-xl transition-opacity"
+                      className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-2 hover:bg-red-50 rounded-xl transition-opacity`}
                     >
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </button>
@@ -3353,11 +3353,11 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           {filtered.length === 0 ? (
             <EmptyState icon={Package} title="No items yet" description="Add your products and services" theme={activeTheme} />
           ) : (
-            <div className="space-y-3">
+            <div className={usePhoneLayout ? 'space-y-4' : 'space-y-3'}>
               {filtered.map((item) => (
                 <div
                   key={item.id}
-                  className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 ${activeTheme.cardHover} group transition-all duration-200`}
+                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] active:scale-[0.97]' : `${activeTheme.border} rounded-2xl p-4`} ${activeTheme.cardHover} group transition-all duration-200`}
                 >
                   <div className="flex justify-between items-start gap-3">
                     <div
@@ -3367,7 +3367,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                       }}
                       className="flex-1 cursor-pointer"
                     >
-                      <p className={`font-semibold ${activeTheme.textPrimary}`}>{item.name}</p>
+                      <p className={`${usePhoneLayout ? 'text-[16px] font-bold' : 'font-semibold'} ${activeTheme.textPrimary}`}>{item.name}</p>
                       {item.description && <p className={`text-sm ${activeTheme.textMuted}`}>{item.description}</p>}
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         {item.unit && <span className={`text-xs ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-2 py-0.5 rounded`}>per {item.unit}</span>}
@@ -3392,7 +3392,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           });
                           setConfirmOpen(true);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 rounded-xl transition-opacity"
+                        className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-2 hover:bg-red-50 rounded-xl transition-opacity`}
                       >
                         <Trash2 className="w-4 h-4 text-red-500" />
                       </button>
@@ -3937,27 +3937,51 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
         <div className="p-4 lg:p-6 border-b">
           <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Reports</h1>
           <p className={`text-sm ${activeTheme.textMuted}`}>Detailed business performance overview</p>
-          <div className={`mt-4 inline-flex p-1 rounded-2xl border ${activeTheme.border} ${activeTheme.subtleBg}`}>
+          <div
+            className={`mt-4 inline-flex rounded-2xl ${
+              usePhoneLayout
+                ? 'bg-white/80 p-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur-xl'
+                : `border ${activeTheme.border} ${activeTheme.subtleBg} p-1`
+            }`}
+          >
             <button
               onClick={() => setReportView('overview')}
-              className={`px-4 py-2 text-sm rounded-xl transition-colors ${
-                reportView === 'overview' ? activeTheme.accent : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
+              className={`px-4 py-2 text-sm rounded-xl transition-all ${
+                reportView === 'overview'
+                  ? usePhoneLayout
+                    ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
+                    : activeTheme.accent
+                  : usePhoneLayout
+                    ? 'bg-zinc-100 text-zinc-600'
+                    : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
               }`}
             >
               Reports Overview
             </button>
             <button
               onClick={() => setReportView('business')}
-              className={`px-4 py-2 text-sm rounded-xl transition-colors ${
-                reportView === 'business' ? activeTheme.accent : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
+              className={`px-4 py-2 text-sm rounded-xl transition-all ${
+                reportView === 'business'
+                  ? usePhoneLayout
+                    ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
+                    : activeTheme.accent
+                  : usePhoneLayout
+                    ? 'bg-zinc-100 text-zinc-600'
+                    : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
               }`}
             >
               Business View
             </button>
             <button
               onClick={() => setReportView('analytics')}
-              className={`px-4 py-2 text-sm rounded-xl transition-colors ${
-                reportView === 'analytics' ? activeTheme.accent : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
+              className={`px-4 py-2 text-sm rounded-xl transition-all ${
+                reportView === 'analytics'
+                  ? usePhoneLayout
+                    ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
+                    : activeTheme.accent
+                  : usePhoneLayout
+                    ? 'bg-zinc-100 text-zinc-600'
+                    : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
               }`}
             >
               Analytics
@@ -4613,10 +4637,10 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
   return (
     <div
-      className={`h-screen ${rootOverflowClass} ${activeTheme.appBg}`}
+      className={`h-screen ${rootOverflowClass} ${usePhoneLayout ? 'invoice-phone-stage bg-gradient-to-b from-slate-100 to-slate-200' : activeTheme.appBg}`}
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
-      <div className="flex h-full" style={frameStyle}>
+      <div className={`flex h-full ${usePhoneLayout ? 'invoice-phone-frame items-start' : ''}`} style={frameStyle}>
         <InvoiceAppDesktopSidebar
           visible={!usePhoneLayout}
           isTablet={useTabletLayout}
