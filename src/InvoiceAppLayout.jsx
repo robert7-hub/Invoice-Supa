@@ -139,26 +139,26 @@ export const getInvoiceAppShellLayout = ({ activeTab, deviceLayout }) => {
 };
 
 const InvoiceAppMobileBrandBlock = ({ businessName, businessEmail, logo, subtitle = 'Dashboard' }) => (
-  <div className="overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(24,24,27,0.96),rgba(9,9,11,0.98))] px-5 py-6 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-    <div className="flex flex-col items-center gap-4">
+  <div className="overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(24,24,27,0.96),rgba(9,9,11,0.98))] px-4 py-1 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <div className="flex flex-col items-center gap-2">
       {logo ? (
-        <div className="flex w-full items-center justify-center rounded-[24px] bg-white/[0.04] px-4 py-4">
-          <img src={logo} alt="Business logo" className="max-h-20 w-auto object-contain" />
+        <div className="flex w-full items-center justify-center rounded-[20px] bg-white/[0.04] px-3 py-2">
+          <img src={logo} alt="Business logo" className="max-h-14 w-auto object-contain" />
         </div>
       ) : (
-        <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[radial-gradient(circle_at_30%_30%,rgba(239,68,68,0.92),rgba(168,85,247,0.8)_55%,rgba(15,23,42,0.92))] shadow-[0_18px_40px_rgba(0,0,0,0.35)]">
-          <span className="text-[24px] font-black tracking-[0.1em] text-white">
+        <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[radial-gradient(circle_at_30%_30%,rgba(239,68,68,0.92),rgba(168,85,247,0.8)_55%,rgba(15,23,42,0.92))] shadow-[0_14px_28px_rgba(0,0,0,0.32)]">
+          <span className="text-[20px] font-black tracking-[0.08em] text-white">
             {getBusinessMonogram(businessName)}
           </span>
         </div>
       )}
-      <div className="min-w-0 space-y-1">
-        <p className="truncate text-lg font-bold uppercase tracking-[0.04em] text-white">
+      <div className="min-w-0 space-y-0.5">
+        <p className="truncate text-[12px] font-bold uppercase tracking-[0.18em] text-white/92">
           {businessName || 'Invoice App'}
         </p>
-        <p className="truncate text-sm text-zinc-400">{businessEmail || subtitle}</p>
+        <p className="truncate text-[13px] text-zinc-400">{businessEmail || subtitle}</p>
         {businessEmail ? (
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/38">{subtitle}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-white/38">{subtitle}</p>
         ) : null}
       </div>
     </div>
@@ -233,23 +233,23 @@ export const InvoiceAppMobileDrawer = ({
         aria-label="Close navigation menu"
       />
       <aside
-        className={`absolute left-0 top-0 flex h-full w-[82%] max-w-[320px] flex-col border-r border-white/8 bg-[#050505] text-white shadow-[0_28px_80px_rgba(0,0,0,0.46)] transition-transform duration-300 ${
+        className={`absolute left-0 top-0 flex h-full w-[84%] max-w-[300px] flex-col border-r border-white/8 bg-[#050505] text-white shadow-[0_28px_80px_rgba(0,0,0,0.46)] transition-transform duration-300 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
+        <div className="flex items-center justify-between px-4 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-white/42">Menu</p>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-white/85 transition hover:bg-white/10"
+            className="rounded-full p-1.5 text-white/85 transition hover:bg-white/10"
             aria-label="Close menu"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="px-4 pt-2">
+        <div className="px-4 pb-3 pt-1">
           <InvoiceAppMobileBrandBlock
             businessName={businessName}
             businessEmail={businessEmail}
@@ -258,8 +258,8 @@ export const InvoiceAppMobileDrawer = ({
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 pb-4 pt-6">
-          <div className="space-y-2">
+        <div className="flex-1 overflow-y-auto px-2 pb-3 pt-1">
+          <div className="space-y-1">
             {navItems
               .filter((item) => item.id !== 'settings')
               .map((item) => (
@@ -270,7 +270,7 @@ export const InvoiceAppMobileDrawer = ({
                     onSelectTab(item.id);
                     onClose();
                   }}
-                  className={`flex w-full items-center gap-3 rounded-[20px] px-4 py-3.5 text-left text-[15px] font-semibold transition-all ${
+                  className={`flex w-full items-center gap-3 rounded-[20px] px-4 py-2.5 text-left text-sm font-semibold transition-all ${
                     activeTab === item.id
                       ? 'bg-zinc-800 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_14px_30px_rgba(0,0,0,0.22)]'
                       : 'text-zinc-300 hover:bg-white/5'
@@ -283,14 +283,14 @@ export const InvoiceAppMobileDrawer = ({
           </div>
         </div>
 
-        <div className="border-t border-white/8 px-2 py-4">
+        <div className="border-t border-white/8 px-2 py-3">
           <button
             type="button"
             onClick={() => {
               onSelectTab('settings');
               onClose();
             }}
-            className={`flex w-full items-center gap-3 rounded-[20px] px-4 py-3.5 text-left text-[15px] font-semibold transition-all ${
+            className={`flex w-full items-center gap-3 rounded-[20px] px-4 py-2.5 text-left text-sm font-semibold transition-all ${
               activeTab === 'settings'
                 ? 'bg-zinc-800 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_14px_30px_rgba(0,0,0,0.22)]'
                 : 'text-zinc-300 hover:bg-white/5'
