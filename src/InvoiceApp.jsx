@@ -29,7 +29,7 @@ import {
 import FinancePage from './FinancePage';
 import StaffEventPage from './StaffEventPage';
 import ImportPdfModal from './ImportPdfModal';
-import { generatePDF } from './pdfGenerator';
+import { generatePDF } from './pdfGenerator.jsx';
 import {
   isDocumentTaxEnabled,
   calculateItemTotal,
@@ -775,7 +775,7 @@ const DonutChart = ({ data, centerLabel, centerValue, theme = THEMES.default }) 
 
   return (
     <div className="grid gap-4 md:grid-cols-[220px_1fr] md:items-center">
-      <div className="mx-auto h-[220px] w-[220px]">
+      <div className="mx-auto relative h-[220px] w-[220px]">
         <svg viewBox="0 0 220 220" className="h-full w-full -rotate-90">
           <circle cx="110" cy="110" r={radius} fill="none" stroke="rgba(148,163,184,0.15)" strokeWidth={strokeWidth} />
           {data.map((item) => {
@@ -799,7 +799,7 @@ const DonutChart = ({ data, centerLabel, centerValue, theme = THEMES.default }) 
             return element;
           })}
         </svg>
-        <div className="pointer-events-none -mt-[138px] flex h-[220px] flex-col items-center justify-center text-center">
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
           <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${theme.textMuted}`}>{centerLabel}</p>
           <p className={`mt-2 text-3xl font-bold ${theme.textPrimary}`}>{centerValue}</p>
         </div>
@@ -1610,9 +1610,10 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
   const downloadInvoicePDF = async (invoice) => {
     try {
       const rawSettings = localStorage.getItem('invoiceapp_settings');
-      const mergedSettings = rawSettings
-        ? { ...(data.settings || {}), ...JSON.parse(rawSettings) }
-        : data.settings;
+      const parsed = rawSettings ? JSON.parse(rawSettings) : {};
+      // Remove null values so they don't overwrite real data (e.g. logo from Supabase)
+      Object.keys(parsed).forEach(k => { if (parsed[k] == null) delete parsed[k]; });
+      const mergedSettings = { ...(data.settings || {}), ...parsed };
 
       const client = data.clients.find((c) => c.id === invoice.clientId);
       await generatePDF('invoice', invoice, client, mergedSettings);
