@@ -30,9 +30,12 @@ import FinancePage from './FinancePage';
 import StaffEventPage from './StaffEventPage';
 import ImportPdfModal from './ImportPdfModal';
 import {
+  CreateSheet,
   getInvoiceAppShellLayout,
   InvoiceAppDesktopSidebar,
+  InvoiceAppMobileDrawer,
   InvoiceAppMobileBottomNav,
+  MobileHeader,
   useDeviceLayout,
 } from './InvoiceAppLayout.jsx';
 import { generatePDF } from './pdfGenerator.jsx';
@@ -1589,6 +1592,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
   const [confirmMessage, setConfirmMessage] = useState('');
   const [confirmAction, setConfirmAction] = useState(() => () => {});
   const [showImportPdf, setShowImportPdf] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [mobileCreateOpen, setMobileCreateOpen] = useState(false);
 
   useEffect(() => {
     const initSampleData = async () => {
@@ -1693,6 +1698,34 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     mainContentPaddingClass,
     panelShellClass,
   } = getInvoiceAppShellLayout({ activeTab, deviceLayout });
+  const showPhoneShell = usePhoneLayout && view === 'list';
+  const mobileSearchTabs = ['invoices', 'estimates', 'clients', 'items'];
+  const showMobileSearch = showPhoneShell && mobileSearchTabs.includes(activeTab);
+  const mobileHeaderTitle = {
+    invoices: 'Invoices',
+    estimates: 'Estimates',
+    clients: 'Clients',
+    items: 'Items',
+    finance: 'Finance',
+    'staff-events': 'Staff & Events',
+    reports: 'Reports',
+    settings: 'Settings',
+  }[activeTab] || 'Invoices';
+
+  const selectAppTab = useCallback((tab) => {
+    setActiveTab(tab);
+    setView('list');
+    setSearchTerm('');
+    setMobileDrawerOpen(false);
+    setMobileCreateOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!showPhoneShell) {
+      setMobileDrawerOpen(false);
+      setMobileCreateOpen(false);
+    }
+  }, [showPhoneShell]);
 
   // ============================================================================
   // INVOICES
@@ -1782,8 +1815,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     return (
       <div className="flex flex-col h-full">
         <div className="p-4 lg:p-6 border-b">
-          <div className="flex items-center justify-between">
-            <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Invoices</h1>
+          <div className={`flex items-center gap-2 ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
+            {!usePhoneLayout ? <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Invoices</h1> : null}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowImportPdf(true)}
@@ -1818,16 +1851,18 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
             </div>
           </div>
 
-          <div className="relative mt-4 max-w-sm">
-            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
-            <input
-              type="text"
-              placeholder="Search invoices..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
-            />
-          </div>
+          {!usePhoneLayout ? (
+            <div className="relative mt-4 max-w-sm">
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
+              <input
+                type="text"
+                placeholder="Search invoices..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="flex-1 overflow-auto p-4 lg:p-6">
@@ -2478,8 +2513,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     return (
       <div className="flex flex-col h-full">
         <div className="p-4 lg:p-6 border-b">
-          <div className="flex items-center justify-between">
-            <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Estimates</h1>
+          <div className={`flex items-center ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
+            {!usePhoneLayout ? <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Estimates</h1> : null}
             <button
               onClick={() => {
                 setCurrentItem({
@@ -2503,16 +2538,18 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
             </button>
           </div>
 
-          <div className="relative mt-4 max-w-sm">
-            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
-            <input
-              type="text"
-              placeholder="Search estimates..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
-            />
-          </div>
+          {!usePhoneLayout ? (
+            <div className="relative mt-4 max-w-sm">
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
+              <input
+                type="text"
+                placeholder="Search estimates..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="flex-1 overflow-auto p-4 lg:p-6">
@@ -3066,8 +3103,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     return (
       <div className="flex flex-col h-full">
         <div className="p-4 lg:p-6 border-b">
-          <div className="flex items-center justify-between">
-            <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Clients</h1>
+          <div className={`flex items-center ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
+            {!usePhoneLayout ? <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Clients</h1> : null}
             <button
               onClick={() => {
                 setCurrentItem({
@@ -3096,16 +3133,18 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
             </button>
           </div>
 
-          <div className="relative mt-4 max-w-sm">
-            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
-            <input
-              type="text"
-              placeholder="Search clients..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
-            />
-          </div>
+          {!usePhoneLayout ? (
+            <div className="relative mt-4 max-w-sm">
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
+              <input
+                type="text"
+                placeholder="Search clients..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="flex-1 overflow-auto p-4 lg:p-6">
@@ -3312,8 +3351,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     return (
       <div className="flex flex-col h-full">
         <div className="p-4 lg:p-6 border-b">
-          <div className="flex items-center justify-between">
-            <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Items</h1>
+          <div className={`flex items-center ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
+            {!usePhoneLayout ? <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Items</h1> : null}
             <button
               onClick={() => {
                 setCurrentItem({
@@ -3337,16 +3376,18 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
             </button>
           </div>
 
-          <div className="relative mt-4 max-w-sm">
-            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
-            <input
-              type="text"
-              placeholder="Search items..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
-            />
-          </div>
+          {!usePhoneLayout ? (
+            <div className="relative mt-4 max-w-sm">
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
+              <input
+                type="text"
+                placeholder="Search items..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`w-full pl-10 pr-4 py-2.5 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="flex-1 overflow-auto p-4 lg:p-6">
@@ -3935,10 +3976,14 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     return (
       <div className="flex flex-col h-full">
         <div className="p-4 lg:p-6 border-b">
-          <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Reports</h1>
-          <p className={`text-sm ${activeTheme.textMuted}`}>Detailed business performance overview</p>
+          {!usePhoneLayout ? (
+            <>
+              <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Reports</h1>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Detailed business performance overview</p>
+            </>
+          ) : null}
           <div
-            className={`mt-4 inline-flex rounded-2xl ${
+            className={`${usePhoneLayout ? '' : 'mt-4 '} inline-flex rounded-2xl ${
               usePhoneLayout
                 ? 'bg-white/80 p-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur-xl'
                 : `border ${activeTheme.border} ${activeTheme.subtleBg} p-1`
@@ -4649,11 +4694,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           logo={data.settings?.logo}
           navItems={navItems}
           activeTab={activeTab}
-          onSelectTab={(tab) => {
-            setActiveTab(tab);
-            setView('list');
-            setSearchTerm('');
-          }}
+          onSelectTab={selectAppTab}
         />
         <main className="flex flex-1 flex-col overflow-hidden">
           {activeTab === 'settings' && cloudToolbarProps && renderCloudToolbar ? renderCloudToolbar(cloudToolbarProps) : null}
@@ -4662,26 +4703,55 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               className={`${activeTheme.panelBg} shadow-sm ${activeTheme.border} h-full overflow-hidden ${panelShellClass}`}
               style={activeTab === 'settings' ? undefined : { maxWidth: '1600px' }}
             >
-              {renderContent()}
+              <div className="flex h-full flex-col overflow-hidden">
+                {showPhoneShell ? (
+                  <MobileHeader
+                    title={mobileHeaderTitle}
+                    activeTheme={activeTheme}
+                    showSearch={showMobileSearch}
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    onMenu={() => setMobileDrawerOpen(true)}
+                    onSettings={() => selectAppTab('settings')}
+                  />
+                ) : null}
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  {renderContent()}
+                </div>
+              </div>
             </div>
           </div>
         </main>
       </div>
-      {view === 'list' && (
-        <InvoiceAppMobileBottomNav
-          visible={usePhoneLayout}
+      {showPhoneShell ? (
+        <InvoiceAppMobileDrawer
+          open={mobileDrawerOpen}
+          onClose={() => setMobileDrawerOpen(false)}
           activeTheme={activeTheme}
           businessName={data.settings?.businessName}
           logo={data.settings?.logo}
           navItems={mobileNavItems}
           activeTab={activeTab}
-          onSelectTab={(tab) => {
-            setActiveTab(tab);
-            setView('list');
-            setSearchTerm('');
-          }}
+          onSelectTab={selectAppTab}
         />
-      )}
+      ) : null}
+      {showPhoneShell ? (
+        <InvoiceAppMobileBottomNav
+          visible={showPhoneShell}
+          activeTheme={activeTheme}
+          navItems={mobileNavItems}
+          activeTab={activeTab}
+          onSelectTab={selectAppTab}
+          onOpenCreate={() => setMobileCreateOpen(true)}
+        />
+      ) : null}
+      {showPhoneShell ? (
+        <CreateSheet
+          open={mobileCreateOpen}
+          onClose={() => setMobileCreateOpen(false)}
+          onNavigate={selectAppTab}
+        />
+      ) : null}
       {/* Confirm Modal */}
       {confirmOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">

@@ -1,8 +1,31 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FileText, Menu, Settings, X } from 'lucide-react';
+import {
+  ChevronRight,
+  FileSignature,
+  FileText,
+  Menu,
+  Plus,
+  Search,
+  Settings,
+  Users,
+  X,
+} from 'lucide-react';
 
 const PHONE_LAYOUT_MAX_WIDTH = 767;
 const TABLET_LAYOUT_MAX_WIDTH = 1180;
+const PHONE_PANEL_CLASS = 'invoice-phone-panel w-full max-w-md mx-auto rounded-[30px]';
+
+const getBusinessMonogram = (businessName = 'Invoice App') => {
+  const initials = businessName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join('')
+    .toUpperCase();
+
+  return initials || 'IA';
+};
 
 export const getDeviceLayout = () => {
   if (typeof window === 'undefined') {
@@ -95,56 +118,107 @@ export const getInvoiceAppShellLayout = ({ activeTab, deviceLayout }) => {
     mainContentPaddingClass:
       activeTab === 'settings'
         ? usePhoneLayout
-          ? 'px-3 pt-3 pb-32'
+          ? 'px-0 pt-0 pb-32'
           : useTabletLayout
             ? 'p-4'
             : 'p-4 xl:p-6'
         : usePhoneLayout
-          ? 'px-3 pt-3 pb-32'
+          ? 'px-0 pt-0 pb-32'
           : useTabletLayout
             ? 'p-4'
             : 'p-2 md:p-6 xl:p-8',
     panelShellClass:
       activeTab === 'settings'
         ? usePhoneLayout
-          ? 'invoice-phone-panel w-full mx-auto rounded-[28px]'
+          ? PHONE_PANEL_CLASS
           : 'w-full rounded-2xl'
         : usePhoneLayout
-          ? 'invoice-phone-panel w-full mx-auto rounded-[28px]'
+          ? PHONE_PANEL_CLASS
           : 'w-full mx-auto rounded-2xl',
   };
 };
 
-const InvoiceAppMobileBrandBlock = ({ activeTheme, businessName, logo }) => (
-  <div className="rounded-[28px] border border-white/10 bg-black/10 p-4 text-center backdrop-blur-sm">
+const InvoiceAppMobileBrandBlock = ({ businessName, logo }) => (
+  <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.3),rgba(0,0,0,0)_45%),linear-gradient(180deg,rgba(255,255,255,0.1),rgba(255,255,255,0.02))] p-5 text-center backdrop-blur-sm">
     {logo ? (
       <div className="flex flex-col items-center gap-3">
         <div className="w-full overflow-hidden rounded-2xl bg-white/5 p-3">
           <img src={logo} alt="Logo" className="mx-auto max-h-24 w-auto object-contain" />
         </div>
         <div className="min-w-0">
-          <p className={`text-base font-semibold ${activeTheme.sidebarText}`}>{businessName || 'Invoice App'}</p>
-          <p className={`text-xs uppercase tracking-[0.22em] ${activeTheme.sidebarTextMuted}`}>Dashboard</p>
+          <p className="text-base font-semibold text-white">{businessName || 'Invoice App'}</p>
+          <p className="text-xs uppercase tracking-[0.22em] text-white/55">Dashboard</p>
         </div>
       </div>
     ) : (
       <div className="flex flex-col items-center gap-3">
-        <div className={`flex h-20 w-20 items-center justify-center rounded-[24px] ${activeTheme.accent} shadow-lg`}>
-          <FileText className="h-9 w-9 text-white" />
+        <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-[26px] border border-white/10 bg-white/5 shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-500 via-fuchsia-500/80 to-sky-500/80" />
+          <span className="relative text-[24px] font-black tracking-[0.08em] text-white">
+            {getBusinessMonogram(businessName)}
+          </span>
         </div>
         <div className="min-w-0">
-          <p className={`text-base font-semibold ${activeTheme.sidebarText}`}>{businessName || 'Invoice App'}</p>
-          <p className={`text-xs uppercase tracking-[0.22em] ${activeTheme.sidebarTextMuted}`}>Dashboard</p>
+          <p className="text-base font-semibold text-white">{businessName || 'Invoice App'}</p>
+          <p className="text-xs uppercase tracking-[0.22em] text-white/55">Dashboard</p>
         </div>
       </div>
     )}
   </div>
 );
 
-const InvoiceAppMobileDrawer = ({
+export const MobileHeader = ({
+  title,
+  showSearch = false,
+  searchTerm = '',
+  onSearchChange,
+  onMenu,
+  onSettings,
+}) => (
+  <div className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/95 shadow-[0_8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+    <div className="px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onMenu}
+          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-200 bg-white text-zinc-900 shadow-[0_6px_18px_rgba(15,23,42,0.07)] transition hover:bg-zinc-50"
+          aria-label="Open navigation menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="min-w-0 text-center">
+          <p className="truncate text-base font-bold tracking-tight text-zinc-950">{title}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onSettings}
+          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-200 bg-white text-zinc-900 shadow-[0_6px_18px_rgba(15,23,42,0.07)] transition hover:bg-zinc-50"
+          aria-label="Open settings"
+        >
+          <Settings className="h-5 w-5" />
+        </button>
+      </div>
+    </div>
+    {showSearch ? (
+      <div className="px-4 pb-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={`Search ${title.toLowerCase()}...`}
+            className="h-11 w-full rounded-2xl border border-zinc-200 bg-white pl-9 pr-4 text-sm text-zinc-950 shadow-[0_6px_18px_rgba(15,23,42,0.05)] placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+          />
+        </div>
+      </div>
+    ) : null}
+  </div>
+);
+
+export const InvoiceAppMobileDrawer = ({
   open,
   onClose,
-  activeTheme,
   businessName,
   logo,
   navItems,
@@ -155,24 +229,26 @@ const InvoiceAppMobileDrawer = ({
 
   return (
     <div className={`fixed inset-0 z-50 transition-all duration-300 ${open ? 'pointer-events-auto' : 'pointer-events-none'}`}>
-      <div
-        className={`absolute inset-0 bg-slate-950/55 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}
+      <button
+        type="button"
+        className={`absolute inset-0 bg-black/55 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose}
+        aria-label="Close navigation menu"
       />
       <aside
-        className={`absolute left-0 top-0 flex h-full w-[86%] max-w-[340px] flex-col border-r ${activeTheme.border} ${activeTheme.sidebarBg} shadow-[0_24px_70px_rgba(15,23,42,0.32)] transition-transform duration-300 ${
+        className={`absolute left-0 top-0 flex h-full w-[86%] max-w-[320px] flex-col border-r border-white/10 bg-[linear-gradient(180deg,rgba(10,10,10,0.98),rgba(3,7,18,0.98))] text-white shadow-[0_28px_80px_rgba(0,0,0,0.42)] transition-transform duration-300 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between px-4 pt-5">
+        <div className="flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))]">
           <div>
-            <p className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${activeTheme.sidebarTextMuted}`}>Navigation</p>
-            <p className={`mt-1 text-sm font-semibold ${activeTheme.sidebarText}`}>Quick access</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/40">Menu</p>
+            <p className="mt-1 text-sm font-semibold text-white">Quick access</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className={`rounded-2xl border px-3 py-2 ${activeTheme.border} ${activeTheme.buttonHover} ${activeTheme.sidebarText}`}
+            className="rounded-full p-2 text-white transition hover:bg-white/10"
             aria-label="Close menu"
           >
             <X className="h-5 w-5" />
@@ -180,13 +256,13 @@ const InvoiceAppMobileDrawer = ({
         </div>
 
         <div className="px-4 pt-4">
-          <InvoiceAppMobileBrandBlock activeTheme={activeTheme} businessName={businessName} logo={logo} />
+          <InvoiceAppMobileBrandBlock businessName={businessName} logo={logo} />
         </div>
 
         <div className="px-4 pt-4">
-          <div className={`rounded-[24px] border p-4 ${activeTheme.border} ${activeTheme.subtleBg}`}>
-            <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${activeTheme.textMuted}`}>Current section</p>
-            <p className={`mt-2 text-base font-semibold ${activeTheme.textPrimary}`}>{activeItem?.label || 'Dashboard'}</p>
+          <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">Current section</p>
+            <p className="mt-2 text-base font-semibold text-white">{activeItem?.label || 'Dashboard'}</p>
           </div>
         </div>
 
@@ -203,17 +279,20 @@ const InvoiceAppMobileDrawer = ({
                     onClose();
                   }}
                   className={`flex w-full items-center gap-3 rounded-[22px] px-4 py-3 text-left text-sm font-medium transition-all ${
-                    activeTab === item.id ? activeTheme.sidebarActive : activeTheme.sidebarInactive
+                    activeTab === item.id
+                      ? 'bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-white/10'
+                      : 'text-white/72 hover:bg-white/8'
                   }`}
                 >
                   <item.icon className="h-5 w-5" />
-                  <span>{item.label}</span>
+                  <span className="flex-1">{item.label}</span>
+                  {activeTab === item.id ? <ChevronRight className="h-4 w-4 text-white/55" /> : null}
                 </button>
               ))}
           </div>
         </div>
 
-        <div className={`border-t px-4 py-4 ${activeTheme.border}`}>
+        <div className="border-t border-white/10 px-4 py-4">
           <button
             type="button"
             onClick={() => {
@@ -221,14 +300,84 @@ const InvoiceAppMobileDrawer = ({
               onClose();
             }}
             className={`flex w-full items-center gap-3 rounded-[22px] px-4 py-3 text-left text-sm font-medium transition-all ${
-              activeTab === 'settings' ? activeTheme.sidebarActive : activeTheme.sidebarInactive
+              activeTab === 'settings'
+                ? 'bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-white/10'
+                : 'text-white/72 hover:bg-white/8'
             }`}
           >
             <Settings className="h-5 w-5" />
-            <span>Settings</span>
+            <span className="flex-1">Settings</span>
+            {activeTab === 'settings' ? <ChevronRight className="h-4 w-4 text-white/55" /> : null}
           </button>
         </div>
       </aside>
+    </div>
+  );
+};
+
+export const CreateSheet = ({
+  open,
+  onClose,
+  onNavigate,
+}) => {
+  const createActions = [
+    { id: 'invoices', label: 'New Invoice', subtitle: 'Start a fresh invoice', icon: FileText },
+    { id: 'estimates', label: 'New Estimate', subtitle: 'Create a quote quickly', icon: FileSignature },
+    { id: 'clients', label: 'New Client', subtitle: 'Add a new client profile', icon: Users },
+  ];
+
+  return (
+    <div className={`fixed inset-0 z-50 transition-all duration-300 ${open ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+      <div
+        className={`absolute inset-0 bg-black/55 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}
+        onClick={onClose}
+      />
+      <div
+        className={`absolute bottom-0 left-0 right-0 mx-auto w-full max-w-md rounded-t-[32px] border border-zinc-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-4 shadow-[0_-20px_48px_rgba(15,23,42,0.22)] transition-transform duration-300 ${
+          open ? 'translate-y-0' : 'translate-y-full'
+        }`}
+        style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+      >
+        <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-zinc-300" />
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold tracking-tight text-zinc-950">Create New</h3>
+            <p className="text-sm text-zinc-500">Choose what you want to create.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-zinc-700 transition hover:bg-zinc-100"
+            aria-label="Close create sheet"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="grid gap-3">
+          {createActions.map((action) => (
+            <button
+              key={action.id}
+              type="button"
+              onClick={() => {
+                onNavigate(action.id);
+                onClose();
+              }}
+              className="flex items-center justify-between rounded-[24px] border border-zinc-200 bg-white/90 px-4 py-4 text-left shadow-[0_8px_20px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:bg-white"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[linear-gradient(180deg,#f4f4f5,#e4e4e7)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                  <action.icon className="h-5 w-5 text-zinc-700" />
+                </div>
+                <div>
+                  <p className="font-medium text-zinc-950">{action.label}</p>
+                  <p className="text-sm text-zinc-500">{action.subtitle}</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-zinc-400" />
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
@@ -311,18 +460,11 @@ export const InvoiceAppDesktopSidebar = ({
 
 export const InvoiceAppMobileBottomNav = ({
   visible,
-  activeTheme,
-  businessName,
-  logo,
   navItems,
   activeTab,
   onSelectTab,
+  onOpenCreate,
 }) => {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const activeItem = useMemo(
-    () => navItems.find((item) => item.id === activeTab),
-    [activeTab, navItems]
-  );
   const dockItems = useMemo(
     () => navItems.filter((item) => item.id !== 'settings'),
     [navItems]
@@ -333,76 +475,54 @@ export const InvoiceAppMobileBottomNav = ({
   }
 
   return (
-    <>
-      <InvoiceAppMobileDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        activeTheme={activeTheme}
-        businessName={businessName}
-        logo={logo}
-        navItems={navItems}
-        activeTab={activeTab}
-        onSelectTab={onSelectTab}
-      />
-
-      <div
-        className="fixed bottom-0 left-0 right-0 z-40 px-3"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-      >
+    <div
+      className="fixed bottom-0 left-1/2 z-40 w-full max-w-md -translate-x-1/2 px-3"
+      style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+    >
+      <div className="relative rounded-[30px] border border-zinc-200/80 bg-white/90 shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-2xl">
         <button
           type="button"
-          onClick={() => setDrawerOpen(true)}
-          className={`absolute left-5 top-0 flex h-12 items-center gap-2 rounded-full border border-white/40 bg-white/80 px-4 text-sm font-semibold text-zinc-900 shadow-[0_10px_30px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-all hover:scale-[1.01] active:scale-[0.98]`}
-          style={{ transform: 'translateY(-38%)' }}
-          aria-label="Open navigation menu"
+          onClick={onOpenCreate}
+          className="absolute left-1/2 top-0 z-10 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-[6px] border-slate-100 bg-gradient-to-br from-violet-600 via-violet-600 to-indigo-600 text-white shadow-[0_16px_30px_rgba(109,40,217,0.34)] transition-transform hover:scale-105 active:scale-95"
+          aria-label="Open create menu"
         >
-          <Menu className="h-4 w-4" />
-          <span>Menu</span>
+          <Plus className="h-6 w-6" />
         </button>
 
-        <div
-          className="rounded-t-[30px] rounded-b-[26px] bg-white/80 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-xl"
-        >
-          <div className="flex items-center justify-between px-4 pb-1 pt-4">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Quick nav</p>
-              <p className="truncate text-sm font-semibold text-zinc-950">{activeItem?.label || 'Dashboard'}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onSelectTab('settings')}
-              className={`rounded-2xl p-3 transition-all ${
-                activeTab === 'settings'
-                  ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
-                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-              }`}
-              aria-label="Open settings"
-            >
-              <Settings className="h-5 w-5" />
-            </button>
-          </div>
+        <div className="mobile-nav-scroll overflow-x-auto px-2 pb-3 pt-4">
+          <div className="flex min-w-max items-end gap-2 px-1">
+            {dockItems.map((item) => {
+              const isActive = activeTab === item.id;
 
-          <div className="mobile-nav-scroll overflow-x-auto px-2 pb-3 pt-2">
-            <div className="flex min-w-max items-center gap-2">
-              {dockItems.map((item) => (
+              return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => onSelectTab(item.id)}
-                  className={`flex min-w-[88px] flex-none flex-col items-center gap-1.5 rounded-[22px] px-4 py-3 text-[11px] font-semibold transition-all ${
-                    activeTab === item.id
-                      ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
-                      : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+                  className={`flex min-w-[82px] flex-none flex-col items-center justify-center rounded-[22px] px-3 py-2 text-[12px] transition-all ${
+                    isActive ? 'text-zinc-950' : 'text-zinc-400 hover:text-zinc-600'
                   }`}
+                  style={item.id === 'clients' ? { marginRight: '64px' } : undefined}
+                  aria-current={isActive ? 'page' : undefined}
                 >
-                  <item.icon className="h-5 w-5" />
-                  <span className="whitespace-nowrap leading-tight">{item.label}</span>
+                  <div
+                    className={`mb-1 rounded-2xl p-2 transition-all ${
+                      isActive
+                        ? 'bg-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_18px_rgba(15,23,42,0.08)]'
+                        : 'bg-transparent'
+                    }`}
+                  >
+                    <item.icon className="h-5 w-5" />
+                  </div>
+                  <span className={`whitespace-nowrap text-center leading-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>
+                    {item.label}
+                  </span>
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
