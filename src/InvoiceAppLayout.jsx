@@ -113,7 +113,7 @@ export const getInvoiceAppShellLayout = ({ activeTab, deviceLayout }) => {
   return {
     usePhoneLayout,
     useTabletLayout,
-    rootOverflowClass: usePhoneLayout ? 'overflow-y-auto' : 'overflow-x-auto overflow-y-hidden',
+    rootOverflowClass: usePhoneLayout ? 'overflow-hidden' : 'overflow-x-auto overflow-y-hidden',
     frameStyle: !usePhoneLayout ? { minWidth: useTabletLayout ? '980px' : '1180px' } : undefined,
     mainContentPaddingClass:
       activeTab === 'settings'

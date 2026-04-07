@@ -1763,10 +1763,6 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
       );
     });
 
-    const [longPressTimer, setLongPressTimer] = useState(null);
-    const [longPressedInvoice, setLongPressedInvoice] = useState(null);
-    const [statusModalOpen, setStatusModalOpen] = useState(false);
-    const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [activeInvoiceMenu, setActiveInvoiceMenu] = useState(null);
     const [invoiceMenuPosition, setInvoiceMenuPosition] = useState(null);
     const invoiceMenuRef = useRef(null);
@@ -1790,34 +1786,17 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
       };
     }, [activeInvoiceMenu]);
 
-    const handleMouseDown = (invoice) => {
-      setLongPressedInvoice(invoice);
-      const timer = setTimeout(() => {
-        setSelectedInvoice(invoice);
-        setStatusModalOpen(true);
-        setLongPressedInvoice(null);
-      }, 800); // 800ms long press
-      setLongPressTimer(timer);
+    const closeInvoiceMenu = () => {
+      setActiveInvoiceMenu(null);
+      setInvoiceMenuPosition(null);
     };
 
-    const handleMouseUp = () => {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        setLongPressTimer(null);
-      }
-      setLongPressedInvoice(null);
-    };
-
-    const handleStatusChange = async (status, invoiceOverride = null) => {
-      const invoiceToUpdate = invoiceOverride || selectedInvoice;
+    const handleStatusChange = async (status, invoiceToUpdate) => {
       if (!invoiceToUpdate) return;
       const updatedInvoice = { ...invoiceToUpdate, status };
       const updated = data.invoices.map((inv) => (inv.id === invoiceToUpdate.id ? updatedInvoice : inv));
       await save('invoices', updated);
-      setActiveInvoiceMenu(null);
-      setInvoiceMenuPosition(null);
-      setStatusModalOpen(false);
-      setSelectedInvoice(null);
+      closeInvoiceMenu();
     };
 
     const duplicateInvoice = async (invoice) => {
@@ -1831,12 +1810,12 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
       };
       await save('invoices', [...data.invoices, duplicatedInvoice]);
       await updateNextDocumentSetting('invoice', duplicatedInvoice.number);
-      setActiveInvoiceMenu(null);
+      closeInvoiceMenu();
     };
 
     return (
       <div className="flex flex-col h-full">
-        <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
+        <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.panelBg} ${activeTheme.border}`}>
           <div className={`flex items-center gap-2 ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
             {!usePhoneLayout ? <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Invoices</h1> : null}
             <div className="flex items-center gap-2">
@@ -1898,26 +1877,16 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               {filtered.map((invoice) => {
                 const client = getClient(invoice.clientId);
                 const total = calculateDocumentTotal(invoice, data.settings?.taxRate || 15);
-                const isLongPressed = longPressedInvoice?.id === invoice.id;
                 return (
                   <div
                     key={invoice.id}
-                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.98]' : `${activeTheme.border}`} rounded-xl ${activeTheme.cardHover} group transition-all duration-150 ${
-                      isLongPressed ? 'bg-blue-50 border-blue-200 scale-[1.02]' : ''
-                    }`}
-                    onMouseDown={() => handleMouseDown(invoice)}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                    onTouchStart={() => handleMouseDown(invoice)}
-                    onTouchEnd={handleMouseUp}
+                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.98]' : `${activeTheme.border}`} rounded-xl ${activeTheme.cardHover} group transition-all duration-150`}
                   >
                     <div className="flex items-center gap-2 px-3 py-2.5">
                       <div
                         onClick={() => {
-                          if (!isLongPressed) {
-                            setCurrentItem(invoice);
-                            setView('view-invoice');
-                          }
+                          setCurrentItem(invoice);
+                          setView('view-invoice');
                         }}
                         className="flex-1 min-w-0 cursor-pointer"
                       >
@@ -1926,9 +1895,6 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
                         </div>
                         <p className={`text-[11px] ${activeTheme.iconColor} mt-0.5`}>{formatDate(invoice.date)}</p>
-                        {isLongPressed && (
-                          <p className="text-[11px] text-blue-600 mt-0.5 font-medium">Hold to change status…</p>
-                        )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <div className="text-right">
@@ -1960,8 +1926,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setActiveInvoiceMenu(null);
-                            setInvoiceMenuPosition(null);
+                            closeInvoiceMenu();
                             setConfirmMessage(`Are you sure you want to delete invoice ${invoice.number}? This action cannot be undone.`);
                             setConfirmAction(() => async () => {
                               await save('invoices', data.invoices.filter((inv) => inv.id !== invoice.id));
@@ -2028,41 +1993,6 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 </>
               );
             })()}
-          </div>
-        )}
-
-        {/* Status Change Modal */}
-        {statusModalOpen && selectedInvoice && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className={`${activeTheme.modalBg} rounded-2xl w-full max-w-md p-6 shadow-xl`}>
-              <div className="flex items-center gap-3 mb-4">
-                <FileText className={`w-6 h-6 ${activeTheme.textSecondary}`} />
-                <h2 className={`font-semibold text-lg ${activeTheme.textPrimary}`}>Change Invoice Status</h2>
-              </div>
-              <p className={`${activeTheme.labelColor} mb-6`}>
-                Change status for invoice <strong>{selectedInvoice.number}</strong>?
-              </p>
-              <div className="flex gap-2">
-                <button
-                  className={`flex-1 py-3 border ${activeTheme.border} rounded-xl font-medium ${activeTheme.cardHover} ${activeTheme.textPrimary}`}
-                  onClick={() => handleStatusChange('outstanding')}
-                >
-                  Mark as Unpaid
-                </button>
-                <button
-                  className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700"
-                  onClick={() => handleStatusChange('paid')}
-                >
-                  Mark as Paid
-                </button>
-              </div>
-              <button
-                className={`w-full mt-3 py-2 ${activeTheme.textMuted} text-sm ${activeTheme.buttonHover}`}
-                onClick={() => setStatusModalOpen(false)}
-              >
-                Cancel
-              </button>
-            </div>
           </div>
         )}
       </div>
@@ -2457,10 +2387,6 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
       );
     });
 
-    const [longPressTimer, setLongPressTimer] = useState(null);
-    const [longPressedEstimate, setLongPressedEstimate] = useState(null);
-    const [statusModalOpen, setStatusModalOpen] = useState(false);
-    const [selectedEstimate, setSelectedEstimate] = useState(null);
     const [activeEstimateMenu, setActiveEstimateMenu] = useState(null);
     const [estimateMenuPosition, setEstimateMenuPosition] = useState(null);
     const estimateMenuRef = useRef(null);
@@ -2484,34 +2410,17 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
       };
     }, [activeEstimateMenu]);
 
-    const handleMouseDown = (estimate) => {
-      setLongPressedEstimate(estimate);
-      const timer = setTimeout(() => {
-        setSelectedEstimate(estimate);
-        setStatusModalOpen(true);
-        setLongPressedEstimate(null);
-      }, 800); // 800ms long press
-      setLongPressTimer(timer);
+    const closeEstimateMenu = () => {
+      setActiveEstimateMenu(null);
+      setEstimateMenuPosition(null);
     };
 
-    const handleMouseUp = () => {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        setLongPressTimer(null);
-      }
-      setLongPressedEstimate(null);
-    };
-
-    const handleStatusChange = async (status, estimateOverride = null) => {
-      const estimateToUpdate = estimateOverride || selectedEstimate;
+    const handleStatusChange = async (status, estimateToUpdate) => {
       if (!estimateToUpdate) return;
       const updatedEstimate = { ...estimateToUpdate, status };
       const updated = data.estimates.map((est) => (est.id === estimateToUpdate.id ? updatedEstimate : est));
       await save('estimates', updated);
-      setActiveEstimateMenu(null);
-      setEstimateMenuPosition(null);
-      setStatusModalOpen(false);
-      setSelectedEstimate(null);
+      closeEstimateMenu();
     };
 
     const duplicateEstimate = async (estimate) => {
@@ -2524,12 +2433,12 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
       };
       await save('estimates', [...data.estimates, duplicatedEstimate]);
       await updateNextDocumentSetting('estimate', duplicatedEstimate.number);
-      setActiveEstimateMenu(null);
+      closeEstimateMenu();
     };
 
     return (
       <div className="flex flex-col h-full">
-        <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
+        <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.panelBg} ${activeTheme.border}`}>
           <div className={`flex items-center ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
             {!usePhoneLayout ? <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Estimates</h1> : null}
             <button
@@ -2577,26 +2486,16 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               {filtered.map((estimate) => {
                 const client = getClient(estimate.clientId);
                 const total = calculateDocumentTotal(estimate, data.settings?.taxRate || 15);
-                const isLongPressed = longPressedEstimate?.id === estimate.id;
                 return (
                   <div
                     key={estimate.id}
-                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.98]' : `${activeTheme.border}`} rounded-xl ${activeTheme.cardHover} group transition-all duration-150 ${
-                      isLongPressed ? 'bg-blue-50 border-blue-200 scale-[1.02]' : ''
-                    }`}
-                    onMouseDown={() => handleMouseDown(estimate)}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                    onTouchStart={() => handleMouseDown(estimate)}
-                    onTouchEnd={handleMouseUp}
+                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.98]' : `${activeTheme.border}`} rounded-xl ${activeTheme.cardHover} group transition-all duration-150`}
                   >
                     <div className="flex items-center gap-2 px-3 py-2.5">
                       <div
                         onClick={() => {
-                          if (!isLongPressed) {
-                            setCurrentItem(estimate);
-                            setView('view-estimate');
-                          }
+                          setCurrentItem(estimate);
+                          setView('view-estimate');
                         }}
                         className="flex-1 min-w-0 cursor-pointer"
                       >
@@ -2605,9 +2504,6 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
                         </div>
                         <p className={`text-[11px] ${activeTheme.iconColor} mt-0.5`}>{formatDate(estimate.date)}</p>
-                        {isLongPressed && (
-                          <p className="text-[11px] text-blue-600 mt-0.5 font-medium">Hold to change status…</p>
-                        )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <div className="text-right">
@@ -2639,8 +2535,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setActiveEstimateMenu(null);
-                            setEstimateMenuPosition(null);
+                            closeEstimateMenu();
                             setConfirmMessage(`Are you sure you want to delete estimate ${estimate.number}? This action cannot be undone.`);
                             setConfirmAction(() => async () => {
                               await save('estimates', data.estimates.filter((est) => est.id !== estimate.id));
@@ -2691,6 +2586,14 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     Mark as Approved
                   </button>
                   <button
+                    onClick={async () => {
+                      await handleStatusChange('declined', estimate);
+                    }}
+                    className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
+                  >
+                    Mark as Declined
+                  </button>
+                  <button
                     onClick={() => duplicateEstimate(estimate)}
                     className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
                   >
@@ -2699,49 +2602,6 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 </>
               );
             })()}
-          </div>
-        )}
-
-        {/* Status Change Modal */}
-        {statusModalOpen && selectedEstimate && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className={`${activeTheme.modalBg} rounded-2xl w-full max-w-md p-6 shadow-xl`}>
-              <div className="flex items-center gap-3 mb-4">
-                <FileSignature className={`w-6 h-6 ${activeTheme.textSecondary}`} />
-                <h2 className={`font-semibold text-lg ${activeTheme.textPrimary}`}>Change Estimate Status</h2>
-              </div>
-              <p className={`${activeTheme.labelColor} mb-6`}>
-                Change status for estimate <strong>{selectedEstimate.number}</strong>?
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <button
-                  className={`py-3 border ${activeTheme.border} rounded-xl font-medium ${activeTheme.cardHover} ${activeTheme.textPrimary}`}
-                  onClick={() => handleStatusChange('pending')}
-                >
-                  Mark as Pending
-                </button>
-
-                <button
-                  className="py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700"
-                  onClick={() => handleStatusChange('accepted')}
-                >
-                  Mark as Approved
-                </button>
-
-                <button
-                  className="py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700"
-                  onClick={() => handleStatusChange('declined')}
-                >
-                  Mark as Declined
-                </button>
-              </div>
-              <button
-                className={`w-full mt-3 py-2 ${activeTheme.textMuted} text-sm ${activeTheme.buttonHover}`}
-                onClick={() => setStatusModalOpen(false)}
-              >
-                Cancel
-              </button>
-            </div>
           </div>
         )}
       </div>
