@@ -126,14 +126,14 @@ const saveFinance = (key, value) => {
 // ============================================================================
 
 const FormInput = ({ label, type = 'text', value, onChange, placeholder, multiline, rows = 3, theme }) => (
-  <div className="space-y-1.5">
-    <label className={`text-sm font-medium ${theme.textSecondary}`}>{label}</label>
+  <div className="space-y-1">
+    <label className={`text-[11px] font-medium sm:text-sm ${theme.textSecondary}`}>{label}</label>
     {multiline ? (
       <textarea value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={rows}
-        className={`w-full px-4 py-2.5 border ${theme.inputBg} ${theme.inputBorder} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 shadow-sm resize-none ${theme.textPrimary}`} />
+        className={`w-full px-3 py-2 border ${theme.inputBg} ${theme.inputBorder} rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-slate-400 shadow-sm resize-none sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm ${theme.textPrimary}`} />
     ) : (
       <input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        className={`w-full px-4 py-2.5 border ${theme.inputBg} ${theme.inputBorder} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 shadow-sm ${theme.textPrimary}`} />
+        className={`w-full px-3 py-2 border ${theme.inputBg} ${theme.inputBorder} rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-slate-400 shadow-sm sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-sm ${theme.textPrimary}`} />
     )}
   </div>
 );
@@ -178,6 +178,9 @@ export default function FinancePage({ data, save, theme }) {
   const cy = now.getFullYear();
 
   const categories = financeData.categories || DEFAULT_EXPENSE_CATEGORIES;
+  const sectionClass = 'space-y-4 sm:space-y-5';
+  const actionButtonClass = `flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold`;
+  const controlClass = `w-full sm:w-auto px-3 py-2 border ${theme.inputBorder} ${theme.inputBg} rounded-lg sm:rounded-xl text-[13px] sm:text-sm ${theme.textPrimary}`;
 
   // --- Derived Income Data ---
   const incomeData = useMemo(() => {
@@ -266,59 +269,59 @@ export default function FinancePage({ data, save, theme }) {
     const maxBar = Math.max(1, ...chartData.flatMap(d => [d.income, d.expenses]));
 
     return (
-      <div className="space-y-5">
+      <div className={sectionClass}>
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2"><TrendingUp size={16} className="text-emerald-600" /><p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Income (Month)</p></div>
-            <p className="text-2xl font-bold text-emerald-700">{formatCurrency(incomeData.paidMonth)}</p>
-            <p className="text-xs text-emerald-500 mt-1">{formatCurrency(incomeData.outstandingMonth)} outstanding</p>
+        <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2"><TrendingUp size={14} className="text-emerald-600 sm:h-4 sm:w-4" /><p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 sm:text-xs">Income (Month)</p></div>
+            <p className="text-lg font-bold text-emerald-700 sm:text-2xl">{formatCurrency(incomeData.paidMonth)}</p>
+            <p className="mt-1 text-[11px] text-emerald-500 sm:text-xs">{formatCurrency(incomeData.outstandingMonth)} outstanding</p>
           </div>
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2"><TrendingDown size={16} className="text-red-600" /><p className="text-xs font-semibold uppercase tracking-wide text-red-600">Expenses (Month)</p></div>
-            <p className="text-2xl font-bold text-red-700">{formatCurrency(expenseData.totalMonth)}</p>
-            <p className="text-xs text-red-400 mt-1">{expenseData.thisMonth.length} transactions</p>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2"><TrendingDown size={14} className="text-red-600 sm:h-4 sm:w-4" /><p className="text-[10px] font-semibold uppercase tracking-wide text-red-600 sm:text-xs">Expenses (Month)</p></div>
+            <p className="text-lg font-bold text-red-700 sm:text-2xl">{formatCurrency(expenseData.totalMonth)}</p>
+            <p className="mt-1 text-[11px] text-red-400 sm:text-xs">{expenseData.thisMonth.length} transactions</p>
           </div>
-          <div className={`${netProfit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'} border rounded-2xl p-4 shadow-sm`}>
-            <div className="flex items-center gap-2 mb-2"><DollarSign size={16} className={netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'} />
-              <p className={`text-xs font-semibold uppercase tracking-wide ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>Net Profit</p></div>
-            <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{formatCurrency(netProfit)}</p>
+          <div className={`${netProfit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'} border rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4`}>
+            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2"><DollarSign size={14} className={netProfit >= 0 ? 'text-emerald-600 sm:h-4 sm:w-4' : 'text-red-600 sm:h-4 sm:w-4'} />
+              <p className={`text-[10px] font-semibold uppercase tracking-wide sm:text-xs ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>Net Profit</p></div>
+            <p className={`text-lg font-bold sm:text-2xl ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{formatCurrency(netProfit)}</p>
           </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2"><PiggyBank size={16} className="text-blue-600" /><p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Total Savings</p></div>
-            <p className="text-2xl font-bold text-blue-700">{formatCurrency(totalSavings)}</p>
-            <p className="text-xs text-blue-400 mt-1">{(financeData.pockets || []).length} pockets</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2"><PiggyBank size={14} className="text-blue-600 sm:h-4 sm:w-4" /><p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 sm:text-xs">Total Savings</p></div>
+            <p className="text-lg font-bold text-blue-700 sm:text-2xl">{formatCurrency(totalSavings)}</p>
+            <p className="mt-1 text-[11px] text-blue-400 sm:text-xs">{(financeData.pockets || []).length} pockets</p>
           </div>
-          <div className={`${theme.cardBg} border ${theme.border} rounded-2xl p-4 shadow-sm`}>
-            <div className="flex items-center gap-2 mb-2"><ArrowDownRight size={16} className="text-amber-500" /><p className={`text-xs font-semibold uppercase tracking-wide ${theme.textMuted}`}>Outstanding</p></div>
-            <p className={`text-2xl font-bold ${theme.textPrimary}`}>{formatCurrency(incomeData.totalOutstanding)}</p>
-            <p className={`text-xs ${theme.textMuted} mt-1`}>{incomeData.outstandingInvoices.length} invoices</p>
+          <div className={`${theme.cardBg} border ${theme.border} rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4`}>
+            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2"><ArrowDownRight size={14} className="text-amber-500 sm:h-4 sm:w-4" /><p className={`text-[10px] font-semibold uppercase tracking-wide sm:text-xs ${theme.textMuted}`}>Outstanding</p></div>
+            <p className={`text-lg font-bold sm:text-2xl ${theme.textPrimary}`}>{formatCurrency(incomeData.totalOutstanding)}</p>
+            <p className={`mt-1 text-[11px] sm:text-xs ${theme.textMuted}`}>{incomeData.outstandingInvoices.length} invoices</p>
           </div>
-          <div className={`${theme.cardBg} border ${theme.border} rounded-2xl p-4 shadow-sm`}>
-            <div className="flex items-center gap-2 mb-2"><ArrowUpRight size={16} className="text-emerald-500" /><p className={`text-xs font-semibold uppercase tracking-wide ${theme.textMuted}`}>Paid Invoices</p></div>
-            <p className={`text-2xl font-bold ${theme.textPrimary}`}>{formatCurrency(incomeData.totalPaid)}</p>
-            <p className={`text-xs ${theme.textMuted} mt-1`}>{incomeData.paidInvoices.length} invoices</p>
+          <div className={`${theme.cardBg} border ${theme.border} rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4`}>
+            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2"><ArrowUpRight size={14} className="text-emerald-500 sm:h-4 sm:w-4" /><p className={`text-[10px] font-semibold uppercase tracking-wide sm:text-xs ${theme.textMuted}`}>Paid Invoices</p></div>
+            <p className={`text-lg font-bold sm:text-2xl ${theme.textPrimary}`}>{formatCurrency(incomeData.totalPaid)}</p>
+            <p className={`mt-1 text-[11px] sm:text-xs ${theme.textMuted}`}>{incomeData.paidInvoices.length} invoices</p>
           </div>
         </div>
 
         {/* Income vs Expenses Bar Chart */}
-        <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
-          <div className={`p-4 border-b ${theme.border}`}>
-            <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Income vs Expenses (6 Months)</h3>
-            <div className="flex gap-4 mt-2">
-              <span className="flex items-center gap-1.5 text-xs"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />Income</span>
-              <span className="flex items-center gap-1.5 text-xs"><span className="w-2.5 h-2.5 rounded-full bg-red-400" />Expenses</span>
+        <div className={`${theme.cardBg} border ${theme.border} rounded-xl shadow-sm overflow-hidden sm:rounded-2xl`}>
+          <div className={`border-b p-3 sm:p-4 ${theme.border}`}>
+            <h3 className={`text-sm font-semibold sm:text-base ${theme.textPrimary}`}>Income vs Expenses (6 Months)</h3>
+            <div className="mt-1.5 flex gap-3 sm:mt-2 sm:gap-4">
+              <span className="flex items-center gap-1.5 text-[11px] sm:text-xs"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Income</span>
+              <span className="flex items-center gap-1.5 text-[11px] sm:text-xs"><span className="h-2.5 w-2.5 rounded-full bg-red-400" />Expenses</span>
             </div>
           </div>
-          <div className="p-4">
-            <div className="flex items-end gap-4 overflow-x-auto pb-2" style={{ minHeight: 240 }}>
+          <div className="p-3 sm:p-4">
+            <div className="flex items-end gap-3 overflow-x-auto pb-2 sm:gap-4" style={{ minHeight: 210 }}>
               {chartData.map(d => (
-                <div key={d.label} className="flex min-w-[90px] flex-1 flex-col items-center gap-2">
-                  <div className="flex h-[200px] w-full items-end justify-center gap-1.5">
+                <div key={d.label} className="flex min-w-[72px] flex-1 flex-col items-center gap-1.5 sm:min-w-[90px] sm:gap-2">
+                  <div className="flex h-[170px] w-full items-end justify-center gap-1.5 sm:h-[200px]">
                     <div className="flex h-full flex-1 items-end"><div className="w-full rounded-t-lg bg-emerald-500" style={{ height: `${Math.max((d.income / maxBar) * 100, d.income > 0 ? 6 : 0)}%` }} title={`Income: ${formatCurrency(d.income)}`} /></div>
                     <div className="flex h-full flex-1 items-end"><div className="w-full rounded-t-lg bg-red-400" style={{ height: `${Math.max((d.expenses / maxBar) * 100, d.expenses > 0 ? 6 : 0)}%` }} title={`Expenses: ${formatCurrency(d.expenses)}`} /></div>
                   </div>
-                  <p className={`text-xs font-medium ${theme.textPrimary}`}>{d.label.split(' ')[0]}</p>
+                  <p className={`text-[11px] font-medium sm:text-xs ${theme.textPrimary}`}>{d.label.split(' ')[0]}</p>
                 </div>
               ))}
             </div>
@@ -327,14 +330,14 @@ export default function FinancePage({ data, save, theme }) {
 
         {/* Expense Category Pie */}
         {pieData.length > 0 && (
-          <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
-            <div className={`p-4 border-b ${theme.border}`}>
-              <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Expense Breakdown (This Month)</h3>
+          <div className={`${theme.cardBg} border ${theme.border} rounded-xl shadow-sm overflow-hidden sm:rounded-2xl`}>
+            <div className={`border-b p-3 sm:p-4 ${theme.border}`}>
+              <h3 className={`text-sm font-semibold sm:text-base ${theme.textPrimary}`}>Expense Breakdown (This Month)</h3>
             </div>
-            <div className="p-4">
-              <div className="grid gap-3 md:grid-cols-[200px_1fr] md:items-center">
+            <div className="p-3 sm:p-4">
+              <div className="grid gap-3 sm:grid-cols-[168px_1fr] sm:items-center md:grid-cols-[200px_1fr]">
                 <div className="mx-auto">
-                  <svg viewBox="0 0 200 200" width="200" height="200" className="-rotate-90">
+                  <svg viewBox="0 0 200 200" className="h-[168px] w-[168px] -rotate-90 sm:h-[200px] sm:w-[200px]">
                     {(() => {
                       const total = pieData.reduce((s, d) => s + d.value, 0);
                       const r = 65, sw = 22, circ = 2 * Math.PI * r;
@@ -350,9 +353,9 @@ export default function FinancePage({ data, save, theme }) {
                 </div>
                 <div className="space-y-2">
                   {pieData.map(d => (
-                    <div key={d.label} className={`flex items-center justify-between gap-3 px-3 py-2 rounded-xl border ${theme.border} ${theme.subtleBg}`}>
-                      <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full" style={{ background: d.color }} /><span className={`text-sm ${theme.textPrimary}`}>{d.label}</span></div>
-                      <span className={`text-sm font-semibold ${theme.textPrimary}`}>{formatCurrency(d.value)}</span>
+                    <div key={d.label} className={`flex items-center justify-between gap-3 rounded-lg border px-2.5 py-2 sm:rounded-xl sm:px-3 ${theme.border} ${theme.subtleBg}`}>
+                      <div className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: d.color }} /><span className={`text-[13px] sm:text-sm ${theme.textPrimary}`}>{d.label}</span></div>
+                      <span className={`text-[13px] font-semibold sm:text-sm ${theme.textPrimary}`}>{formatCurrency(d.value)}</span>
                     </div>
                   ))}
                 </div>
@@ -429,25 +432,25 @@ export default function FinancePage({ data, save, theme }) {
     }, [financeData.expenses]);
 
     return (
-      <div className="space-y-5">
+      <div className={sectionClass}>
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className={`text-lg font-bold ${theme.textPrimary}`}>Expenses</h2>
-            <p className={`text-sm ${theme.textMuted}`}>Total: {formatCurrency(totalFiltered)} ({filtered.length} items)</p>
+            <h2 className={`text-base font-bold sm:text-lg ${theme.textPrimary}`}>Expenses</h2>
+            <p className={`text-xs sm:text-sm ${theme.textMuted}`}>Total: {formatCurrency(totalFiltered)} ({filtered.length} items)</p>
           </div>
-          <button onClick={openAdd} className={`flex items-center gap-2 px-4 py-2.5 ${theme.accent} rounded-xl text-sm font-semibold ${theme.accentHover}`}><Plus size={16} /> Add Expense</button>
+          <button onClick={openAdd} className={`${actionButtonClass} ${theme.accent} ${theme.accentHover}`}><Plus size={15} /> Add Expense</button>
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
-            className={`px-3 py-2 border ${theme.inputBorder} ${theme.inputBg} rounded-xl text-sm ${theme.textPrimary}`}>
+            className={controlClass}>
             <option value="all">All months</option>
             {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
-            className={`px-3 py-2 border ${theme.inputBorder} ${theme.inputBg} rounded-xl text-sm ${theme.textPrimary}`}>
+            className={controlClass}>
             <option value="all">All categories</option>
             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
@@ -470,22 +473,22 @@ export default function FinancePage({ data, save, theme }) {
         )}
 
         {/* List */}
-        <div className={`${theme.cardBg} border ${theme.border} rounded-2xl overflow-hidden shadow-sm`}>
+        <div className={`${theme.cardBg} border ${theme.border} rounded-xl overflow-hidden shadow-sm sm:rounded-2xl`}>
           {filtered.length === 0 ? (
-            <div className={`p-12 text-center ${theme.textMuted}`}>No expenses found. Add your first expense above.</div>
+            <div className={`p-8 text-center sm:p-12 ${theme.textMuted}`}>No expenses found. Add your first expense above.</div>
           ) : (
             <div className={`divide-y ${theme.border}`}>
               {filtered.map(exp => {
                 const cat = getCat(exp.category);
                 return (
-                  <div key={exp.id} className={`p-4 flex items-center gap-4 ${theme.tableRowHover}`}>
-                    <CategoryIcon iconName={cat.icon} color={cat.color} size={18} />
+                  <div key={exp.id} className={`flex items-center gap-3 p-3 sm:gap-4 sm:p-4 ${theme.tableRowHover}`}>
+                    <CategoryIcon iconName={cat.icon} color={cat.color} size={16} />
                     <div className="flex-1 min-w-0">
                       <p className={`font-medium ${theme.textPrimary} truncate`}>{exp.title}</p>
                       <p className={`text-xs ${theme.textMuted}`}>{cat.name} • {exp.date} • {exp.type || 'variable'}</p>
                       {exp.notes && <p className={`text-xs ${theme.textMuted} mt-0.5`}>{exp.notes}</p>}
                     </div>
-                    <p className="text-sm font-bold text-red-600 whitespace-nowrap">{formatCurrency(exp.amount)}</p>
+                    <p className="whitespace-nowrap text-xs font-bold text-red-600 sm:text-sm">{formatCurrency(exp.amount)}</p>
                     <div className="flex gap-1">
                       <button onClick={() => openEdit(exp)} className={`p-1.5 ${theme.buttonHover} rounded-lg`}><Edit size={14} className={theme.iconColor} /></button>
                       <button onClick={() => handleDelete(exp.id)} className="p-1.5 hover:bg-red-50 rounded-lg"><Trash2 size={14} className="text-red-400" /></button>
@@ -585,31 +588,31 @@ export default function FinancePage({ data, save, theme }) {
     }, [incomeData.paidInvoices, manualEntries, taxRate]);
 
     return (
-      <div className="space-y-5">
+      <div className={sectionClass}>
         {/* Income Summary */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className={`text-lg font-bold ${theme.textPrimary}`}>Income</h2>
-          <button onClick={openAdd} className={`flex items-center gap-2 px-4 py-2.5 ${theme.accent} rounded-xl text-sm font-semibold ${theme.accentHover}`}><Plus size={16} /> Add Income</button>
+          <h2 className={`text-base font-bold sm:text-lg ${theme.textPrimary}`}>Income</h2>
+          <button onClick={openAdd} className={`${actionButtonClass} ${theme.accent} ${theme.accentHover}`}><Plus size={15} /> Add Income</button>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Actual Income</p>
-            <p className="text-2xl font-bold text-emerald-700 mt-2">{formatCurrency(incomeData.totalPaid)}</p>
-            <p className="text-xs text-emerald-500 mt-1">{incomeData.paidInvoices.length} invoices + {manualEntries.length} manual</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 sm:text-xs">Actual Income</p>
+            <p className="mt-1.5 text-lg font-bold text-emerald-700 sm:mt-2 sm:text-2xl">{formatCurrency(incomeData.totalPaid)}</p>
+            <p className="mt-1 text-[11px] text-emerald-500 sm:text-xs">{incomeData.paidInvoices.length} invoices + {manualEntries.length} manual</p>
           </div>
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Projected Income</p>
-            <p className="text-2xl font-bold text-amber-700 mt-2">{formatCurrency(incomeData.totalOutstanding)}</p>
-            <p className="text-xs text-amber-500 mt-1">{incomeData.outstandingInvoices.length} outstanding</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 sm:text-xs">Projected Income</p>
+            <p className="mt-1.5 text-lg font-bold text-amber-700 sm:mt-2 sm:text-2xl">{formatCurrency(incomeData.totalOutstanding)}</p>
+            <p className="mt-1 text-[11px] text-amber-500 sm:text-xs">{incomeData.outstandingInvoices.length} outstanding</p>
           </div>
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Paid (This Month)</p>
-            <p className="text-2xl font-bold text-emerald-700 mt-2">{formatCurrency(incomeData.paidMonth)}</p>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 sm:text-xs">Paid (This Month)</p>
+            <p className="mt-1.5 text-lg font-bold text-emerald-700 sm:mt-2 sm:text-2xl">{formatCurrency(incomeData.paidMonth)}</p>
           </div>
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Expected (This Month)</p>
-            <p className="text-2xl font-bold text-amber-700 mt-2">{formatCurrency(incomeData.outstandingMonth)}</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 sm:text-xs">Expected (This Month)</p>
+            <p className="mt-1.5 text-lg font-bold text-amber-700 sm:mt-2 sm:text-2xl">{formatCurrency(incomeData.outstandingMonth)}</p>
           </div>
         </div>
 
@@ -622,7 +625,7 @@ export default function FinancePage({ data, save, theme }) {
             {manualEntries.length === 0 ? (
               <div className={`p-8 text-center ${theme.textMuted}`}>No manual income added yet.</div>
             ) : manualEntries.sort((a, b) => b.date.localeCompare(a.date)).map(entry => (
-              <div key={entry.id} className={`p-4 flex items-center gap-4 ${theme.tableRowHover}`}>
+              <div key={entry.id} className={`flex items-center gap-3 p-3 sm:gap-4 sm:p-4 ${theme.tableRowHover}`}>
                 <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
                   <DollarSign size={16} className="text-emerald-600" />
                 </div>
@@ -775,29 +778,29 @@ export default function FinancePage({ data, save, theme }) {
     const colors = ['#6366f1', '#3b82f6', '#14b8a6', '#f59e0b', '#ec4899', '#f97316', '#8b5cf6', '#10b981'];
 
     return (
-      <div className="space-y-5">
+      <div className={sectionClass}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className={`text-lg font-bold ${theme.textPrimary}`}>Savings Pockets</h2>
-            <p className={`text-sm ${theme.textMuted}`}>Total saved: {formatCurrency(tc)} across {pockets.length} pockets</p>
+            <h2 className={`text-base font-bold sm:text-lg ${theme.textPrimary}`}>Savings Pockets</h2>
+            <p className={`text-xs sm:text-sm ${theme.textMuted}`}>Total saved: {formatCurrency(tc)} across {pockets.length} pockets</p>
           </div>
-          <button onClick={openAdd} className={`flex items-center gap-2 px-4 py-2.5 ${theme.accent} rounded-xl text-sm font-semibold ${theme.accentHover}`}><Plus size={16} /> New Pocket</button>
+          <button onClick={openAdd} className={`${actionButtonClass} ${theme.accent} ${theme.accentHover}`}><Plus size={15} /> New Pocket</button>
         </div>
 
         {pockets.length === 0 ? (
-          <div className={`${theme.cardBg} border ${theme.border} rounded-2xl p-12 text-center ${theme.textMuted}`}>No pockets yet. Create your first savings pocket!</div>
+          <div className={`${theme.cardBg} border ${theme.border} rounded-xl p-8 text-center sm:rounded-2xl sm:p-12 ${theme.textMuted}`}>No pockets yet. Create your first savings pocket!</div>
         ) : (
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
             {pockets.map((p, idx) => {
               const pct = p.target > 0 ? Math.min((Number(p.current) / Number(p.target)) * 100, 100) : 0;
               const pctOfTotal = tc > 0 ? ((Number(p.current) / tc) * 100).toFixed(1) : '0.0';
               const col = colors[idx % colors.length];
               return (
-                <div key={p.id} className={`${theme.cardBg} border ${theme.border} rounded-2xl p-5 shadow-sm`}>
+                <div key={p.id} className={`${theme.cardBg} border ${theme.border} rounded-xl p-4 shadow-sm sm:rounded-2xl sm:p-5`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${col}15` }}>
-                        <PiggyBank size={20} style={{ color: col }} />
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg sm:h-10 sm:w-10 sm:rounded-xl" style={{ background: `${col}15` }}>
+                        <PiggyBank size={18} style={{ color: col }} />
                       </div>
                       <div>
                         <p className={`font-semibold ${theme.textPrimary}`}>{p.name}</p>
@@ -822,12 +825,12 @@ export default function FinancePage({ data, save, theme }) {
                     {allocateId === p.id ? (
                       <div className="flex gap-2">
                         <input type="number" placeholder="Amount" value={allocateAmount} onChange={e => setAllocateAmount(e.target.value)}
-                          className={`flex-1 px-3 py-2 border ${theme.inputBorder} ${theme.inputBg} rounded-xl text-sm ${theme.textPrimary}`} />
-                        <button onClick={() => handleAllocate(p.id)} className={`px-3 py-2 ${theme.accent} rounded-xl text-sm font-semibold ${theme.accentHover}`}>Add</button>
-                        <button onClick={() => { setAllocateId(null); setAllocateAmount(''); }} className={`px-3 py-2 border ${theme.border} rounded-xl text-sm ${theme.textPrimary}`}>X</button>
+                          className={`flex-1 px-3 py-2 border ${theme.inputBorder} ${theme.inputBg} rounded-lg text-[13px] sm:rounded-xl sm:text-sm ${theme.textPrimary}`} />
+                        <button onClick={() => handleAllocate(p.id)} className={`px-3 py-2 ${theme.accent} rounded-lg text-[13px] font-semibold sm:rounded-xl sm:text-sm ${theme.accentHover}`}>Add</button>
+                        <button onClick={() => { setAllocateId(null); setAllocateAmount(''); }} className={`px-3 py-2 border ${theme.border} rounded-lg text-[13px] sm:rounded-xl sm:text-sm ${theme.textPrimary}`}>X</button>
                       </div>
                     ) : (
-                      <button onClick={() => setAllocateId(p.id)} className={`w-full py-2 border ${theme.border} rounded-xl text-sm font-medium ${theme.textSecondary} ${theme.buttonHover}`}>+ Allocate Funds</button>
+                      <button onClick={() => setAllocateId(p.id)} className={`w-full py-2 border ${theme.border} rounded-lg text-[13px] font-medium sm:rounded-xl sm:text-sm ${theme.textSecondary} ${theme.buttonHover}`}>+ Allocate Funds</button>
                     )}
                   </div>
                 </div>
@@ -935,35 +938,35 @@ export default function FinancePage({ data, save, theme }) {
     }, [cy, cm]);
 
     return (
-      <div className="space-y-5">
+      <div className={sectionClass}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className={`text-lg font-bold ${theme.textPrimary}`}>Budget Planner</h2>
+          <h2 className={`text-base font-bold sm:text-lg ${theme.textPrimary}`}>Budget Planner</h2>
           <div className="flex gap-3">
             <select value={selectedMonth} onChange={e => handleMonthChange(e.target.value)}
-              className={`px-3 py-2 border ${theme.inputBorder} ${theme.inputBg} rounded-xl text-sm ${theme.textPrimary}`}>
+              className={controlClass}>
               {monthPickerOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-            <button onClick={handleSave} className={`flex items-center gap-2 px-4 py-2 ${theme.accent} rounded-xl text-sm font-semibold ${theme.accentHover}`}><Check size={16} /> Save Budget</button>
+            <button onClick={handleSave} className={`${actionButtonClass} ${theme.accent} ${theme.accentHover}`}><Check size={15} /> Save Budget</button>
           </div>
         </div>
 
         {/* Income comparison */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className={`${theme.cardBg} border ${theme.border} rounded-2xl p-4 shadow-sm`}>
-            <p className={`text-xs font-semibold uppercase tracking-wide ${theme.textMuted}`}>Expected Income</p>
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
+          <div className={`${theme.cardBg} border ${theme.border} rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4`}>
+            <p className={`text-[10px] font-semibold uppercase tracking-wide sm:text-xs ${theme.textMuted}`}>Expected Income</p>
             <input type="number" value={form.expectedIncome} onChange={e => setForm({ ...form, expectedIncome: Number(e.target.value) || 0 })}
-              className={`mt-2 w-full px-3 py-2 border ${theme.inputBorder} ${theme.inputBg} rounded-xl text-lg font-bold ${theme.textPrimary}`} />
+              className={`mt-2 w-full rounded-lg border px-3 py-2 text-base font-bold sm:rounded-xl sm:text-lg ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary}`} />
           </div>
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Actual Income</p>
-            <p className="text-2xl font-bold text-emerald-700 mt-2">{formatCurrency(actualIncome)}</p>
-            {form.expectedIncome > 0 && <p className={`text-xs mt-1 ${actualIncome >= form.expectedIncome ? 'text-emerald-500' : 'text-amber-500'}`}>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 sm:text-xs">Actual Income</p>
+            <p className="mt-1.5 text-lg font-bold text-emerald-700 sm:mt-2 sm:text-2xl">{formatCurrency(actualIncome)}</p>
+            {form.expectedIncome > 0 && <p className={`mt-1 text-[11px] sm:text-xs ${actualIncome >= form.expectedIncome ? 'text-emerald-500' : 'text-amber-500'}`}>
               {((actualIncome / form.expectedIncome) * 100).toFixed(1)}% of expected
             </p>}
           </div>
-          <div className={`${totalActual > totalBudgeted && totalBudgeted > 0 ? 'bg-red-50 border-red-200' : `${theme.cardBg} ${theme.border}`} border rounded-2xl p-4 shadow-sm`}>
-            <p className={`text-xs font-semibold uppercase tracking-wide ${totalActual > totalBudgeted && totalBudgeted > 0 ? 'text-red-600' : theme.textMuted}`}>Budget Status</p>
-            <p className={`text-2xl font-bold mt-2 ${totalActual > totalBudgeted && totalBudgeted > 0 ? 'text-red-700' : theme.textPrimary}`}>{formatCurrency(totalActual)} / {formatCurrency(totalBudgeted)}</p>
+          <div className={`${totalActual > totalBudgeted && totalBudgeted > 0 ? 'bg-red-50 border-red-200' : `${theme.cardBg} ${theme.border}`} border rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4`}>
+            <p className={`text-[10px] font-semibold uppercase tracking-wide sm:text-xs ${totalActual > totalBudgeted && totalBudgeted > 0 ? 'text-red-600' : theme.textMuted}`}>Budget Status</p>
+            <p className={`mt-1.5 text-lg font-bold sm:mt-2 sm:text-2xl ${totalActual > totalBudgeted && totalBudgeted > 0 ? 'text-red-700' : theme.textPrimary}`}>{formatCurrency(totalActual)} / {formatCurrency(totalBudgeted)}</p>
           </div>
         </div>
 
@@ -1038,15 +1041,15 @@ export default function FinancePage({ data, save, theme }) {
               const under = planned > 0 && actual <= planned;
               const isDefault = DEFAULT_EXPENSE_CATEGORIES.some(d => d.id === cat.id);
               return (
-                <div key={cat.id} className="p-4">
-                  <div className="flex items-center gap-4">
+                <div key={cat.id} className="p-3 sm:p-4">
+                  <div className="flex items-center gap-3 sm:gap-4">
                     <CategoryIcon iconName={cat.icon} color={cat.color} size={16} />
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium ${theme.textPrimary}`}>{cat.name}</p>
                       <div className="flex items-center gap-3 mt-1">
                         <input type="number" value={form.categories?.[cat.id] || ''} placeholder="0"
                           onChange={e => setForm({ ...form, categories: { ...(form.categories || {}), [cat.id]: Number(e.target.value) || 0 } })}
-                          className={`w-28 px-2 py-1 border ${theme.inputBorder} ${theme.inputBg} rounded-lg text-sm ${theme.textPrimary}`} />
+                          className={`w-24 rounded-lg border px-2 py-1 text-[13px] sm:w-28 sm:text-sm ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary}`} />
                         <span className={`text-xs ${theme.textMuted}`}>budgeted</span>
                       </div>
                     </div>
@@ -1185,23 +1188,25 @@ export default function FinancePage({ data, save, theme }) {
     const periodLabel = mode === 'year' ? String(selectedYear) : `${customFrom} to ${customTo}`;
 
     return (
-      <div className="space-y-5">
+      <div className={sectionClass}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className={`text-lg font-bold ${theme.textPrimary}`}>Financial Reports</h2>
+          <h2 className={`text-base font-bold sm:text-lg ${theme.textPrimary}`}>Financial Reports</h2>
           <div className="flex items-center gap-2">
             <button onClick={() => setMode('year')}
-              className={`px-4 py-2 rounded-xl text-sm font-medium ${mode === 'year' ? theme.accent : `border ${theme.border} ${theme.textSecondary} ${theme.buttonHover}`}`}>
+              className={`px-3 py-2 rounded-lg text-[13px] font-medium sm:rounded-xl sm:px-4 sm:text-sm ${mode === 'year' ? theme.accent : `border ${theme.border} ${theme.textSecondary} ${theme.buttonHover}`}`}
+              style={mode === 'year' ? { color: '#fff' } : undefined}>
               Yearly
             </button>
             <button onClick={() => setMode('custom')}
-              className={`px-4 py-2 rounded-xl text-sm font-medium ${mode === 'custom' ? theme.accent : `border ${theme.border} ${theme.textSecondary} ${theme.buttonHover}`}`}>
+              className={`px-3 py-2 rounded-lg text-[13px] font-medium sm:rounded-xl sm:px-4 sm:text-sm ${mode === 'custom' ? theme.accent : `border ${theme.border} ${theme.textSecondary} ${theme.buttonHover}`}`}
+              style={mode === 'custom' ? { color: '#fff' } : undefined}>
               Custom
             </button>
           </div>
         </div>
 
         {/* Period selector */}
-        <div className={`${theme.cardBg} border ${theme.border} rounded-2xl p-4 flex flex-wrap items-center gap-3`}>
+        <div className={`${theme.cardBg} border ${theme.border} rounded-xl p-3 sm:rounded-2xl sm:p-4 flex flex-wrap items-center gap-3`}>
           {mode === 'year' ? (
             <div className="flex items-center gap-2">
               <button onClick={() => setSelectedYear(y => y - 1)}
@@ -1209,7 +1214,7 @@ export default function FinancePage({ data, save, theme }) {
                 &lsaquo;
               </button>
               <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
-                className={`px-3 py-2 rounded-xl border ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary} text-sm font-medium`}>
+                className={`px-3 py-2 rounded-lg border text-[13px] font-medium sm:rounded-xl sm:text-sm ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary}`}>
                 {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
               <button onClick={() => setSelectedYear(y => y + 1)}
@@ -1222,12 +1227,12 @@ export default function FinancePage({ data, save, theme }) {
               <div className="flex items-center gap-2">
                 <label className={`text-sm ${theme.textSecondary}`}>From</label>
                 <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
-                  className={`px-3 py-2 rounded-xl border ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary} text-sm`} />
+                  className={`px-3 py-2 rounded-lg border text-[13px] sm:rounded-xl sm:text-sm ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary}`} />
               </div>
               <div className="flex items-center gap-2">
                 <label className={`text-sm ${theme.textSecondary}`}>To</label>
                 <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
-                  className={`px-3 py-2 rounded-xl border ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary} text-sm`} />
+                  className={`px-3 py-2 rounded-lg border text-[13px] sm:rounded-xl sm:text-sm ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary}`} />
               </div>
             </div>
           )}
@@ -1242,26 +1247,26 @@ export default function FinancePage({ data, save, theme }) {
             <table className="w-full">
               <thead className={theme.tableHeaderBg}>
                 <tr>
-                  <th className={`px-4 py-3 text-left text-sm font-medium ${theme.labelColor}`}>Period</th>
-                  <th className={`px-4 py-3 text-right text-sm font-medium ${theme.labelColor}`}>Income</th>
-                  <th className={`px-4 py-3 text-right text-sm font-medium ${theme.labelColor}`}>Expenses</th>
-                  <th className={`px-4 py-3 text-right text-sm font-medium ${theme.labelColor}`}>Net Profit</th>
+                  <th className={`px-3 py-2.5 text-left text-[13px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.labelColor}`}>Period</th>
+                  <th className={`px-3 py-2.5 text-right text-[13px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.labelColor}`}>Income</th>
+                  <th className={`px-3 py-2.5 text-right text-[13px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.labelColor}`}>Expenses</th>
+                  <th className={`px-3 py-2.5 text-right text-[13px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.labelColor}`}>Net Profit</th>
                 </tr>
               </thead>
               <tbody className={`divide-y ${theme.border}`}>
                 {monthlySummaries.map(r => (
                   <tr key={r.label} className={theme.tableRowHover}>
-                    <td className={`px-4 py-3 text-sm font-medium ${theme.textPrimary}`}>{r.label}</td>
-                    <td className="px-4 py-3 text-sm text-right text-emerald-600">{formatCurrency(r.income)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-red-500">{formatCurrency(r.expenses)}</td>
-                    <td className={`px-4 py-3 text-sm text-right font-bold ${r.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(r.profit)}</td>
+                    <td className={`px-3 py-2.5 text-[13px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.textPrimary}`}>{r.label}</td>
+                    <td className="px-3 py-2.5 text-[13px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(r.income)}</td>
+                    <td className="px-3 py-2.5 text-[13px] text-right text-red-500 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(r.expenses)}</td>
+                    <td className={`px-3 py-2.5 text-[13px] text-right font-bold sm:px-4 sm:py-3 sm:text-sm ${r.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(r.profit)}</td>
                   </tr>
                 ))}
                 <tr className={`font-bold border-t-2 ${theme.border}`}>
-                  <td className={`px-4 py-3 text-sm ${theme.textPrimary}`}>Total</td>
-                  <td className="px-4 py-3 text-sm text-right text-emerald-600">{formatCurrency(totalsRow.income)}</td>
-                  <td className="px-4 py-3 text-sm text-right text-red-500">{formatCurrency(totalsRow.expenses)}</td>
-                  <td className={`px-4 py-3 text-sm text-right ${totalsRow.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(totalsRow.profit)}</td>
+                  <td className={`px-3 py-2.5 text-[13px] sm:px-4 sm:py-3 sm:text-sm ${theme.textPrimary}`}>Total</td>
+                  <td className="px-3 py-2.5 text-[13px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(totalsRow.income)}</td>
+                  <td className="px-3 py-2.5 text-[13px] text-right text-red-500 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(totalsRow.expenses)}</td>
+                  <td className={`px-3 py-2.5 text-[13px] text-right sm:px-4 sm:py-3 sm:text-sm ${totalsRow.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(totalsRow.profit)}</td>
                 </tr>
               </tbody>
             </table>
@@ -1350,15 +1355,16 @@ export default function FinancePage({ data, save, theme }) {
   return (
     <div className="flex flex-col h-full">
       {/* Header with sub-tab navigation */}
-      <div className={`p-4 lg:p-6 border-b ${theme.border}`}>
-        <h1 className={`text-2xl font-bold ${theme.textPrimary} mb-4`}>Finance & Budgeting</h1>
-        <div className="flex gap-1 overflow-x-auto pb-1 -mb-1">
+      <div className={`border-b p-3 sm:p-4 lg:p-6 ${theme.border}`}>
+        <h1 className={`mb-3 text-xl font-bold sm:mb-4 sm:text-2xl ${theme.textPrimary}`}>Finance & Budgeting</h1>
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mb-1">
           {subTabs.map(tab => (
             <button key={tab.id} onClick={() => setSubTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium whitespace-nowrap transition-all sm:gap-2 sm:rounded-xl sm:px-4 sm:text-sm ${
                 subTab === tab.id ? theme.sidebarActive : `${theme.textSecondary} ${theme.buttonHover}`
-              }`}>
-              <tab.icon size={16} />
+              }`}
+              style={subTab === tab.id ? { color: '#fff' } : undefined}>
+              <tab.icon size={14} />
               {tab.label}
             </button>
           ))}
@@ -1366,7 +1372,7 @@ export default function FinancePage({ data, save, theme }) {
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:p-6 lg:pb-6">
+      <div className="flex-1 overflow-auto p-3 phone-dock-scroll-space sm:p-4 lg:p-6 lg:pb-6">
         {renderSubTab()}
       </div>
     </div>

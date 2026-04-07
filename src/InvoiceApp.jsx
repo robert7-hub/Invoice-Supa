@@ -5,7 +5,6 @@ import {
   Users,
   Package,
   BarChart3,
-  Settings,
   Plus,
   Search,
   ChevronLeft,
@@ -30,13 +29,10 @@ import FinancePage from './FinancePage';
 import StaffEventPage from './StaffEventPage';
 import ImportPdfModal from './ImportPdfModal';
 import {
-  QuickCreateSheet,
+  MobileLayout,
+  MobileScrollAssist,
   getInvoiceAppShellLayout,
   InvoiceAppDesktopSidebar,
-  InvoiceAppMobileDrawer,
-  MobileBottomDock,
-  MobileHeader,
-  MobileScrollAssist,
   useDeviceLayout,
 } from './InvoiceAppLayout.jsx';
 import { generatePDF } from './pdfGenerator.jsx';
@@ -1615,8 +1611,6 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
   const [confirmMessage, setConfirmMessage] = useState('');
   const [confirmAction, setConfirmAction] = useState(() => () => {});
   const [showImportPdf, setShowImportPdf] = useState(false);
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
 
   useEffect(() => {
     const initSampleData = async () => {
@@ -1710,7 +1704,6 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     { id: 'staff-events', icon: CalendarDays, label: 'Staff & Events' },
     { id: 'reports', icon: BarChart3, label: 'Reports' },
   ];
-  const mobileNavItems = [...navItems, { id: 'settings', icon: Settings, label: 'Settings' }];
 
   const activeTheme = THEMES[data.settings?.appTheme] || THEMES.default;
   const {
@@ -1721,36 +1714,13 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     mainContentPaddingClass,
     panelShellClass,
   } = getInvoiceAppShellLayout({ activeTab, deviceLayout });
-  const showPhoneShell = usePhoneLayout && view === 'list';
-  const isSettingsOnPhone = usePhoneLayout && activeTab === 'settings';
   const mobileScrollRootRef = useRef(null);
-  const mobileSearchTabs = ['invoices', 'estimates', 'clients', 'items'];
-  const showMobileSearch = showPhoneShell && mobileSearchTabs.includes(activeTab);
-  const mobileHeaderTitle = {
-    invoices: 'Invoices',
-    estimates: 'Estimates',
-    clients: 'Clients',
-    items: 'Items',
-    finance: 'Finance',
-    'staff-events': 'Staff & Events',
-    reports: 'Reports',
-    settings: 'Settings',
-  }[activeTab] || 'Invoices';
 
   const selectAppTab = useCallback((tab) => {
     setActiveTab(tab);
     setView('list');
     setSearchTerm('');
-    setMobileDrawerOpen(false);
-    setIsQuickCreateOpen(false);
   }, []);
-
-  useEffect(() => {
-    if (!showPhoneShell) {
-      setMobileDrawerOpen(false);
-      setIsQuickCreateOpen(false);
-    }
-  }, [showPhoneShell]);
 
   // ============================================================================
   // INVOICES
@@ -1876,77 +1846,160 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               }
             />
           ) : (
-            <div className="space-y-2">
+            <div className={usePhoneLayout ? 'space-y-3' : 'space-y-2'}>
               {filtered.map((invoice) => {
                 const client = getClient(invoice.clientId);
                 const total = calculateDocumentTotal(invoice, data.settings?.taxRate || 15);
                 return (
                   <div
                     key={invoice.id}
-                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.98]' : `${activeTheme.border}`} rounded-xl ${activeTheme.cardHover} group transition-all duration-150`}
+                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]' : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
                   >
-                    <div className="flex items-center gap-2 px-3 py-2.5">
-                      <div
-                        onClick={() => {
-                          setCurrentItem(invoice);
-                          setView('view-invoice');
-                        }}
-                        className="flex-1 min-w-0 cursor-pointer"
-                      >
-                        <div className="flex items-baseline gap-2">
-                          <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{invoice.number}</p>
-                          <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
-                        </div>
-                        <p className={`text-[11px] ${activeTheme.iconColor} mt-0.5`}>{formatDate(invoice.date)}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <div className="text-right">
+                    {usePhoneLayout ? (
+                      <div className="px-3.5 py-3">
+                        <div className="mb-1.5 flex items-center justify-between gap-3">
+                          <div
+                            onClick={() => {
+                              setCurrentItem(invoice);
+                              setView('view-invoice');
+                            }}
+                            className="min-w-0 cursor-pointer"
+                          >
+                            <p className={`text-sm font-bold tracking-tight ${activeTheme.textPrimary}`}>
+                              {invoice.number}
+                            </p>
+                          </div>
                           <StatusBadge status={invoice.status} theme={activeTheme} />
-                          <p className={`text-sm font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const menuHeight = 180;
-                            const spaceBelow = window.innerHeight - rect.bottom;
-                            const openUpward = spaceBelow < menuHeight;
-                            setActiveInvoiceMenu((current) => {
-                              if (current === invoice.id) {
-                                setInvoiceMenuPosition(null);
-                                return null;
-                              }
-                              setInvoiceMenuPosition({
-                                ...(openUpward
-                                  ? { bottom: window.innerHeight - rect.top }
-                                  : { top: rect.bottom + 4 }),
-                                right: window.innerWidth - rect.right,
-                              });
-                              return invoice.id;
-                            });
+
+                        <div
+                          onClick={() => {
+                            setCurrentItem(invoice);
+                            setView('view-invoice');
                           }}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onTouchStart={(e) => e.stopPropagation()}
-                          className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+                          className="cursor-pointer"
                         >
-                          <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            closeInvoiceMenu();
-                            setConfirmMessage(`Are you sure you want to delete invoice ${invoice.number}? This action cannot be undone.`);
-                            setConfirmAction(() => async () => {
-                              await save('invoices', data.invoices.filter((inv) => inv.id !== invoice.id));
-                            });
-                            setConfirmOpen(true);
-                          }}
-                          className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
+                          <p className={`mb-2 truncate text-xs ${activeTheme.textMuted}`}>
+                            {client?.name || 'No client'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <p className={`text-[11px] ${activeTheme.iconColor}`}>
+                            {formatDate(invoice.date)}
+                          </p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <p className={`text-sm font-bold ${activeTheme.textPrimary}`}>
+                              {formatCurrency(total)}
+                            </p>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const menuHeight = 180;
+                                const spaceBelow = window.innerHeight - rect.bottom;
+                                const openUpward = spaceBelow < menuHeight;
+                                setActiveInvoiceMenu((current) => {
+                                  if (current === invoice.id) {
+                                    setInvoiceMenuPosition(null);
+                                    return null;
+                                  }
+                                  setInvoiceMenuPosition({
+                                    ...(openUpward
+                                      ? { bottom: window.innerHeight - rect.top }
+                                      : { top: rect.bottom + 4 }),
+                                    right: window.innerWidth - rect.right,
+                                  });
+                                  return invoice.id;
+                                });
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onTouchStart={(e) => e.stopPropagation()}
+                              className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+                            >
+                              <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                closeInvoiceMenu();
+                                setConfirmMessage(`Are you sure you want to delete invoice ${invoice.number}? This action cannot be undone.`);
+                                setConfirmAction(() => async () => {
+                                  await save('invoices', data.invoices.filter((inv) => inv.id !== invoice.id));
+                                });
+                                setConfirmOpen(true);
+                              }}
+                              className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex items-center gap-2 px-3 py-2.5">
+                        <div
+                          onClick={() => {
+                            setCurrentItem(invoice);
+                            setView('view-invoice');
+                          }}
+                          className="flex-1 min-w-0 cursor-pointer"
+                        >
+                          <div className="flex items-baseline gap-2">
+                            <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{invoice.number}</p>
+                            <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
+                          </div>
+                          <p className={`text-[11px] ${activeTheme.iconColor} mt-0.5`}>{formatDate(invoice.date)}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="text-right">
+                            <StatusBadge status={invoice.status} theme={activeTheme} />
+                            <p className={`text-sm font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const menuHeight = 180;
+                              const spaceBelow = window.innerHeight - rect.bottom;
+                              const openUpward = spaceBelow < menuHeight;
+                              setActiveInvoiceMenu((current) => {
+                                if (current === invoice.id) {
+                                  setInvoiceMenuPosition(null);
+                                  return null;
+                                }
+                                setInvoiceMenuPosition({
+                                  ...(openUpward
+                                    ? { bottom: window.innerHeight - rect.top }
+                                    : { top: rect.bottom + 4 }),
+                                  right: window.innerWidth - rect.right,
+                                });
+                                return invoice.id;
+                              });
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+                          >
+                            <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              closeInvoiceMenu();
+                              setConfirmMessage(`Are you sure you want to delete invoice ${invoice.number}? This action cannot be undone.`);
+                              setConfirmAction(() => async () => {
+                                await save('invoices', data.invoices.filter((inv) => inv.id !== invoice.id));
+                              });
+                              setConfirmOpen(true);
+                            }}
+                            className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -2492,77 +2545,160 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           {filtered.length === 0 ? (
             <EmptyState icon={FileSignature} title="No estimates yet" description="Create your first estimate" theme={activeTheme} />
           ) : (
-            <div className="space-y-2">
+            <div className={usePhoneLayout ? 'space-y-3' : 'space-y-2'}>
               {filtered.map((estimate) => {
                 const client = getClient(estimate.clientId);
                 const total = calculateDocumentTotal(estimate, data.settings?.taxRate || 15);
                 return (
                   <div
                     key={estimate.id}
-                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.98]' : `${activeTheme.border}`} rounded-xl ${activeTheme.cardHover} group transition-all duration-150`}
+                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]' : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
                   >
-                    <div className="flex items-center gap-2 px-3 py-2.5">
-                      <div
-                        onClick={() => {
-                          setCurrentItem(estimate);
-                          setView('view-estimate');
-                        }}
-                        className="flex-1 min-w-0 cursor-pointer"
-                      >
-                        <div className="flex items-baseline gap-2">
-                          <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{estimate.number}</p>
-                          <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
-                        </div>
-                        <p className={`text-[11px] ${activeTheme.iconColor} mt-0.5`}>{formatDate(estimate.date)}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <div className="text-right">
+                    {usePhoneLayout ? (
+                      <div className="px-3.5 py-3">
+                        <div className="mb-1.5 flex items-center justify-between gap-3">
+                          <div
+                            onClick={() => {
+                              setCurrentItem(estimate);
+                              setView('view-estimate');
+                            }}
+                            className="min-w-0 cursor-pointer"
+                          >
+                            <p className={`text-sm font-bold tracking-tight ${activeTheme.textPrimary}`}>
+                              {estimate.number}
+                            </p>
+                          </div>
                           <StatusBadge status={estimate.status} theme={activeTheme} />
-                          <p className={`text-sm font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const menuHeight = 180;
-                            const spaceBelow = window.innerHeight - rect.bottom;
-                            const openUpward = spaceBelow < menuHeight;
-                            setActiveEstimateMenu((current) => {
-                              if (current === estimate.id) {
-                                setEstimateMenuPosition(null);
-                                return null;
-                              }
-                              setEstimateMenuPosition({
-                                ...(openUpward
-                                  ? { bottom: window.innerHeight - rect.top }
-                                  : { top: rect.bottom + 4 }),
-                                right: window.innerWidth - rect.right,
-                              });
-                              return estimate.id;
-                            });
+
+                        <div
+                          onClick={() => {
+                            setCurrentItem(estimate);
+                            setView('view-estimate');
                           }}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onTouchStart={(e) => e.stopPropagation()}
-                          className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+                          className="cursor-pointer"
                         >
-                          <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            closeEstimateMenu();
-                            setConfirmMessage(`Are you sure you want to delete estimate ${estimate.number}? This action cannot be undone.`);
-                            setConfirmAction(() => async () => {
-                              await save('estimates', data.estimates.filter((est) => est.id !== estimate.id));
-                            });
-                            setConfirmOpen(true);
-                          }}
-                          className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
+                          <p className={`mb-2 truncate text-xs ${activeTheme.textMuted}`}>
+                            {client?.name || 'No client'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <p className={`text-[11px] ${activeTheme.iconColor}`}>
+                            {formatDate(estimate.date)}
+                          </p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <p className={`text-sm font-bold ${activeTheme.textPrimary}`}>
+                              {formatCurrency(total)}
+                            </p>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const menuHeight = 180;
+                                const spaceBelow = window.innerHeight - rect.bottom;
+                                const openUpward = spaceBelow < menuHeight;
+                                setActiveEstimateMenu((current) => {
+                                  if (current === estimate.id) {
+                                    setEstimateMenuPosition(null);
+                                    return null;
+                                  }
+                                  setEstimateMenuPosition({
+                                    ...(openUpward
+                                      ? { bottom: window.innerHeight - rect.top }
+                                      : { top: rect.bottom + 4 }),
+                                    right: window.innerWidth - rect.right,
+                                  });
+                                  return estimate.id;
+                                });
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onTouchStart={(e) => e.stopPropagation()}
+                              className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+                            >
+                              <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                closeEstimateMenu();
+                                setConfirmMessage(`Are you sure you want to delete estimate ${estimate.number}? This action cannot be undone.`);
+                                setConfirmAction(() => async () => {
+                                  await save('estimates', data.estimates.filter((est) => est.id !== estimate.id));
+                                });
+                                setConfirmOpen(true);
+                              }}
+                              className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex items-center gap-2 px-3 py-2.5">
+                        <div
+                          onClick={() => {
+                            setCurrentItem(estimate);
+                            setView('view-estimate');
+                          }}
+                          className="flex-1 min-w-0 cursor-pointer"
+                        >
+                          <div className="flex items-baseline gap-2">
+                            <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{estimate.number}</p>
+                            <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
+                          </div>
+                          <p className={`text-[11px] ${activeTheme.iconColor} mt-0.5`}>{formatDate(estimate.date)}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="text-right">
+                            <StatusBadge status={estimate.status} theme={activeTheme} />
+                            <p className={`text-sm font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const menuHeight = 180;
+                              const spaceBelow = window.innerHeight - rect.bottom;
+                              const openUpward = spaceBelow < menuHeight;
+                              setActiveEstimateMenu((current) => {
+                                if (current === estimate.id) {
+                                  setEstimateMenuPosition(null);
+                                  return null;
+                                }
+                                setEstimateMenuPosition({
+                                  ...(openUpward
+                                    ? { bottom: window.innerHeight - rect.top }
+                                    : { top: rect.bottom + 4 }),
+                                  right: window.innerWidth - rect.right,
+                                });
+                                return estimate.id;
+                              });
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
+                          >
+                            <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              closeEstimateMenu();
+                              setConfirmMessage(`Are you sure you want to delete estimate ${estimate.number}? This action cannot be undone.`);
+                              setConfirmAction(() => async () => {
+                                await save('estimates', data.estimates.filter((est) => est.id !== estimate.id));
+                              });
+                              setConfirmOpen(true);
+                            }}
+                            className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -3047,41 +3183,101 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           {filtered.length === 0 ? (
             <EmptyState icon={Users} title="No clients yet" description="Add your first client" theme={activeTheme} />
           ) : (
-            <div className="space-y-2">
+            <div className={usePhoneLayout ? 'space-y-3' : 'space-y-2'}>
               {filtered.map((client) => (
                 <div
                   key={client.id}
-                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.98]' : `${activeTheme.border}`} rounded-xl ${activeTheme.cardHover} group transition-all duration-150`}
+                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]' : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
                 >
-                  <div className="flex items-center gap-2 px-3 py-2.5">
-                    <div
-                      onClick={() => {
-                        setCurrentItem(client);
-                        setView('view-client');
-                      }}
-                      className="flex-1 min-w-0 cursor-pointer"
-                    >
-                      <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{client.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {client.email && <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client.email}</p>}
-                        {client.email && client.phone && <span className={`text-xs ${activeTheme.textMuted}`}>·</span>}
-                        {client.phone && <p className={`text-xs ${activeTheme.textMuted}`}>{client.phone}</p>}
+                  {usePhoneLayout ? (
+                    <div className="flex items-center gap-3 px-3.5 py-3">
+                      <div
+                        onClick={() => {
+                          setCurrentItem(client);
+                          setView('view-client');
+                        }}
+                        className={`w-10 h-10 rounded-full ${activeTheme.subtleBg} border ${activeTheme.border} flex items-center justify-center shrink-0 cursor-pointer`}
+                      >
+                        <span className={`text-xs font-bold ${activeTheme.textSecondary}`}>
+                          {(client.name || '')
+                            .split(/\s+/)
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .map((word) => word.charAt(0))
+                            .join('')
+                            .toUpperCase() || '?'}
+                        </span>
                       </div>
+                      <div
+                        onClick={() => {
+                          setCurrentItem(client);
+                          setView('view-client');
+                        }}
+                        className="flex-1 min-w-0 cursor-pointer"
+                      >
+                        <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{client.name}</p>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {client.email && (
+                            <span className={`text-[11px] ${activeTheme.textMuted} truncate max-w-[160px]`}>
+                              {client.email}
+                            </span>
+                          )}
+                          {client.email && client.phone && (
+                            <span className={`text-[11px] ${activeTheme.textMuted}`}>·</span>
+                          )}
+                          {client.phone && (
+                            <span className={`text-[11px] ${activeTheme.textMuted}`}>{client.phone}</span>
+                          )}
+                        </div>
+                        {client.city && (
+                          <p className={`text-[10px] ${activeTheme.iconColor} mt-0.5`}>{client.city}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmMessage(`Are you sure you want to delete client ${client.name}? This action cannot be undone.`);
+                          setConfirmAction(() => async () => {
+                            await save('clients', data.clients.filter((c) => c.id !== client.id));
+                          });
+                          setConfirmOpen(true);
+                        }}
+                        className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity shrink-0`}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setConfirmMessage(`Are you sure you want to delete client ${client.name}? This action cannot be undone.`);
-                        setConfirmAction(() => async () => {
-                          await save('clients', data.clients.filter((c) => c.id !== client.id));
-                        });
-                        setConfirmOpen(true);
-                      }}
-                      className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity shrink-0`}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-2 px-3 py-2.5">
+                      <div
+                        onClick={() => {
+                          setCurrentItem(client);
+                          setView('view-client');
+                        }}
+                        className="flex-1 min-w-0 cursor-pointer"
+                      >
+                        <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{client.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {client.email && <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client.email}</p>}
+                          {client.email && client.phone && <span className={`text-xs ${activeTheme.textMuted}`}>·</span>}
+                          {client.phone && <p className={`text-xs ${activeTheme.textMuted}`}>{client.phone}</p>}
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmMessage(`Are you sure you want to delete client ${client.name}? This action cannot be undone.`);
+                          setConfirmAction(() => async () => {
+                            await save('clients', data.clients.filter((c) => c.id !== client.id));
+                          });
+                          setConfirmOpen(true);
+                        }}
+                        className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity shrink-0`}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -3293,55 +3489,131 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           {filtered.length === 0 ? (
             <EmptyState icon={Package} title="No items yet" description="Add your products and services" theme={activeTheme} />
           ) : (
-            <div className="space-y-2">
+            <div className={usePhoneLayout ? 'space-y-3' : 'space-y-2'}>
               {filtered.map((item) => (
                 <div
                   key={item.id}
-                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.06)] active:scale-[0.98]' : `${activeTheme.border}`} rounded-xl ${activeTheme.cardHover} group transition-all duration-150`}
+                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]' : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
                 >
-                  <div className="flex items-center gap-2 px-3 py-2.5">
-                    <div
-                      onClick={() => {
-                        setCurrentItem(item);
-                        setView('edit-item');
-                      }}
-                      className="flex-1 min-w-0 cursor-pointer"
-                    >
-                      <div className="flex items-baseline gap-2">
-                        <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{item.name}</p>
-                        {item.description && (
-                          <p className={`text-xs truncate ${activeTheme.textMuted}`}>{item.description}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        {item.unit && <span className={`text-[10px] ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-1.5 py-0.5 rounded`}>per {item.unit}</span>}
-                        {item.taxable && <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded">Taxable</span>}
-                        {item.discountAmount > 0 && (
-                          <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                            {item.discountType === 'percentage'
-                              ? `${item.discountAmount}% off`
-                              : `${formatCurrency(item.discountAmount)} off`}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <p className={`text-sm font-bold ${activeTheme.textPrimary}`}>{formatCurrency(item.unitCost || 0)}</p>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmMessage(`Are you sure you want to delete item ${item.name}? This action cannot be undone.`);
-                          setConfirmAction(() => async () => {
-                            await save('items', data.items.filter((i) => i.id !== item.id));
-                          });
-                          setConfirmOpen(true);
+                  {usePhoneLayout ? (
+                    <div className="px-3.5 py-3">
+                      <div
+                        onClick={() => {
+                          setCurrentItem(item);
+                          setView('edit-item');
                         }}
-                        className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
+                        className="flex items-center justify-between mb-1 cursor-pointer"
                       >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </button>
+                        <p className={`text-sm font-bold ${activeTheme.textPrimary} truncate mr-3`}>
+                          {item.name}
+                        </p>
+                        <p className={`text-sm font-bold ${activeTheme.textPrimary} shrink-0`}>
+                          {formatCurrency(item.unitCost || 0)}
+                        </p>
+                      </div>
+
+                      {item.description && (
+                        <div
+                          onClick={() => {
+                            setCurrentItem(item);
+                            setView('edit-item');
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <p
+                            className={`text-xs ${activeTheme.textMuted} mb-2`}
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {item.description}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {item.unit && (
+                            <span className={`text-[10px] ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-2 py-0.5 rounded-full border ${activeTheme.border}`}>
+                              per {item.unit}
+                            </span>
+                          )}
+                          {item.taxable && (
+                            <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-200">
+                              Taxable
+                            </span>
+                          )}
+                          {item.discountAmount > 0 && (
+                            <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                              {item.discountType === 'percentage'
+                                ? `${item.discountAmount}% off`
+                                : `${formatCurrency(item.discountAmount)} off`}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmMessage(`Are you sure you want to delete item ${item.name}? This action cannot be undone.`);
+                            setConfirmAction(() => async () => {
+                              await save('items', data.items.filter((i) => i.id !== item.id));
+                            });
+                            setConfirmOpen(true);
+                          }}
+                          className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity shrink-0`}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-2 px-3 py-2.5">
+                      <div
+                        onClick={() => {
+                          setCurrentItem(item);
+                          setView('edit-item');
+                        }}
+                        className="flex-1 min-w-0 cursor-pointer"
+                      >
+                        <div className="flex items-baseline gap-2">
+                          <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{item.name}</p>
+                          {item.description && (
+                            <p className={`text-xs truncate ${activeTheme.textMuted}`}>{item.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {item.unit && <span className={`text-[10px] ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-1.5 py-0.5 rounded`}>per {item.unit}</span>}
+                          {item.taxable && <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded">Taxable</span>}
+                          {item.discountAmount > 0 && (
+                            <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                              {item.discountType === 'percentage'
+                                ? `${item.discountAmount}% off`
+                                : `${formatCurrency(item.discountAmount)} off`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <p className={`text-sm font-bold ${activeTheme.textPrimary}`}>{formatCurrency(item.unitCost || 0)}</p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmMessage(`Are you sure you want to delete item ${item.name}? This action cannot be undone.`);
+                            setConfirmAction(() => async () => {
+                              await save('items', data.items.filter((i) => i.id !== item.id));
+                            });
+                            setConfirmOpen(true);
+                          }}
+                          className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -4583,88 +4855,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     }
   };
 
-  return (
-    <div
-      className={`h-[100dvh] ${rootOverflowClass} ${usePhoneLayout ? 'invoice-phone-stage bg-gradient-to-b from-slate-100 to-slate-200' : activeTheme.appBg}`}
-      style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
-    >
-      <div className={`flex h-full ${usePhoneLayout ? 'invoice-phone-frame items-start' : ''}`} style={frameStyle}>
-        <InvoiceAppDesktopSidebar
-          visible={!usePhoneLayout}
-          isTablet={useTabletLayout}
-          activeTheme={activeTheme}
-          businessName={data.settings?.businessName}
-          logo={data.settings?.logo}
-          navItems={navItems}
-          activeTab={activeTab}
-          onSelectTab={selectAppTab}
-        />
-        <main className="flex flex-1 flex-col overflow-hidden">
-          {activeTab === 'settings' && cloudToolbarProps && renderCloudToolbar ? renderCloudToolbar(cloudToolbarProps) : null}
-          <div className={`min-h-0 flex-1 ${mainContentPaddingClass}`}>
-            <div
-              ref={mobileScrollRootRef}
-              className={`${activeTheme.panelBg} shadow-sm ${activeTheme.border} h-full overflow-hidden ${panelShellClass}`}
-              style={activeTab === 'settings' ? undefined : { maxWidth: '1600px' }}
-            >
-              <div className="flex h-full flex-col overflow-hidden">
-                {showPhoneShell ? (
-                  <MobileHeader
-                    title={mobileHeaderTitle}
-                    activeTheme={activeTheme}
-                    showSearch={showMobileSearch}
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    onMenu={() => setMobileDrawerOpen(true)}
-                    onSettings={() => isSettingsOnPhone ? selectAppTab('invoices') : selectAppTab('settings')}
-                    RightIcon={isSettingsOnPhone ? X : Settings}
-                    rightAriaLabel={isSettingsOnPhone ? 'Back to invoices' : 'Open settings'}
-                  />
-                ) : null}
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  {renderContent()}
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-      {showPhoneShell ? (
-        <InvoiceAppMobileDrawer
-          open={mobileDrawerOpen}
-          onClose={() => setMobileDrawerOpen(false)}
-          activeTheme={activeTheme}
-          businessName={data.settings?.businessName}
-          businessEmail={data.settings?.email}
-          logo={data.settings?.logo}
-          navItems={mobileNavItems}
-          activeTab={activeTab}
-          onSelectTab={selectAppTab}
-        />
-      ) : null}
-      {showPhoneShell && !isSettingsOnPhone ? (
-        <MobileBottomDock
-          visible
-          activeTheme={activeTheme}
-          navItems={mobileNavItems}
-          activeTab={activeTab}
-          onSelectTab={selectAppTab}
-          onOpenQuickCreate={() => setIsQuickCreateOpen(true)}
-        />
-      ) : null}
-      <MobileScrollAssist
-        visible={usePhoneLayout || useTabletLayout}
-        hasBottomDock={showPhoneShell && !isSettingsOnPhone}
-        scrollRootRef={mobileScrollRootRef}
-      />
-      {showPhoneShell && !isSettingsOnPhone ? (
-        <QuickCreateSheet
-          open={isQuickCreateOpen}
-          onClose={() => setIsQuickCreateOpen(false)}
-          onNavigate={selectAppTab}
-        />
-      ) : null}
-      {/* Confirm Modal */}
+  const modals = (
+    <>
       {confirmOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className={`${activeTheme.modalBg} rounded-2xl w-full max-w-md p-6 shadow-xl ${activeTheme.border}`}>
@@ -4700,6 +4892,68 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
         existingClients={data.clients}
         theme={activeTheme}
       />
+    </>
+  );
+
+  if (usePhoneLayout) {
+    return (
+      <MobileLayout
+        activeTab={activeTab}
+        onSelectTab={selectAppTab}
+        navItems={navItems}
+        businessName={data.settings?.businessName}
+        businessEmail={data.settings?.email}
+        logo={data.settings?.logo}
+        activeTheme={activeTheme}
+        view={view}
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+      >
+        {renderContent()}
+        {modals}
+      </MobileLayout>
+    );
+  }
+
+  return (
+    <div
+      className={`h-[100dvh] ${rootOverflowClass} ${activeTheme.appBg}`}
+      style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
+    >
+      <div className="flex h-full" style={frameStyle}>
+        <InvoiceAppDesktopSidebar
+          visible
+          isTablet={useTabletLayout}
+          activeTheme={activeTheme}
+          businessName={data.settings?.businessName}
+          logo={data.settings?.logo}
+          navItems={navItems}
+          activeTab={activeTab}
+          onSelectTab={selectAppTab}
+        />
+        <main className="flex flex-1 flex-col overflow-hidden">
+          {activeTab === 'settings' && cloudToolbarProps && renderCloudToolbar ? renderCloudToolbar(cloudToolbarProps) : null}
+          <div className={`min-h-0 flex-1 ${mainContentPaddingClass}`}>
+            <div
+              ref={mobileScrollRootRef}
+              className={`${activeTheme.panelBg} shadow-sm ${activeTheme.border} h-full overflow-hidden ${panelShellClass}`}
+              style={activeTab === 'settings' ? undefined : { maxWidth: '1600px' }}
+            >
+              <div className="flex h-full flex-col overflow-hidden">
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  {renderContent()}
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+      <MobileScrollAssist
+        visible={useTabletLayout}
+        hasBottomDock={false}
+        scrollRootRef={mobileScrollRootRef}
+      />
+      {modals}
     </div>
   );
 }

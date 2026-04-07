@@ -451,21 +451,21 @@ export const MobileBottomDock = ({
 
   return (
     <div
-      className="fixed bottom-0 left-1/2 z-40 w-full max-w-md -translate-x-1/2 px-2.5"
-      style={{ paddingBottom: 'max(0.85rem, env(safe-area-inset-bottom))' }}
+      className="fixed bottom-0 left-1/2 z-40 w-full max-w-md -translate-x-1/2 px-2"
+      style={{ paddingBottom: 'max(0.7rem, env(safe-area-inset-bottom))' }}
     >
-      <div className="relative rounded-t-[28px] rounded-b-[24px] border border-zinc-200/90 bg-white/98 shadow-[0_-8px_30px_rgba(15,23,42,0.12),0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur-xl">
+      <div className="relative rounded-t-[26px] rounded-b-[22px] border border-zinc-200/90 bg-white/98 shadow-[0_-8px_26px_rgba(15,23,42,0.11),0_16px_34px_rgba(15,23,42,0.10)] backdrop-blur-xl">
         <button
           type="button"
           onClick={onOpenQuickCreate}
-          className="absolute left-1/2 top-0 z-10 flex h-[60px] w-[60px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white bg-black text-white shadow-[0_10px_28px_rgba(0,0,0,0.28)] transition-all duration-200 hover:scale-105 active:scale-[0.98]"
+          className="absolute left-1/2 top-0 z-10 flex h-[54px] w-[54px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white bg-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.25)] transition-all duration-200 hover:scale-105 active:scale-[0.98]"
           aria-label="Open create menu"
         >
-          <Plus className="h-6 w-6" />
+          <Plus className="h-5 w-5" />
         </button>
 
-        <div className="mobile-nav-scroll overflow-x-auto px-2 pb-3 pt-5">
-          <div className="flex min-w-max items-center gap-3 px-2">
+        <div className="mobile-nav-scroll overflow-x-auto px-1.5 pb-2.5 pt-4">
+          <div className="grid min-w-full grid-flow-col auto-cols-[calc((100%-1.5rem)/4)] items-center gap-2 px-2">
             {dockItems.map((item) => {
               const isActive = activeTab === item.id;
 
@@ -474,24 +474,24 @@ export const MobileBottomDock = ({
                   <button
                     type="button"
                     onClick={() => onSelectTab(item.id)}
-                    className={`flex min-h-[74px] min-w-[92px] flex-none flex-col items-center justify-center rounded-[20px] px-3 py-2.5 text-[12px] transition-all duration-200 active:scale-[0.98] ${
+                    className={`flex h-[66px] min-w-0 w-full flex-col items-center justify-center rounded-[18px] px-2 py-2 text-[11px] transition-all duration-200 active:scale-[0.98] ${
                       isActive
-                        ? 'bg-zinc-50 text-zinc-950 shadow-[0_8px_20px_rgba(15,23,42,0.08)] ring-1 ring-zinc-200/80'
+                        ? 'bg-zinc-50 text-zinc-950 shadow-[0_8px_18px_rgba(15,23,42,0.08)] ring-1 ring-zinc-200/80'
                         : 'text-zinc-500 hover:bg-zinc-100/80'
                     }`}
                     aria-current={isActive ? 'page' : undefined}
                   >
                     <div
-                      className={`mb-1.5 flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 ${
+                      className={`mb-1 flex h-9 w-9 items-center justify-center rounded-[14px] transition-all duration-200 ${
                         isActive
                           ? 'bg-zinc-100 text-zinc-900 shadow-sm'
                           : 'bg-transparent text-zinc-500'
                       }`}
                     >
-                      <item.icon className="h-5 w-5" />
+                      <item.icon className="h-[18px] w-[18px]" />
                     </div>
                     <span
-                      className={`text-center leading-tight whitespace-nowrap ${
+                      className={`max-w-full overflow-hidden text-ellipsis text-center leading-tight whitespace-nowrap ${
                         isActive ? 'font-semibold text-zinc-950' : 'font-medium text-zinc-500'
                       }`}
                     >
@@ -558,6 +558,134 @@ const findActiveMobileScrollTarget = (root) => {
 
     return getElementDepth(right, root) - getElementDepth(left, root);
   })[0];
+};
+
+// ============================================================================
+// MOBILE LAYOUT SHELL
+// ============================================================================
+
+export const MobileLayout = ({
+  activeTab,
+  onSelectTab,
+  navItems,
+  businessName,
+  businessEmail,
+  logo,
+  activeTheme,
+  view,
+  searchTerm,
+  onSearchChange,
+  children,
+}) => {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const scrollRootRef = useRef(null);
+
+  const mobileNavItems = useMemo(
+    () => [...navItems, { id: 'settings', icon: Settings, label: 'Settings' }],
+    [navItems]
+  );
+
+  const showShell = view === 'list';
+  const isSettingsOnPhone = activeTab === 'settings';
+  const mobileSearchTabs = ['invoices', 'estimates', 'clients', 'items'];
+  const showSearch = showShell && mobileSearchTabs.includes(activeTab);
+  const headerTitle =
+    {
+      invoices: 'Invoices',
+      estimates: 'Estimates',
+      clients: 'Clients',
+      items: 'Items',
+      finance: 'Finance',
+      'staff-events': 'Staff & Events',
+      reports: 'Reports',
+      settings: 'Settings',
+    }[activeTab] || 'Invoices';
+
+  useEffect(() => {
+    if (!showShell) {
+      setDrawerOpen(false);
+      setQuickCreateOpen(false);
+    }
+  }, [showShell]);
+
+  const handleSelectTab = useCallback(
+    (tab) => {
+      setDrawerOpen(false);
+      setQuickCreateOpen(false);
+      onSelectTab(tab);
+    },
+    [onSelectTab]
+  );
+
+  return (
+    <div
+      className="h-[100dvh] overflow-hidden invoice-phone-stage bg-gradient-to-b from-slate-100 to-slate-200"
+      style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
+    >
+      <div className="flex h-full invoice-phone-frame items-start">
+        <main className="flex flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 px-0 pt-0 pb-0">
+            <div
+              ref={scrollRootRef}
+              className={`${activeTheme.panelBg} shadow-sm ${activeTheme.border} h-full overflow-hidden ${PHONE_PANEL_CLASS}`}
+              style={isSettingsOnPhone ? undefined : { maxWidth: '1600px' }}
+            >
+              <div className="flex h-full flex-col overflow-hidden">
+                {showShell ? (
+                  <MobileHeader
+                    title={headerTitle}
+                    activeTheme={activeTheme}
+                    showSearch={showSearch}
+                    searchTerm={searchTerm}
+                    onSearchChange={onSearchChange}
+                    onMenu={() => setDrawerOpen(true)}
+                    onSettings={() =>
+                      isSettingsOnPhone ? handleSelectTab('invoices') : handleSelectTab('settings')
+                    }
+                    RightIcon={isSettingsOnPhone ? X : Settings}
+                    rightAriaLabel={isSettingsOnPhone ? 'Back to invoices' : 'Open settings'}
+                  />
+                ) : null}
+                <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {showShell ? (
+        <InvoiceAppMobileDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          businessName={businessName}
+          businessEmail={businessEmail}
+          logo={logo}
+          navItems={mobileNavItems}
+          activeTab={activeTab}
+          onSelectTab={handleSelectTab}
+        />
+      ) : null}
+
+      {showShell && !isSettingsOnPhone ? (
+        <MobileBottomDock
+          visible
+          navItems={mobileNavItems}
+          activeTab={activeTab}
+          onSelectTab={handleSelectTab}
+          onOpenQuickCreate={() => setQuickCreateOpen(true)}
+        />
+      ) : null}
+
+      {showShell && !isSettingsOnPhone ? (
+        <QuickCreateSheet
+          open={quickCreateOpen}
+          onClose={() => setQuickCreateOpen(false)}
+          onNavigate={handleSelectTab}
+        />
+      ) : null}
+    </div>
+  );
 };
 
 export const MobileScrollAssist = ({
