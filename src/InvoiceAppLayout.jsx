@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   FileSignature,
   FileText,
   Menu,
@@ -14,6 +16,7 @@ import {
 const PHONE_LAYOUT_MAX_WIDTH = 767;
 const TABLET_LAYOUT_MAX_WIDTH = 1180;
 const PHONE_PANEL_CLASS = 'invoice-phone-panel w-full max-w-md mx-auto rounded-[30px]';
+const MOBILE_SCROLL_THUMB_HEIGHT = 28;
 
 const getBusinessMonogram = (businessName = 'Invoice App') => {
   const initials = businessName
@@ -123,7 +126,7 @@ export const getInvoiceAppShellLayout = ({ activeTab, deviceLayout }) => {
             ? 'p-4'
             : 'p-4 xl:p-6'
         : usePhoneLayout
-          ? 'px-0 pt-0 pb-32'
+          ? 'px-0 pt-0 pb-0'
           : useTabletLayout
             ? 'p-4'
             : 'p-2 md:p-6 xl:p-8',
@@ -185,7 +188,7 @@ export const MobileHeader = ({
   const inputBg = activeTheme?.inputBg || 'bg-white';
 
   return (
-    <div className={`sticky top-0 z-30 border-b ${shellBorder} ${shellBg} shadow-[0_8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl`}>
+    <div className={`sticky top-0 z-40 border-b ${shellBorder} ${shellBg}/95 shadow-sm backdrop-blur-xl`}>
       <div className="px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex items-center justify-between gap-3">
           <button
@@ -500,6 +503,297 @@ export const MobileBottomDock = ({
             })}
           </div>
         </div>
+      </div>
+    </div>
+  );
+};
+
+const getElementDepth = (element, root) => {
+  let depth = 0;
+  let current = element;
+
+  while (current && current !== root) {
+    depth += 1;
+    current = current.parentElement;
+  }
+
+  return depth;
+};
+
+const canScrollElement = (element) => {
+  if (!element || typeof window === 'undefined') {
+    return false;
+  }
+
+  const computedStyle = window.getComputedStyle(element);
+  const rect = element.getBoundingClientRect();
+
+  if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden') {
+    return false;
+  }
+
+  return rect.height > 0 && rect.width > 0 && element.scrollHeight - element.clientHeight > 24;
+};
+
+const findActiveMobileScrollTarget = (root) => {
+  if (!root || typeof root.querySelectorAll !== 'function') {
+    return null;
+  }
+
+  const candidates = Array.from(
+    root.querySelectorAll('.phone-dock-scroll-space, [data-mobile-scroll-target], .overflow-y-auto, .overflow-auto')
+  ).filter(canScrollElement);
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  return candidates.sort((left, right) => {
+    const rightOverflow = right.scrollHeight - right.clientHeight;
+    const leftOverflow = left.scrollHeight - left.clientHeight;
+
+    if (rightOverflow !== leftOverflow) {
+      return rightOverflow - leftOverflow;
+    }
+
+    return getElementDepth(right, root) - getElementDepth(left, root);
+  })[0];
+};
+
+export const MobileScrollAssist = ({
+  hasBottomDock = false,
+  visible,
+  scrollRootRef,
+}) => {
+  const scrollTargetRef = useRef(null);
+  const detachScrollListenerRef = useRef(() => {});
+  const [scrollState, setScrollState] = useState({
+    atTop: true,
+    atBottom: true,
+    canScroll: false,
+    progress: 0,
+  });
+
+  const updateScrollState = useCallback((target) => {
+    if (!target) {
+      setScrollState({
+        atTop: true,
+        atBottom: true,
+        canScroll: false,
+        progress: 0,
+      });
+      return;
+    }
+
+    const maxScrollTop = Math.max(target.scrollHeight - target.clientHeight, 0);
+    const scrollTop = target.scrollTop;
+    const progress = maxScrollTop > 0 ? scrollTop / maxScrollTop : 0;
+
+    setScrollState({
+      atTop: scrollTop <= 8,
+      atBottom: maxScrollTop - scrollTop <= 8,
+      canScroll: maxScrollTop > 24,
+      progress,
+    });
+  }, []);
+
+  const refreshScrollTarget = useCallback(() => {
+    const root = scrollRootRef?.current;
+    const nextTarget = findActiveMobileScrollTarget(root);
+
+    if (scrollTargetRef.current !== nextTarget) {
+      detachScrollListenerRef.current();
+      scrollTargetRef.current = nextTarget;
+
+      if (nextTarget) {
+        const handleScroll = () => {
+          updateScrollState(nextTarget);
+        };
+
+        nextTarget.addEventListener('scroll', handleScroll, { passive: true });
+        detachScrollListenerRef.current = () => {
+          nextTarget.removeEventListener('scroll', handleScroll);
+        };
+      } else {
+        detachScrollListenerRef.current = () => {};
+      }
+    }
+
+    updateScrollState(nextTarget);
+    return nextTarget;
+  }, [scrollRootRef, updateScrollState]);
+
+  useEffect(() => {
+    if (!visible || typeof window === 'undefined') {
+      detachScrollListenerRef.current();
+      scrollTargetRef.current = null;
+      updateScrollState(null);
+      return undefined;
+    }
+
+    let frameId = 0;
+    const root = scrollRootRef?.current;
+
+    const scheduleRefresh = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        refreshScrollTarget();
+      });
+    };
+
+    scheduleRefresh();
+    window.addEventListener('resize', scheduleRefresh);
+
+    const mutationObserver =
+      root && typeof MutationObserver !== 'undefined'
+        ? new MutationObserver(scheduleRefresh)
+        : null;
+    mutationObserver?.observe(root, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+      attributeFilter: ['class', 'style'],
+    });
+
+    const resizeObserver =
+      root && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(scheduleRefresh)
+        : null;
+    resizeObserver?.observe(root);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener('resize', scheduleRefresh);
+      mutationObserver?.disconnect();
+      resizeObserver?.disconnect();
+      detachScrollListenerRef.current();
+      scrollTargetRef.current = null;
+    };
+  }, [refreshScrollTarget, scrollRootRef, updateScrollState, visible]);
+
+  const getScrollTarget = useCallback(() => refreshScrollTarget() || scrollTargetRef.current, [refreshScrollTarget]);
+
+  const scrollByAmount = useCallback(
+    (direction) => {
+      const target = getScrollTarget();
+
+      if (!target) {
+        return;
+      }
+
+      target.scrollBy({
+        top: direction * Math.max(target.clientHeight * 0.72, 220),
+        behavior: 'smooth',
+      });
+    },
+    [getScrollTarget]
+  );
+
+  const scrollToEdge = useCallback(
+    (edge) => {
+      const target = getScrollTarget();
+
+      if (!target) {
+        return;
+      }
+
+      target.scrollTo({
+        top: edge === 'bottom' ? target.scrollHeight : 0,
+        behavior: 'smooth',
+      });
+    },
+    [getScrollTarget]
+  );
+
+  const handleTrackClick = useCallback(
+    (event) => {
+      const target = getScrollTarget();
+
+      if (!target) {
+        return;
+      }
+
+      const rect = event.currentTarget.getBoundingClientRect();
+      const ratio = Math.min(Math.max((event.clientY - rect.top) / rect.height, 0), 1);
+      const maxScrollTop = Math.max(target.scrollHeight - target.clientHeight, 0);
+
+      target.scrollTo({
+        top: maxScrollTop * ratio,
+        behavior: 'smooth',
+      });
+    },
+    [getScrollTarget]
+  );
+
+  const handleTrackWheel = useCallback(
+    (event) => {
+      const target = getScrollTarget();
+
+      if (!target) {
+        return;
+      }
+
+      event.preventDefault();
+      target.scrollBy({
+        top: event.deltaY,
+        behavior: 'auto',
+      });
+    },
+    [getScrollTarget]
+  );
+
+  if (!visible || !scrollState.canScroll) {
+    return null;
+  }
+
+  const bottomOffsetClass = hasBottomDock ? 'bottom-[8.6rem]' : 'bottom-4';
+  const thumbOffset = scrollState.progress * (88 - MOBILE_SCROLL_THUMB_HEIGHT);
+
+  return (
+    <div className={`pointer-events-none fixed ${bottomOffsetClass} left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-3`}>
+      <div className="pointer-events-auto ml-auto flex w-[56px] flex-col items-center gap-2.5">
+        <button
+          type="button"
+          onClick={() => scrollByAmount(-1)}
+          onDoubleClick={() => scrollToEdge('top')}
+          disabled={scrollState.atTop}
+          className={`flex h-11 w-11 items-center justify-center rounded-full border border-zinc-300/90 bg-white text-zinc-800 shadow-[0_12px_28px_rgba(15,23,42,0.16)] backdrop-blur-xl transition ${
+            scrollState.atTop ? 'cursor-not-allowed opacity-45' : 'hover:-translate-y-0.5 hover:bg-white'
+          }`}
+          aria-label="Scroll up"
+          title="Scroll up"
+        >
+          <ChevronUp className="h-4.5 w-4.5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleTrackClick}
+          onWheel={handleTrackWheel}
+          className="relative flex h-[96px] w-4 items-stretch rounded-full border border-zinc-300/80 bg-white/94 p-[2px] shadow-[0_12px_28px_rgba(15,23,42,0.14)] backdrop-blur-xl"
+          aria-label="Scroll position"
+          title="Scroll position"
+        >
+          <span className="absolute inset-[2px] rounded-full bg-zinc-100/90" />
+          <span
+            className="absolute left-[2px] right-[2px] rounded-full bg-zinc-900/80 shadow-[0_6px_12px_rgba(15,23,42,0.2)]"
+            style={{ height: `${MOBILE_SCROLL_THUMB_HEIGHT}px`, top: `${thumbOffset + 2}px` }}
+          />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => scrollByAmount(1)}
+          onDoubleClick={() => scrollToEdge('bottom')}
+          disabled={scrollState.atBottom}
+          className={`flex h-11 w-11 items-center justify-center rounded-full border border-zinc-300/90 bg-white text-zinc-800 shadow-[0_12px_28px_rgba(15,23,42,0.16)] backdrop-blur-xl transition ${
+            scrollState.atBottom ? 'cursor-not-allowed opacity-45' : 'hover:translate-y-0.5 hover:bg-white'
+          }`}
+          aria-label="Scroll down"
+          title="Scroll down"
+        >
+          <ChevronDown className="h-4.5 w-4.5" />
+        </button>
       </div>
     </div>
   );

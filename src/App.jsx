@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { InvoiceApp } from './InvoiceApp';
+import InstallPrompt from './InstallPrompt';
 import './styles.css';
 
 const STORAGE_KEYS = [
@@ -1057,6 +1058,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100">
+      <InstallPrompt />
       {!connected ? (
         <div className="mx-auto max-w-5xl px-4 py-10">
           <ConnectionBanner />

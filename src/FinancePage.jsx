@@ -1366,7 +1366,7 @@ export default function FinancePage({ data, save, theme }) {
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-auto p-4 lg:p-6">
+      <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:p-6 lg:pb-6">
         {renderSubTab()}
       </div>
     </div>

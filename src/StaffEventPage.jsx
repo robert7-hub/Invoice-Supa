@@ -1126,7 +1126,7 @@ export default function StaffEventPage({ data, save, theme }) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-5 lg:p-6">
+      <div className="flex-1 overflow-auto p-5 phone-dock-scroll-space lg:p-6 lg:pb-6">
         {renderSubTab()}
       </div>
     </div>

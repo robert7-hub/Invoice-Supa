@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
 html, body, #root {
   min-height: 100%;
 }
@@ -23,6 +31,32 @@ body {
 
 .mobile-nav-scroll::-webkit-scrollbar {
   display: none;
+}
+
+.phone-dock-scroll-space {
+  scroll-padding-bottom: 8.125rem;
+}
+
+@media (max-width: 767px) {
+  .phone-dock-scroll-space {
+    padding-bottom: calc(11rem + env(safe-area-inset-bottom)) !important;
+    scroll-padding-bottom: calc(11rem + env(safe-area-inset-bottom));
+    scrollbar-width: thin;
+    scrollbar-color: rgba(15, 23, 42, 0.35) transparent;
+  }
+
+  .phone-dock-scroll-space::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .phone-dock-scroll-space::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: rgba(15, 23, 42, 0.32);
+  }
+
+  .phone-dock-scroll-space::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
 .invoice-phone-stage {
@@ -51,6 +85,12 @@ body {
 
 .invoice-phone-panel .flex-1.overflow-auto.p-4 {
   padding: 1.25rem !important;
+}
+
+.invoice-phone-panel .flex-1.overflow-auto,
+.invoice-phone-panel .min-h-0.flex-1.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 .invoice-phone-panel .border-b {

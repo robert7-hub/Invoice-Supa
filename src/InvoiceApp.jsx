@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import {
   FileText,
   Users,
@@ -35,6 +36,7 @@ import {
   InvoiceAppMobileDrawer,
   MobileBottomDock,
   MobileHeader,
+  MobileScrollAssist,
   useDeviceLayout,
 } from './InvoiceAppLayout.jsx';
 import { generatePDF } from './pdfGenerator.jsx';
@@ -1721,6 +1723,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
   } = getInvoiceAppShellLayout({ activeTab, deviceLayout });
   const showPhoneShell = usePhoneLayout && view === 'list';
   const isSettingsOnPhone = usePhoneLayout && activeTab === 'settings';
+  const mobileScrollRootRef = useRef(null);
   const mobileSearchTabs = ['invoices', 'estimates', 'clients', 'items'];
   const showMobileSearch = showPhoneShell && mobileSearchTabs.includes(activeTab);
   const mobileHeaderTitle = {
@@ -1815,7 +1818,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
     return (
       <div className="flex flex-col h-full">
-        <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.panelBg} ${activeTheme.border}`}>
+        <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.border}`}>
           <div className={`flex items-center gap-2 ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
             {!usePhoneLayout ? <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Invoices</h1> : null}
             <div className="flex items-center gap-2">
@@ -1859,7 +1862,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           ) : null}
         </div>
 
-        <div className="flex-1 overflow-auto px-3 pt-3 pb-24 lg:px-5 lg:pt-4">
+        <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
           {filtered.length === 0 ? (
             <EmptyState
               icon={FileText}
@@ -1905,14 +1908,19 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           onClick={(e) => {
                             e.stopPropagation();
                             const rect = e.currentTarget.getBoundingClientRect();
+                            const menuHeight = 180;
+                            const spaceBelow = window.innerHeight - rect.bottom;
+                            const openUpward = spaceBelow < menuHeight;
                             setActiveInvoiceMenu((current) => {
                               if (current === invoice.id) {
                                 setInvoiceMenuPosition(null);
                                 return null;
                               }
                               setInvoiceMenuPosition({
-                                top: rect.top,
-                                right: window.innerWidth - rect.right + 36,
+                                ...(openUpward
+                                  ? { bottom: window.innerHeight - rect.top }
+                                  : { top: rect.bottom + 4 }),
+                                right: window.innerWidth - rect.right,
                               });
                               return invoice.id;
                             });
@@ -1946,12 +1954,13 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           )}
         </div>
 
-        {activeInvoiceMenu && invoiceMenuPosition && (
+        {activeInvoiceMenu && invoiceMenuPosition && ReactDOM.createPortal(
           <div
             ref={invoiceMenuRef}
-            className={`fixed z-50 min-w-40 rounded-xl border ${activeTheme.border} ${activeTheme.modalBg} shadow-lg overflow-hidden`}
+            className={`fixed z-[9999] min-w-44 rounded-xl border ${activeTheme.border} ${activeTheme.modalBg} shadow-xl`}
             style={{
-              top: `${invoiceMenuPosition.top}px`,
+              ...(invoiceMenuPosition.top != null ? { top: `${invoiceMenuPosition.top}px` } : {}),
+              ...(invoiceMenuPosition.bottom != null ? { bottom: `${invoiceMenuPosition.bottom}px` } : {}),
               right: `${invoiceMenuPosition.right}px`,
             }}
           >
@@ -1993,7 +2002,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 </>
               );
             })()}
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     );
@@ -2058,7 +2068,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 lg:p-6 space-y-4">
+        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:p-6 lg:pb-6 space-y-4">
           <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
             <div className="flex justify-between items-start">
               <div>
@@ -2274,7 +2284,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           </button>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 space-y-4">
+        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:pb-4 space-y-4">
           <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
             <FormInput label="Invoice Number" value={form.number} onChange={(v) => setForm({ ...form, number: v })} theme={activeTheme} />
             <div className="grid grid-cols-2 gap-3">
@@ -2438,7 +2448,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
     return (
       <div className="flex flex-col h-full">
-        <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.panelBg} ${activeTheme.border}`}>
+        <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.border}`}>
           <div className={`flex items-center ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
             {!usePhoneLayout ? <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Estimates</h1> : null}
             <button
@@ -2478,7 +2488,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           ) : null}
         </div>
 
-        <div className="flex-1 overflow-auto px-3 pt-3 pb-24 lg:px-5 lg:pt-4">
+        <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
           {filtered.length === 0 ? (
             <EmptyState icon={FileSignature} title="No estimates yet" description="Create your first estimate" theme={activeTheme} />
           ) : (
@@ -2514,14 +2524,19 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           onClick={(e) => {
                             e.stopPropagation();
                             const rect = e.currentTarget.getBoundingClientRect();
+                            const menuHeight = 180;
+                            const spaceBelow = window.innerHeight - rect.bottom;
+                            const openUpward = spaceBelow < menuHeight;
                             setActiveEstimateMenu((current) => {
                               if (current === estimate.id) {
                                 setEstimateMenuPosition(null);
                                 return null;
                               }
                               setEstimateMenuPosition({
-                                top: rect.top,
-                                right: window.innerWidth - rect.right + 36,
+                                ...(openUpward
+                                  ? { bottom: window.innerHeight - rect.top }
+                                  : { top: rect.bottom + 4 }),
+                                right: window.innerWidth - rect.right,
                               });
                               return estimate.id;
                             });
@@ -2555,12 +2570,13 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           )}
         </div>
 
-        {activeEstimateMenu && estimateMenuPosition && (
+        {activeEstimateMenu && estimateMenuPosition && ReactDOM.createPortal(
           <div
             ref={estimateMenuRef}
-            className={`fixed z-50 min-w-40 rounded-xl border ${activeTheme.border} ${activeTheme.modalBg} shadow-lg overflow-hidden`}
+            className={`fixed z-[9999] min-w-44 rounded-xl border ${activeTheme.border} ${activeTheme.modalBg} shadow-xl`}
             style={{
-              top: `${estimateMenuPosition.top}px`,
+              ...(estimateMenuPosition.top != null ? { top: `${estimateMenuPosition.top}px` } : {}),
+              ...(estimateMenuPosition.bottom != null ? { bottom: `${estimateMenuPosition.bottom}px` } : {}),
               right: `${estimateMenuPosition.right}px`,
             }}
           >
@@ -2602,7 +2618,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 </>
               );
             })()}
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     );
@@ -2667,7 +2684,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 lg:p-6 space-y-4">
+        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:p-6 lg:pb-6 space-y-4">
           <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
             <div className="flex justify-between items-start">
               <div>
@@ -2871,7 +2888,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           </button>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 space-y-4">
+        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:pb-4 space-y-4">
           <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
             <FormInput label="Estimate Number" value={form.number} onChange={(v) => setForm({ ...form, number: v })} theme={activeTheme} />
             <FormInput label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} theme={activeTheme} />
@@ -3026,7 +3043,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           ) : null}
         </div>
 
-        <div className="flex-1 overflow-auto px-3 pt-3 pb-24 lg:px-5 lg:pt-4">
+        <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
           {filtered.length === 0 ? (
             <EmptyState icon={Users} title="No clients yet" description="Add your first client" theme={activeTheme} />
           ) : (
@@ -3101,7 +3118,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:pb-4">
         <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
           <h2 className={`text-xl font-bold mb-4 ${activeTheme.textPrimary}`}>{currentItem?.name}</h2>
           {currentItem?.phone && (
@@ -3196,7 +3213,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           </button>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 space-y-4">
+        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:pb-4 space-y-4">
           <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
             <FormInput label="Client Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} theme={activeTheme} />
             <FormInput label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} theme={activeTheme} />
@@ -3272,7 +3289,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           ) : null}
         </div>
 
-        <div className="flex-1 overflow-auto px-3 pt-3 pb-24 lg:px-5 lg:pt-4">
+        <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
           {filtered.length === 0 ? (
             <EmptyState icon={Package} title="No items yet" description="Add your products and services" theme={activeTheme} />
           ) : (
@@ -3401,7 +3418,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 space-y-4">
+        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:pb-4 space-y-4">
           <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
             <FormInput label="Item Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} theme={activeTheme} />
             <FormInput label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} multiline theme={activeTheme} />
@@ -3978,7 +3995,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 lg:p-6 space-y-6">
+        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:p-6 lg:pb-6 space-y-6">
           {reportView === 'analytics' ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -4568,7 +4585,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
   return (
     <div
-      className={`h-screen ${rootOverflowClass} ${usePhoneLayout ? 'invoice-phone-stage bg-gradient-to-b from-slate-100 to-slate-200' : activeTheme.appBg}`}
+      className={`h-[100dvh] ${rootOverflowClass} ${usePhoneLayout ? 'invoice-phone-stage bg-gradient-to-b from-slate-100 to-slate-200' : activeTheme.appBg}`}
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
       <div className={`flex h-full ${usePhoneLayout ? 'invoice-phone-frame items-start' : ''}`} style={frameStyle}>
@@ -4586,6 +4603,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           {activeTab === 'settings' && cloudToolbarProps && renderCloudToolbar ? renderCloudToolbar(cloudToolbarProps) : null}
           <div className={`min-h-0 flex-1 ${mainContentPaddingClass}`}>
             <div
+              ref={mobileScrollRootRef}
               className={`${activeTheme.panelBg} shadow-sm ${activeTheme.border} h-full overflow-hidden ${panelShellClass}`}
               style={activeTab === 'settings' ? undefined : { maxWidth: '1600px' }}
             >
@@ -4603,7 +4621,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     rightAriaLabel={isSettingsOnPhone ? 'Back to invoices' : 'Open settings'}
                   />
                 ) : null}
-                <div className="min-h-0 flex-1 overflow-hidden">
+                <div className="min-h-0 flex-1 overflow-y-auto">
                   {renderContent()}
                 </div>
               </div>
@@ -4634,6 +4652,11 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           onOpenQuickCreate={() => setIsQuickCreateOpen(true)}
         />
       ) : null}
+      <MobileScrollAssist
+        visible={usePhoneLayout || useTabletLayout}
+        hasBottomDock={showPhoneShell && !isSettingsOnPhone}
+        scrollRootRef={mobileScrollRootRef}
+      />
       {showPhoneShell && !isSettingsOnPhone ? (
         <QuickCreateSheet
           open={isQuickCreateOpen}
