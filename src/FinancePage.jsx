@@ -178,9 +178,9 @@ export default function FinancePage({ data, save, theme }) {
   const cy = now.getFullYear();
 
   const categories = financeData.categories || DEFAULT_EXPENSE_CATEGORIES;
-  const sectionClass = 'space-y-4 sm:space-y-5';
-  const actionButtonClass = `flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold`;
-  const controlClass = `w-full sm:w-auto px-3 py-2 border ${theme.inputBorder} ${theme.inputBg} rounded-lg sm:rounded-xl text-[13px] sm:text-sm ${theme.textPrimary}`;
+  const sectionClass = 'space-y-2.5 sm:space-y-5';
+  const actionButtonClass = `flex items-center gap-1.5 px-2.5 py-1.5 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl text-[11px] sm:text-sm font-semibold`;
+  const controlClass = `w-full sm:w-auto px-2.5 py-1.5 border ${theme.inputBorder} ${theme.inputBg} rounded-lg sm:rounded-xl text-[11px] sm:px-3 sm:py-2 sm:text-sm ${theme.textPrimary}`;
 
   // --- Derived Income Data ---
   const incomeData = useMemo(() => {
@@ -271,57 +271,63 @@ export default function FinancePage({ data, save, theme }) {
     return (
       <div className={sectionClass}>
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
-            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2"><TrendingUp size={14} className="text-emerald-600 sm:h-4 sm:w-4" /><p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 sm:text-xs">Income (Month)</p></div>
-            <p className="text-lg font-bold text-emerald-700 sm:text-2xl">{formatCurrency(incomeData.paidMonth)}</p>
-            <p className="mt-1 text-[11px] text-emerald-500 sm:text-xs">{formatCurrency(incomeData.outstandingMonth)} outstanding</p>
+        <div className="grid grid-cols-2 xl:grid-cols-3 gap-1.5 sm:gap-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="mb-0.5 flex items-center gap-1 sm:mb-2 sm:gap-2"><TrendingUp size={11} className="text-emerald-600 sm:hidden" /><TrendingUp size={14} className="hidden text-emerald-600 sm:block" /><p className="text-[8px] font-semibold uppercase tracking-wide text-emerald-600 sm:text-xs">Income (Month)</p></div>
+            <p className="text-[13px] font-bold text-emerald-700 sm:text-2xl">{formatCurrency(incomeData.paidMonth)}</p>
+            <p className="mt-0.5 text-[9px] text-emerald-500 sm:text-xs">{formatCurrency(incomeData.outstandingMonth)} outstanding</p>
           </div>
-          <div className="bg-red-50 border border-red-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
-            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2"><TrendingDown size={14} className="text-red-600 sm:h-4 sm:w-4" /><p className="text-[10px] font-semibold uppercase tracking-wide text-red-600 sm:text-xs">Expenses (Month)</p></div>
-            <p className="text-lg font-bold text-red-700 sm:text-2xl">{formatCurrency(expenseData.totalMonth)}</p>
-            <p className="mt-1 text-[11px] text-red-400 sm:text-xs">{expenseData.thisMonth.length} transactions</p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-2 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="mb-0.5 flex items-center gap-1 sm:mb-2 sm:gap-2"><TrendingDown size={11} className="text-red-600 sm:hidden" /><TrendingDown size={14} className="hidden text-red-600 sm:block" /><p className="text-[8px] font-semibold uppercase tracking-wide text-red-600 sm:text-xs">Expenses (Month)</p></div>
+            <p className="text-[13px] font-bold text-red-700 sm:text-2xl">{formatCurrency(expenseData.totalMonth)}</p>
+            <p className="mt-0.5 text-[9px] text-red-400 sm:text-xs">{expenseData.thisMonth.length} transactions</p>
           </div>
-          <div className={`${netProfit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'} border rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4`}>
-            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2"><DollarSign size={14} className={netProfit >= 0 ? 'text-emerald-600 sm:h-4 sm:w-4' : 'text-red-600 sm:h-4 sm:w-4'} />
-              <p className={`text-[10px] font-semibold uppercase tracking-wide sm:text-xs ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>Net Profit</p></div>
-            <p className={`text-lg font-bold sm:text-2xl ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{formatCurrency(netProfit)}</p>
+          <div className={`${netProfit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'} border rounded-lg p-2 shadow-sm sm:rounded-2xl sm:p-4`}>
+            <div className="mb-0.5 flex items-center gap-1 sm:mb-2 sm:gap-2"><DollarSign size={11} className={`${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'} sm:hidden`} /><DollarSign size={14} className={`${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'} hidden sm:block`} />
+              <p className={`text-[8px] font-semibold uppercase tracking-wide sm:text-xs ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>Net Profit</p></div>
+            <p className={`text-[13px] font-bold sm:text-2xl ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{formatCurrency(netProfit)}</p>
           </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
-            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2"><PiggyBank size={14} className="text-blue-600 sm:h-4 sm:w-4" /><p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 sm:text-xs">Total Savings</p></div>
-            <p className="text-lg font-bold text-blue-700 sm:text-2xl">{formatCurrency(totalSavings)}</p>
-            <p className="mt-1 text-[11px] text-blue-400 sm:text-xs">{(financeData.pockets || []).length} pockets</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 shadow-sm sm:rounded-2xl sm:p-4">
+            <div className="mb-0.5 flex items-center gap-1 sm:mb-2 sm:gap-2"><PiggyBank size={11} className="text-blue-600 sm:hidden" /><PiggyBank size={14} className="hidden text-blue-600 sm:block" /><p className="text-[8px] font-semibold uppercase tracking-wide text-blue-600 sm:text-xs">Total Savings</p></div>
+            <p className="text-[13px] font-bold text-blue-700 sm:text-2xl">{formatCurrency(totalSavings)}</p>
+            <p className="mt-0.5 text-[9px] text-blue-400 sm:text-xs">{(financeData.pockets || []).length} pockets</p>
           </div>
-          <div className={`${theme.cardBg} border ${theme.border} rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4`}>
-            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2"><ArrowDownRight size={14} className="text-amber-500 sm:h-4 sm:w-4" /><p className={`text-[10px] font-semibold uppercase tracking-wide sm:text-xs ${theme.textMuted}`}>Outstanding</p></div>
-            <p className={`text-lg font-bold sm:text-2xl ${theme.textPrimary}`}>{formatCurrency(incomeData.totalOutstanding)}</p>
-            <p className={`mt-1 text-[11px] sm:text-xs ${theme.textMuted}`}>{incomeData.outstandingInvoices.length} invoices</p>
+          <div className={`${theme.cardBg} border ${theme.border} rounded-lg p-2 shadow-sm sm:rounded-2xl sm:p-4`}>
+            <div className="mb-0.5 flex items-center gap-1 sm:mb-2 sm:gap-2"><ArrowDownRight size={11} className="text-amber-500 sm:hidden" /><ArrowDownRight size={14} className="hidden text-amber-500 sm:block" /><p className={`text-[8px] font-semibold uppercase tracking-wide sm:text-xs ${theme.textMuted}`}>Outstanding</p></div>
+            <p className={`text-[13px] font-bold sm:text-2xl ${theme.textPrimary}`}>{formatCurrency(incomeData.totalOutstanding)}</p>
+            <p className={`mt-0.5 text-[9px] sm:text-xs ${theme.textMuted}`}>{incomeData.outstandingInvoices.length} invoices</p>
           </div>
-          <div className={`${theme.cardBg} border ${theme.border} rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4`}>
-            <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2"><ArrowUpRight size={14} className="text-emerald-500 sm:h-4 sm:w-4" /><p className={`text-[10px] font-semibold uppercase tracking-wide sm:text-xs ${theme.textMuted}`}>Paid Invoices</p></div>
-            <p className={`text-lg font-bold sm:text-2xl ${theme.textPrimary}`}>{formatCurrency(incomeData.totalPaid)}</p>
-            <p className={`mt-1 text-[11px] sm:text-xs ${theme.textMuted}`}>{incomeData.paidInvoices.length} invoices</p>
+          <div className={`${theme.cardBg} border ${theme.border} rounded-lg p-2 shadow-sm sm:rounded-2xl sm:p-4`}>
+            <div className="mb-0.5 flex items-center gap-1 sm:mb-2 sm:gap-2"><ArrowUpRight size={11} className="text-emerald-500 sm:hidden" /><ArrowUpRight size={14} className="hidden text-emerald-500 sm:block" /><p className={`text-[8px] font-semibold uppercase tracking-wide sm:text-xs ${theme.textMuted}`}>Paid Invoices</p></div>
+            <p className={`text-[13px] font-bold sm:text-2xl ${theme.textPrimary}`}>{formatCurrency(incomeData.totalPaid)}</p>
+            <p className={`mt-0.5 text-[9px] sm:text-xs ${theme.textMuted}`}>{incomeData.paidInvoices.length} invoices</p>
           </div>
         </div>
 
         {/* Income vs Expenses Bar Chart */}
-        <div className={`${theme.cardBg} border ${theme.border} rounded-xl shadow-sm overflow-hidden sm:rounded-2xl`}>
-          <div className={`border-b p-3 sm:p-4 ${theme.border}`}>
-            <h3 className={`text-sm font-semibold sm:text-base ${theme.textPrimary}`}>Income vs Expenses (6 Months)</h3>
-            <div className="mt-1.5 flex gap-3 sm:mt-2 sm:gap-4">
-              <span className="flex items-center gap-1.5 text-[11px] sm:text-xs"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Income</span>
-              <span className="flex items-center gap-1.5 text-[11px] sm:text-xs"><span className="h-2.5 w-2.5 rounded-full bg-red-400" />Expenses</span>
+        <div className={`${theme.cardBg} border ${theme.border} rounded-lg shadow-sm overflow-hidden sm:rounded-2xl`}>
+          <div className={`border-b px-2.5 py-1.5 sm:p-4 ${theme.border}`}>
+            <div className="flex items-center justify-between">
+              <h3 className={`text-[11px] font-semibold sm:text-base ${theme.textPrimary}`}>Income vs Expenses (6 Months)</h3>
+              <div className="flex gap-2 sm:hidden">
+                <span className="flex items-center gap-1 text-[9px]"><span className="h-2 w-2 rounded-full bg-emerald-500" />Income</span>
+                <span className="flex items-center gap-1 text-[9px]"><span className="h-2 w-2 rounded-full bg-red-400" />Expenses</span>
+              </div>
+            </div>
+            <div className="mt-1.5 hidden gap-4 sm:flex sm:mt-2">
+              <span className="flex items-center gap-1.5 text-xs"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Income</span>
+              <span className="flex items-center gap-1.5 text-xs"><span className="h-2.5 w-2.5 rounded-full bg-red-400" />Expenses</span>
             </div>
           </div>
-          <div className="p-3 sm:p-4">
-            <div className="flex items-end gap-3 overflow-x-auto pb-2 sm:gap-4" style={{ minHeight: 210 }}>
+          <div className="px-2 py-1.5 sm:p-4">
+            <div className="flex min-h-[150px] items-end gap-2 overflow-x-auto pb-1 sm:min-h-[210px] sm:gap-4 sm:pb-2">
               {chartData.map(d => (
-                <div key={d.label} className="flex min-w-[72px] flex-1 flex-col items-center gap-1.5 sm:min-w-[90px] sm:gap-2">
-                  <div className="flex h-[170px] w-full items-end justify-center gap-1.5 sm:h-[200px]">
+                <div key={d.label} className="flex min-w-[40px] flex-1 flex-col items-center gap-1 sm:min-w-[90px] sm:gap-2">
+                  <div className="flex h-[110px] w-full items-end justify-center gap-1 sm:h-[200px] sm:gap-1.5">
                     <div className="flex h-full flex-1 items-end"><div className="w-full rounded-t-lg bg-emerald-500" style={{ height: `${Math.max((d.income / maxBar) * 100, d.income > 0 ? 6 : 0)}%` }} title={`Income: ${formatCurrency(d.income)}`} /></div>
                     <div className="flex h-full flex-1 items-end"><div className="w-full rounded-t-lg bg-red-400" style={{ height: `${Math.max((d.expenses / maxBar) * 100, d.expenses > 0 ? 6 : 0)}%` }} title={`Expenses: ${formatCurrency(d.expenses)}`} /></div>
                   </div>
-                  <p className={`text-[11px] font-medium sm:text-xs ${theme.textPrimary}`}>{d.label.split(' ')[0]}</p>
+                  <p className={`text-[9px] font-medium sm:text-xs ${theme.textPrimary}`}>{d.label.split(' ')[0]}</p>
                 </div>
               ))}
             </div>
@@ -331,13 +337,13 @@ export default function FinancePage({ data, save, theme }) {
         {/* Expense Category Pie */}
         {pieData.length > 0 && (
           <div className={`${theme.cardBg} border ${theme.border} rounded-xl shadow-sm overflow-hidden sm:rounded-2xl`}>
-            <div className={`border-b p-3 sm:p-4 ${theme.border}`}>
-              <h3 className={`text-sm font-semibold sm:text-base ${theme.textPrimary}`}>Expense Breakdown (This Month)</h3>
+            <div className={`border-b px-2.5 py-1.5 sm:p-4 ${theme.border}`}>
+              <h3 className={`text-[11px] font-semibold sm:text-base ${theme.textPrimary}`}>Expense Breakdown (This Month)</h3>
             </div>
-            <div className="p-3 sm:p-4">
+            <div className="px-2.5 py-2 sm:p-4">
               <div className="grid gap-3 sm:grid-cols-[168px_1fr] sm:items-center md:grid-cols-[200px_1fr]">
                 <div className="mx-auto">
-                  <svg viewBox="0 0 200 200" className="h-[168px] w-[168px] -rotate-90 sm:h-[200px] sm:w-[200px]">
+                  <svg viewBox="0 0 200 200" className="h-[120px] w-[120px] -rotate-90 sm:h-[200px] sm:w-[200px]">
                     {(() => {
                       const total = pieData.reduce((s, d) => s + d.value, 0);
                       const r = 65, sw = 22, circ = 2 * Math.PI * r;
@@ -434,7 +440,7 @@ export default function FinancePage({ data, save, theme }) {
     return (
       <div className={sectionClass}>
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
           <div>
             <h2 className={`text-base font-bold sm:text-lg ${theme.textPrimary}`}>Expenses</h2>
             <p className={`text-xs sm:text-sm ${theme.textMuted}`}>Total: {formatCurrency(totalFiltered)} ({filtered.length} items)</p>
@@ -462,7 +468,7 @@ export default function FinancePage({ data, save, theme }) {
             {Object.entries(catTotals).sort((a, b) => b[1] - a[1]).map(([catId, total]) => {
               const cat = getCat(catId);
               return (
-                <div key={catId} className={`flex items-center gap-2 px-3 py-1.5 border ${theme.border} rounded-full ${theme.subtleBg}`}>
+                <div key={catId} className={`flex items-center gap-1.5 px-2 py-1 border ${theme.border} rounded-full ${theme.subtleBg} sm:gap-2 sm:px-3 sm:py-1.5`}>
                   <CategoryIcon iconName={cat.icon} color={cat.color} size={12} />
                   <span className={`text-xs font-medium ${theme.textPrimary}`}>{cat.name}</span>
                   <span className={`text-xs font-bold ${theme.textPrimary}`}>{formatCurrency(total)}</span>
@@ -481,7 +487,7 @@ export default function FinancePage({ data, save, theme }) {
               {filtered.map(exp => {
                 const cat = getCat(exp.category);
                 return (
-                  <div key={exp.id} className={`flex items-center gap-3 p-3 sm:gap-4 sm:p-4 ${theme.tableRowHover}`}>
+                  <div key={exp.id} className={`flex items-center gap-2 px-2.5 py-2 sm:gap-4 sm:p-4 ${theme.tableRowHover}`}>
                     <CategoryIcon iconName={cat.icon} color={cat.color} size={16} />
                     <div className="flex-1 min-w-0">
                       <p className={`font-medium ${theme.textPrimary} truncate`}>{exp.title}</p>
@@ -502,13 +508,13 @@ export default function FinancePage({ data, save, theme }) {
 
         {/* Expense Form Modal */}
         {showForm && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className={`${theme.modalBg} rounded-2xl w-full max-w-md shadow-xl border ${theme.border}`}>
-              <div className={`p-5 border-b ${theme.border} flex items-center justify-between`}>
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overscroll-y-contain">
+            <div className={`${theme.modalBg} rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl border ${theme.border} flex flex-col max-h-[90vh] sm:max-h-[85vh] min-h-0 overflow-hidden`}>
+              <div className={`p-4 sm:p-5 border-b ${theme.border} flex items-center justify-between shrink-0`}>
                 <h3 className={`text-lg font-bold ${theme.textPrimary}`}>{editItem ? 'Edit Expense' : 'Add Expense'}</h3>
                 <button onClick={() => setShowForm(false)} className={`p-1.5 ${theme.buttonHover} rounded-lg`}><X size={18} /></button>
               </div>
-              <div className="p-5 space-y-4">
+              <div className="p-4 sm:p-5 space-y-3 sm:space-y-4 overflow-y-auto flex-1 min-h-0" style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}>
                 <FormInput label="Title" value={form.title} onChange={v => setForm({ ...form, title: v })} placeholder="e.g. New speaker cable" theme={theme} />
                 <FormInput label="Amount (R)" type="number" value={form.amount} onChange={v => setForm({ ...form, amount: v })} theme={theme} />
                 <div className="space-y-1.5">
@@ -527,9 +533,9 @@ export default function FinancePage({ data, save, theme }) {
                     <option value="variable">Variable</option>
                   </select>
                 </div>
-                <FormInput label="Notes" value={form.notes} onChange={v => setForm({ ...form, notes: v })} multiline theme={theme} />
+                <FormInput label="Notes" value={form.notes} onChange={v => setForm({ ...form, notes: v })} multiline rows={2} theme={theme} />
               </div>
-              <div className={`p-5 border-t ${theme.border} flex gap-3`}>
+              <div className={`p-4 sm:p-5 border-t ${theme.border} flex gap-3 shrink-0`}>
                 <button onClick={() => setShowForm(false)} className={`flex-1 py-2.5 border ${theme.border} rounded-xl font-medium ${theme.textPrimary} ${theme.buttonHover}`}>Cancel</button>
                 <button onClick={handleSave} className={`flex-1 py-2.5 ${theme.accent} rounded-xl font-semibold ${theme.accentHover}`}>Save</button>
               </div>
@@ -590,51 +596,51 @@ export default function FinancePage({ data, save, theme }) {
     return (
       <div className={sectionClass}>
         {/* Income Summary */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
           <h2 className={`text-base font-bold sm:text-lg ${theme.textPrimary}`}>Income</h2>
           <button onClick={openAdd} className={`${actionButtonClass} ${theme.accent} ${theme.accentHover}`}><Plus size={15} /> Add Income</button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 sm:text-xs">Actual Income</p>
-            <p className="mt-1.5 text-lg font-bold text-emerald-700 sm:mt-2 sm:text-2xl">{formatCurrency(incomeData.totalPaid)}</p>
-            <p className="mt-1 text-[11px] text-emerald-500 sm:text-xs">{incomeData.paidInvoices.length} invoices + {manualEntries.length} manual</p>
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
+            <p className="text-[9px] font-semibold uppercase tracking-wide text-emerald-600 sm:text-xs">Actual Income</p>
+            <p className="mt-1 text-sm font-bold text-emerald-700 sm:mt-2 sm:text-2xl">{formatCurrency(incomeData.totalPaid)}</p>
+            <p className="mt-0.5 text-[10px] text-emerald-500 sm:text-xs">{incomeData.paidInvoices.length} invoices + {manualEntries.length} manual</p>
           </div>
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 sm:text-xs">Projected Income</p>
-            <p className="mt-1.5 text-lg font-bold text-amber-700 sm:mt-2 sm:text-2xl">{formatCurrency(incomeData.totalOutstanding)}</p>
-            <p className="mt-1 text-[11px] text-amber-500 sm:text-xs">{incomeData.outstandingInvoices.length} outstanding</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
+            <p className="text-[9px] font-semibold uppercase tracking-wide text-amber-600 sm:text-xs">Projected Income</p>
+            <p className="mt-1 text-sm font-bold text-amber-700 sm:mt-2 sm:text-2xl">{formatCurrency(incomeData.totalOutstanding)}</p>
+            <p className="mt-0.5 text-[10px] text-amber-500 sm:text-xs">{incomeData.outstandingInvoices.length} outstanding</p>
           </div>
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 sm:text-xs">Paid (This Month)</p>
-            <p className="mt-1.5 text-lg font-bold text-emerald-700 sm:mt-2 sm:text-2xl">{formatCurrency(incomeData.paidMonth)}</p>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
+            <p className="text-[9px] font-semibold uppercase tracking-wide text-emerald-600 sm:text-xs">Paid (This Month)</p>
+            <p className="mt-1 text-sm font-bold text-emerald-700 sm:mt-2 sm:text-2xl">{formatCurrency(incomeData.paidMonth)}</p>
           </div>
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 shadow-sm sm:rounded-2xl sm:p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 sm:text-xs">Expected (This Month)</p>
-            <p className="mt-1.5 text-lg font-bold text-amber-700 sm:mt-2 sm:text-2xl">{formatCurrency(incomeData.outstandingMonth)}</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
+            <p className="text-[9px] font-semibold uppercase tracking-wide text-amber-600 sm:text-xs">Expected (This Month)</p>
+            <p className="mt-1 text-sm font-bold text-amber-700 sm:mt-2 sm:text-2xl">{formatCurrency(incomeData.outstandingMonth)}</p>
           </div>
         </div>
 
         {/* Manual Income Entries */}
         <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
-          <div className={`p-4 border-b ${theme.border}`}>
-            <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Manual Income</h3>
+          <div className={`px-3 py-2 sm:p-4 border-b ${theme.border}`}>
+            <h3 className={`text-sm font-semibold sm:text-base ${theme.textPrimary}`}>Manual Income</h3>
           </div>
           <div className={`divide-y ${theme.border} max-h-80 overflow-y-auto`}>
             {manualEntries.length === 0 ? (
-              <div className={`p-8 text-center ${theme.textMuted}`}>No manual income added yet.</div>
+              <div className={`p-5 text-center text-sm sm:p-8 ${theme.textMuted}`}>No manual income added yet.</div>
             ) : manualEntries.sort((a, b) => b.date.localeCompare(a.date)).map(entry => (
-              <div key={entry.id} className={`flex items-center gap-3 p-3 sm:gap-4 sm:p-4 ${theme.tableRowHover}`}>
-                <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
-                  <DollarSign size={16} className="text-emerald-600" />
+              <div key={entry.id} className={`flex items-center gap-2 px-2.5 py-2 sm:gap-4 sm:p-4 ${theme.tableRowHover}`}>
+                <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center sm:w-9 sm:h-9 sm:rounded-xl">
+                  <DollarSign size={14} className="text-emerald-600" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={`font-medium ${theme.textPrimary} truncate`}>{entry.title}</p>
                   <p className={`text-xs ${theme.textMuted}`}>{entry.source ? `${entry.source} • ` : ''}{entry.date}</p>
                   {entry.notes && <p className={`text-xs ${theme.textMuted} mt-0.5`}>{entry.notes}</p>}
                 </div>
-                <p className="text-sm font-bold text-emerald-600 whitespace-nowrap">{formatCurrency(entry.amount)}</p>
+                <p className="whitespace-nowrap text-xs font-bold text-emerald-600 sm:text-sm">{formatCurrency(entry.amount)}</p>
                 <div className="flex gap-1">
                   <button onClick={() => openEdit(entry)} className={`p-1.5 ${theme.buttonHover} rounded-lg`}><Edit size={14} className={theme.iconColor} /></button>
                   <button onClick={() => handleDelete(entry.id)} className="p-1.5 hover:bg-red-50 rounded-lg"><Trash2 size={14} className="text-red-400" /></button>
@@ -646,21 +652,21 @@ export default function FinancePage({ data, save, theme }) {
 
         {/* Paid Invoice List */}
         <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
-          <div className={`p-4 border-b ${theme.border}`}>
-            <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Paid Invoices</h3>
+          <div className={`px-3 py-2 sm:p-4 border-b ${theme.border}`}>
+            <h3 className={`text-sm font-semibold sm:text-base ${theme.textPrimary}`}>Paid Invoices</h3>
           </div>
           <div className={`divide-y ${theme.border} max-h-80 overflow-y-auto`}>
             {incomeData.paidInvoices.length === 0 ? (
-              <div className={`p-8 text-center ${theme.textMuted}`}>No paid invoices yet.</div>
+              <div className={`p-5 text-center text-sm sm:p-8 ${theme.textMuted}`}>No paid invoices yet.</div>
             ) : incomeData.paidInvoices.slice(0, 50).map(inv => {
               const cl = (data.clients || []).find(c => c.id === inv.clientId);
               return (
-                <div key={inv.id} className={`p-4 flex justify-between items-center ${theme.tableRowHover}`}>
+                <div key={inv.id} className={`flex items-center justify-between px-3 py-2 sm:p-4 ${theme.tableRowHover}`}>
                   <div>
                     <p className={`font-medium ${theme.textPrimary}`}>{inv.number}</p>
                     <p className={`text-xs ${theme.textMuted}`}>{cl?.name || 'Client'} • {inv.date}</p>
                   </div>
-                  <p className="font-semibold text-emerald-600">{formatCurrency(calculateDocumentTotal(inv, taxRate))}</p>
+                  <p className="text-xs font-semibold text-emerald-600 sm:text-sm">{formatCurrency(calculateDocumentTotal(inv, taxRate))}</p>
                 </div>
               );
             })}
@@ -669,17 +675,17 @@ export default function FinancePage({ data, save, theme }) {
 
         {/* Monthly Income Breakdown */}
         <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
-          <div className={`p-4 border-b ${theme.border}`}>
-            <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Monthly Income</h3>
+          <div className={`px-3 py-2 sm:p-4 border-b ${theme.border}`}>
+            <h3 className={`text-sm font-semibold sm:text-base ${theme.textPrimary}`}>Monthly Income</h3>
           </div>
-          <div className="p-4 space-y-3">
+          <div className="px-3 py-2 sm:p-4 space-y-2.5 sm:space-y-3">
             {paidByMonth.length === 0 ? (
-              <div className={`py-6 text-center ${theme.textMuted}`}>No income data yet.</div>
+              <div className={`py-6 text-center text-sm ${theme.textMuted}`}>No income data yet.</div>
             ) : paidByMonth.map(m => {
               const maxVal = Math.max(1, ...paidByMonth.map(x => x.value));
               return (
                 <div key={m.label} className="space-y-1">
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-xs sm:text-sm">
                     <span className={theme.textPrimary}>{m.label}</span>
                     <span className={`font-semibold ${theme.textPrimary}`}>{formatCurrency(m.value)}</span>
                   </div>
@@ -692,21 +698,21 @@ export default function FinancePage({ data, save, theme }) {
 
         {/* Outstanding Invoices */}
         <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
-          <div className={`p-4 border-b ${theme.border}`}>
-            <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Outstanding Invoices</h3>
+          <div className={`px-3 py-2 sm:p-4 border-b ${theme.border}`}>
+            <h3 className={`text-sm font-semibold sm:text-base ${theme.textPrimary}`}>Outstanding Invoices</h3>
           </div>
           <div className={`divide-y ${theme.border} max-h-64 overflow-y-auto`}>
             {incomeData.outstandingInvoices.length === 0 ? (
-              <div className={`p-8 text-center ${theme.textMuted}`}>All invoices are paid!</div>
+              <div className={`p-5 text-center text-sm sm:p-8 ${theme.textMuted}`}>All invoices are paid!</div>
             ) : incomeData.outstandingInvoices.slice(0, 50).map(inv => {
               const cl = (data.clients || []).find(c => c.id === inv.clientId);
               return (
-                <div key={inv.id} className={`p-4 flex justify-between items-center ${theme.tableRowHover}`}>
+                <div key={inv.id} className={`flex items-center justify-between px-3 py-2 sm:p-4 ${theme.tableRowHover}`}>
                   <div>
                     <p className={`font-medium ${theme.textPrimary}`}>{inv.number}</p>
                     <p className={`text-xs ${theme.textMuted}`}>{cl?.name || 'Client'} • {inv.date}</p>
                   </div>
-                  <p className="font-semibold text-amber-600">{formatCurrency(calculateDocumentTotal(inv, taxRate))}</p>
+                  <p className="text-xs font-semibold text-amber-600 sm:text-sm">{formatCurrency(calculateDocumentTotal(inv, taxRate))}</p>
                 </div>
               );
             })}
@@ -715,20 +721,20 @@ export default function FinancePage({ data, save, theme }) {
 
         {/* Add/Edit Income Modal */}
         {showForm && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className={`${theme.modalBg} rounded-2xl w-full max-w-md shadow-xl border ${theme.border}`}>
-              <div className={`p-5 border-b ${theme.border} flex items-center justify-between`}>
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overscroll-y-contain">
+            <div className={`${theme.modalBg} rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl border ${theme.border} flex flex-col max-h-[90vh] sm:max-h-[85vh] min-h-0 overflow-hidden`}>
+              <div className={`p-4 sm:p-5 border-b ${theme.border} flex items-center justify-between shrink-0`}>
                 <h3 className={`text-lg font-bold ${theme.textPrimary}`}>{editItem ? 'Edit Income' : 'Add Income'}</h3>
                 <button onClick={() => setShowForm(false)} className={`p-1.5 ${theme.buttonHover} rounded-lg`}><X size={18} /></button>
               </div>
-              <div className="p-5 space-y-4">
+              <div className="p-4 sm:p-5 space-y-3 sm:space-y-4 overflow-y-auto flex-1 min-h-0" style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}>
                 <FormInput label="Description" value={form.title} onChange={v => setForm({ ...form, title: v })} placeholder="e.g. Freelance gig, Cash payment" theme={theme} />
                 <FormInput label="Amount (R)" type="number" value={form.amount} onChange={v => setForm({ ...form, amount: v })} theme={theme} />
                 <FormInput label="Source" value={form.source} onChange={v => setForm({ ...form, source: v })} placeholder="e.g. Client name, Cash, EFT" theme={theme} />
                 <FormInput label="Date" type="date" value={form.date} onChange={v => setForm({ ...form, date: v })} theme={theme} />
-                <FormInput label="Notes" value={form.notes} onChange={v => setForm({ ...form, notes: v })} multiline theme={theme} />
+                <FormInput label="Notes" value={form.notes} onChange={v => setForm({ ...form, notes: v })} multiline rows={2} theme={theme} />
               </div>
-              <div className={`p-5 border-t ${theme.border} flex gap-3`}>
+              <div className={`p-4 sm:p-5 border-t ${theme.border} flex gap-3 shrink-0`}>
                 <button onClick={() => setShowForm(false)} className={`flex-1 py-2.5 border ${theme.border} rounded-xl font-medium ${theme.textPrimary} ${theme.buttonHover}`}>Cancel</button>
                 <button onClick={handleSave} className={`flex-1 py-2.5 ${theme.accent} rounded-xl font-semibold ${theme.accentHover}`}>Save</button>
               </div>
@@ -779,7 +785,7 @@ export default function FinancePage({ data, save, theme }) {
 
     return (
       <div className={sectionClass}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
           <div>
             <h2 className={`text-base font-bold sm:text-lg ${theme.textPrimary}`}>Savings Pockets</h2>
             <p className={`text-xs sm:text-sm ${theme.textMuted}`}>Total saved: {formatCurrency(tc)} across {pockets.length} pockets</p>
@@ -790,17 +796,18 @@ export default function FinancePage({ data, save, theme }) {
         {pockets.length === 0 ? (
           <div className={`${theme.cardBg} border ${theme.border} rounded-xl p-8 text-center sm:rounded-2xl sm:p-12 ${theme.textMuted}`}>No pockets yet. Create your first savings pocket!</div>
         ) : (
-          <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+          <div className="grid gap-2 sm:gap-4 md:grid-cols-2">
             {pockets.map((p, idx) => {
               const pct = p.target > 0 ? Math.min((Number(p.current) / Number(p.target)) * 100, 100) : 0;
               const pctOfTotal = tc > 0 ? ((Number(p.current) / tc) * 100).toFixed(1) : '0.0';
               const col = colors[idx % colors.length];
               return (
-                <div key={p.id} className={`${theme.cardBg} border ${theme.border} rounded-xl p-4 shadow-sm sm:rounded-2xl sm:p-5`}>
+                <div key={p.id} className={`${theme.cardBg} border ${theme.border} rounded-lg p-3 shadow-sm sm:rounded-2xl sm:p-5`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg sm:h-10 sm:w-10 sm:rounded-xl" style={{ background: `${col}15` }}>
-                        <PiggyBank size={18} style={{ color: col }} />
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md sm:h-10 sm:w-10 sm:rounded-xl" style={{ background: `${col}15` }}>
+                        <PiggyBank size={14} className="sm:hidden" style={{ color: col }} />
+                        <PiggyBank size={18} className="hidden sm:block" style={{ color: col }} />
                       </div>
                       <div>
                         <p className={`font-semibold ${theme.textPrimary}`}>{p.name}</p>
@@ -841,18 +848,18 @@ export default function FinancePage({ data, save, theme }) {
 
         {/* Pocket Form Modal */}
         {showForm && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className={`${theme.modalBg} rounded-2xl w-full max-w-md shadow-xl border ${theme.border}`}>
-              <div className={`p-5 border-b ${theme.border} flex items-center justify-between`}>
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overscroll-y-contain">
+            <div className={`${theme.modalBg} rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl border ${theme.border} flex flex-col max-h-[90vh] sm:max-h-[85vh] min-h-0 overflow-hidden`}>
+              <div className={`p-4 sm:p-5 border-b ${theme.border} flex items-center justify-between shrink-0`}>
                 <h3 className={`text-lg font-bold ${theme.textPrimary}`}>{editItem ? 'Edit Pocket' : 'New Pocket'}</h3>
                 <button onClick={() => setShowForm(false)} className={`p-1.5 ${theme.buttonHover} rounded-lg`}><X size={18} /></button>
               </div>
-              <div className="p-5 space-y-4">
+              <div className="p-4 sm:p-5 space-y-3 sm:space-y-4 overflow-y-auto flex-1 min-h-0" style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}>
                 <FormInput label="Pocket Name" value={form.name} onChange={v => setForm({ ...form, name: v })} placeholder="e.g. Emergency Fund" theme={theme} />
                 <FormInput label="Target Amount (R)" type="number" value={form.target} onChange={v => setForm({ ...form, target: v })} placeholder="Optional" theme={theme} />
                 <FormInput label="Current Amount (R)" type="number" value={form.current} onChange={v => setForm({ ...form, current: v })} theme={theme} />
               </div>
-              <div className={`p-5 border-t ${theme.border} flex gap-3`}>
+              <div className={`p-4 sm:p-5 border-t ${theme.border} flex gap-3 shrink-0`}>
                 <button onClick={() => setShowForm(false)} className={`flex-1 py-2.5 border ${theme.border} rounded-xl font-medium ${theme.textPrimary} ${theme.buttonHover}`}>Cancel</button>
                 <button onClick={handleSave} className={`flex-1 py-2.5 ${theme.accent} rounded-xl font-semibold ${theme.accentHover}`}>Save</button>
               </div>
@@ -939,9 +946,9 @@ export default function FinancePage({ data, save, theme }) {
 
     return (
       <div className={sectionClass}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
           <h2 className={`text-base font-bold sm:text-lg ${theme.textPrimary}`}>Budget Planner</h2>
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <select value={selectedMonth} onChange={e => handleMonthChange(e.target.value)}
               className={controlClass}>
               {monthPickerOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -1041,7 +1048,7 @@ export default function FinancePage({ data, save, theme }) {
               const under = planned > 0 && actual <= planned;
               const isDefault = DEFAULT_EXPENSE_CATEGORIES.some(d => d.id === cat.id);
               return (
-                <div key={cat.id} className="p-3 sm:p-4">
+                <div key={cat.id} className="px-2.5 py-2 sm:p-4">
                   <div className="flex items-center gap-3 sm:gap-4">
                     <CategoryIcon iconName={cat.icon} color={cat.color} size={16} />
                     <div className="flex-1 min-w-0">
@@ -1049,7 +1056,7 @@ export default function FinancePage({ data, save, theme }) {
                       <div className="flex items-center gap-3 mt-1">
                         <input type="number" value={form.categories?.[cat.id] || ''} placeholder="0"
                           onChange={e => setForm({ ...form, categories: { ...(form.categories || {}), [cat.id]: Number(e.target.value) || 0 } })}
-                          className={`w-24 rounded-lg border px-2 py-1 text-[13px] sm:w-28 sm:text-sm ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary}`} />
+                          className={`w-20 rounded-md border px-1.5 py-0.5 text-[11px] sm:w-28 sm:rounded-lg sm:px-2 sm:py-1 sm:text-sm ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary}`} />
                         <span className={`text-xs ${theme.textMuted}`}>budgeted</span>
                       </div>
                     </div>
@@ -1189,16 +1196,16 @@ export default function FinancePage({ data, save, theme }) {
 
     return (
       <div className={sectionClass}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className={`text-base font-bold sm:text-lg ${theme.textPrimary}`}>Financial Reports</h2>
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className={`text-sm font-bold sm:text-lg ${theme.textPrimary}`}>Financial Reports</h2>
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button onClick={() => setMode('year')}
-              className={`px-3 py-2 rounded-lg text-[13px] font-medium sm:rounded-xl sm:px-4 sm:text-sm ${mode === 'year' ? theme.accent : `border ${theme.border} ${theme.textSecondary} ${theme.buttonHover}`}`}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-medium sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm ${mode === 'year' ? theme.accent : `border ${theme.border} ${theme.textSecondary} ${theme.buttonHover}`}`}
               style={mode === 'year' ? { color: '#fff' } : undefined}>
               Yearly
             </button>
             <button onClick={() => setMode('custom')}
-              className={`px-3 py-2 rounded-lg text-[13px] font-medium sm:rounded-xl sm:px-4 sm:text-sm ${mode === 'custom' ? theme.accent : `border ${theme.border} ${theme.textSecondary} ${theme.buttonHover}`}`}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-medium sm:rounded-xl sm:px-4 sm:py-2 sm:text-sm ${mode === 'custom' ? theme.accent : `border ${theme.border} ${theme.textSecondary} ${theme.buttonHover}`}`}
               style={mode === 'custom' ? { color: '#fff' } : undefined}>
               Custom
             </button>
@@ -1206,19 +1213,19 @@ export default function FinancePage({ data, save, theme }) {
         </div>
 
         {/* Period selector */}
-        <div className={`${theme.cardBg} border ${theme.border} rounded-xl p-3 sm:rounded-2xl sm:p-4 flex flex-wrap items-center gap-3`}>
+        <div className={`${theme.cardBg} border ${theme.border} rounded-lg p-2 sm:rounded-2xl sm:p-4 flex flex-wrap items-center gap-2 sm:gap-3`}>
           {mode === 'year' ? (
             <div className="flex items-center gap-2">
               <button onClick={() => setSelectedYear(y => y - 1)}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg border ${theme.border} ${theme.buttonHover} ${theme.textPrimary}`}>
+                className={`w-7 h-7 flex items-center justify-center rounded-md border text-sm sm:w-8 sm:h-8 sm:rounded-lg ${theme.border} ${theme.buttonHover} ${theme.textPrimary}`}>
                 &lsaquo;
               </button>
               <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
-                className={`px-3 py-2 rounded-lg border text-[13px] font-medium sm:rounded-xl sm:text-sm ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary}`}>
+                className={`px-2 py-1 rounded-md border text-[11px] font-medium sm:rounded-xl sm:px-3 sm:py-2 sm:text-sm ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary}`}>
                 {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
               <button onClick={() => setSelectedYear(y => y + 1)}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg border ${theme.border} ${theme.buttonHover} ${theme.textPrimary}`}>
+                className={`w-7 h-7 flex items-center justify-center rounded-md border text-sm sm:w-8 sm:h-8 sm:rounded-lg ${theme.border} ${theme.buttonHover} ${theme.textPrimary}`}>
                 &rsaquo;
               </button>
             </div>
@@ -1239,34 +1246,37 @@ export default function FinancePage({ data, save, theme }) {
         </div>
 
         {/* Summary table */}
-        <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
-          <div className={`p-4 border-b ${theme.border}`}>
-            <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Monthly Financial Summary — {periodLabel}</h3>
+        <div className={`${theme.cardBg} border ${theme.border} rounded-lg shadow-sm overflow-hidden sm:rounded-2xl`}>
+          <div className={`px-2.5 py-1.5 sm:p-4 border-b ${theme.border}`}>
+            <h3 className={`text-xs font-semibold sm:text-base ${theme.textPrimary}`}>Monthly Financial Summary — {periodLabel}</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className={theme.tableHeaderBg}>
                 <tr>
-                  <th className={`px-3 py-2.5 text-left text-[13px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.labelColor}`}>Period</th>
-                  <th className={`px-3 py-2.5 text-right text-[13px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.labelColor}`}>Income</th>
-                  <th className={`px-3 py-2.5 text-right text-[13px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.labelColor}`}>Expenses</th>
-                  <th className={`px-3 py-2.5 text-right text-[13px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.labelColor}`}>Net Profit</th>
+                  <th className={`px-1.5 py-1 text-left text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.labelColor}`}>Period</th>
+                  <th className={`px-1.5 py-1 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.labelColor}`}>Income</th>
+                  <th className={`px-1.5 py-1 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.labelColor}`}>Expenses</th>
+                  <th className={`px-1.5 py-1 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.labelColor}`}>Net Profit</th>
                 </tr>
               </thead>
               <tbody className={`divide-y ${theme.border}`}>
                 {monthlySummaries.map(r => (
                   <tr key={r.label} className={theme.tableRowHover}>
-                    <td className={`px-3 py-2.5 text-[13px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.textPrimary}`}>{r.label}</td>
-                    <td className="px-3 py-2.5 text-[13px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(r.income)}</td>
-                    <td className="px-3 py-2.5 text-[13px] text-right text-red-500 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(r.expenses)}</td>
-                    <td className={`px-3 py-2.5 text-[13px] text-right font-bold sm:px-4 sm:py-3 sm:text-sm ${r.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(r.profit)}</td>
+                    <td className={`px-1.5 py-[5px] text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${theme.textPrimary}`}>
+                      <span className="sm:hidden">{r.label.split(' ')[0]}</span>
+                      <span className="hidden sm:inline">{r.label}</span>
+                    </td>
+                    <td className="px-1.5 py-[5px] text-[10px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(r.income)}</td>
+                    <td className="px-1.5 py-[5px] text-[10px] text-right text-red-500 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(r.expenses)}</td>
+                    <td className={`px-1.5 py-[5px] text-[10px] text-right font-bold sm:px-4 sm:py-3 sm:text-sm ${r.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(r.profit)}</td>
                   </tr>
                 ))}
                 <tr className={`font-bold border-t-2 ${theme.border}`}>
-                  <td className={`px-3 py-2.5 text-[13px] sm:px-4 sm:py-3 sm:text-sm ${theme.textPrimary}`}>Total</td>
-                  <td className="px-3 py-2.5 text-[13px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(totalsRow.income)}</td>
-                  <td className="px-3 py-2.5 text-[13px] text-right text-red-500 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(totalsRow.expenses)}</td>
-                  <td className={`px-3 py-2.5 text-[13px] text-right sm:px-4 sm:py-3 sm:text-sm ${totalsRow.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(totalsRow.profit)}</td>
+                  <td className={`px-1.5 py-[5px] text-[10px] font-bold sm:px-4 sm:py-3 sm:text-sm ${theme.textPrimary}`}>Total</td>
+                  <td className="px-1.5 py-[5px] text-[10px] text-right font-bold text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(totalsRow.income)}</td>
+                  <td className="px-1.5 py-[5px] text-[10px] text-right font-bold text-red-500 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(totalsRow.expenses)}</td>
+                  <td className={`px-1.5 py-[5px] text-[10px] text-right font-bold sm:px-4 sm:py-3 sm:text-sm ${totalsRow.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(totalsRow.profit)}</td>
                 </tr>
               </tbody>
             </table>
@@ -1274,23 +1284,23 @@ export default function FinancePage({ data, save, theme }) {
         </div>
 
         {/* Profit Trend */}
-        <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
-          <div className={`p-4 border-b ${theme.border}`}>
-            <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Profit Trend — {periodLabel}</h3>
+        <div className={`${theme.cardBg} border ${theme.border} rounded-lg shadow-sm overflow-hidden sm:rounded-2xl`}>
+          <div className={`px-2.5 py-1.5 sm:p-4 border-b ${theme.border}`}>
+            <h3 className={`text-xs font-semibold sm:text-base ${theme.textPrimary}`}>Profit Trend — {periodLabel}</h3>
           </div>
-          <div className="p-4">
-            <div className="flex items-end gap-3 overflow-x-auto pb-2" style={{ minHeight: 220 }}>
+          <div className="px-2 py-2 sm:p-4">
+            <div className="flex min-h-[140px] items-end gap-1.5 overflow-x-auto pb-1 sm:min-h-[220px] sm:gap-3 sm:pb-2">
               {profitTrend.map(d => {
                 const isPos = d.value >= 0;
                 const barH = `${Math.max((Math.abs(d.value) / maxProfit) * 100, d.value !== 0 ? 6 : 0)}%`;
                 return (
-                  <div key={d.label} className="flex min-w-[60px] flex-1 flex-col items-center gap-2">
-                    <div className="flex h-[180px] w-full items-end justify-center">
+                  <div key={d.label} className="flex min-w-[28px] flex-1 flex-col items-center gap-1 sm:min-w-[60px] sm:gap-2">
+                    <div className="flex h-[100px] w-full items-end justify-center sm:h-[180px]">
                       <div className={`w-full ${isPos ? 'rounded-t-lg' : 'rounded-b-lg'}`}
                         style={{ height: barH, background: isPos ? '#10b981' : '#ef4444' }}
                         title={`${d.label}: ${formatCurrency(d.value)}`} />
                     </div>
-                    <p className={`text-[10px] font-medium ${theme.textMuted}`}>{d.label.split(' ')[0]}</p>
+                    <p className={`text-[8px] font-medium sm:text-[10px] ${theme.textMuted}`}>{d.label.split(' ')[0]}</p>
                   </div>
                 );
               })}
@@ -1301,10 +1311,10 @@ export default function FinancePage({ data, save, theme }) {
         {/* Top Spending Categories */}
         {topCategories.length > 0 && (
           <div className={`${theme.cardBg} border ${theme.border} rounded-2xl shadow-sm overflow-hidden`}>
-            <div className={`p-4 border-b ${theme.border}`}>
-              <h3 className={`text-base font-semibold ${theme.textPrimary}`}>Top Spending Categories — {periodLabel}</h3>
+            <div className={`px-2.5 py-1.5 sm:p-4 border-b ${theme.border}`}>
+              <h3 className={`text-xs font-semibold sm:text-base ${theme.textPrimary}`}>Top Spending Categories — {periodLabel}</h3>
             </div>
-            <div className="p-4 space-y-3">
+            <div className="px-2.5 py-2 space-y-2 sm:p-4 sm:space-y-3">
               {topCategories.map(cat => {
                 const maxCat = Math.max(1, ...topCategories.map(c => c.total));
                 return (
@@ -1312,9 +1322,9 @@ export default function FinancePage({ data, save, theme }) {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <CategoryIcon iconName={cat.icon} color={cat.color} size={14} />
-                        <span className={`text-sm font-medium ${theme.textPrimary}`}>{cat.name}</span>
+                        <span className={`text-[11px] font-medium sm:text-sm ${theme.textPrimary}`}>{cat.name}</span>
                       </div>
-                      <span className={`text-sm font-bold ${theme.textPrimary}`}>{formatCurrency(cat.total)}</span>
+                      <span className={`text-[11px] font-bold sm:text-sm ${theme.textPrimary}`}>{formatCurrency(cat.total)}</span>
                     </div>
                     <ProgressBar value={cat.total} max={maxCat} color={cat.color} height={6} />
                   </div>
@@ -1355,16 +1365,14 @@ export default function FinancePage({ data, save, theme }) {
   return (
     <div className="flex flex-col h-full">
       {/* Header with sub-tab navigation */}
-      <div className={`border-b p-3 sm:p-4 lg:p-6 ${theme.border}`}>
-        <h1 className={`mb-3 text-xl font-bold sm:mb-4 sm:text-2xl ${theme.textPrimary}`}>Finance & Budgeting</h1>
-        <div className="flex gap-1.5 overflow-x-auto pb-1 -mb-1">
+      <div className={`border-b px-3 py-2.5 sm:p-4 lg:p-6 ${theme.border}`}>
+        <h1 className={`mb-3 text-base font-bold sm:mb-4 sm:text-2xl ${theme.textPrimary}`}>Finance & Budgeting</h1>
+        <div className="flex gap-1.5 sm:gap-3 overflow-x-auto pb-1 -mb-1">
           {subTabs.map(tab => (
             <button key={tab.id} onClick={() => setSubTab(tab.id)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-medium whitespace-nowrap transition-all sm:gap-2 sm:rounded-xl sm:px-4 sm:text-sm ${
-                subTab === tab.id ? theme.sidebarActive : `${theme.textSecondary} ${theme.buttonHover}`
-              }`}
-              style={subTab === tab.id ? { color: '#fff' } : undefined}>
-              <tab.icon size={14} />
+              className={`px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-base font-medium whitespace-nowrap transition-all ${
+                subTab === tab.id ? theme.accent : `${theme.textSecondary} ${theme.buttonHover}`
+              }`}>
               {tab.label}
             </button>
           ))}
@@ -1372,7 +1380,7 @@ export default function FinancePage({ data, save, theme }) {
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-auto p-3 phone-dock-scroll-space sm:p-4 lg:p-6 lg:pb-6">
+      <div className="flex-1 overflow-auto px-2.5 pt-3 pb-3 phone-dock-scroll-space sm:p-4 lg:p-6 lg:pb-6">
         {renderSubTab()}
       </div>
     </div>

@@ -440,7 +440,8 @@ export const MobileBottomDock = ({
   navItems,
   activeTab,
   onSelectTab,
-  onOpenQuickCreate,
+  onPlusPress,
+  showPlusButton = true,
 }) => {
   const dockItems = useMemo(
     () => navItems.filter((item) => item.id !== 'settings'),
@@ -457,14 +458,16 @@ export const MobileBottomDock = ({
       style={{ paddingBottom: 'max(0.7rem, env(safe-area-inset-bottom))' }}
     >
       <div className="relative rounded-t-[26px] rounded-b-[22px] border border-zinc-200/90 bg-white/98 shadow-[0_-8px_26px_rgba(15,23,42,0.11),0_16px_34px_rgba(15,23,42,0.10)] backdrop-blur-xl">
-        <button
-          type="button"
-          onClick={onOpenQuickCreate}
-          className="absolute left-1/2 top-0 z-10 flex h-[54px] w-[54px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white bg-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.25)] transition-all duration-200 hover:scale-105 active:scale-[0.98]"
-          aria-label="Open create menu"
-        >
-          <Plus className="h-5 w-5" />
-        </button>
+        {showPlusButton ? (
+          <button
+            type="button"
+            onClick={onPlusPress}
+            className="absolute left-1/2 top-0 z-10 flex h-[54px] w-[54px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 border-white bg-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.25)] transition-all duration-200 hover:scale-105 active:scale-[0.98]"
+            aria-label="Open create menu"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        ) : null}
 
         <div className="mobile-nav-scroll overflow-x-auto px-1.5 pb-2.5 pt-4">
           <div className="grid min-w-full grid-flow-col auto-cols-[calc((100%-1.5rem)/4)] items-center gap-2 px-2">
@@ -569,6 +572,7 @@ const findActiveMobileScrollTarget = (root) => {
 export const MobileLayout = ({
   activeTab,
   onSelectTab,
+  onPlusPress,
   navItems,
   businessName,
   businessEmail,
@@ -580,7 +584,6 @@ export const MobileLayout = ({
   children,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const scrollRootRef = useRef(null);
 
   const mobileNavItems = useMemo(
@@ -590,6 +593,7 @@ export const MobileLayout = ({
 
   const showShell = view === 'list';
   const isSettingsOnPhone = activeTab === 'settings';
+  const showPlusButton = ['invoices', 'estimates', 'clients', 'items'].includes(activeTab);
   const mobileSearchTabs = ['invoices', 'estimates', 'clients', 'items'];
   const showSearch = showShell && mobileSearchTabs.includes(activeTab);
   const headerTitle =
@@ -607,14 +611,12 @@ export const MobileLayout = ({
   useEffect(() => {
     if (!showShell) {
       setDrawerOpen(false);
-      setQuickCreateOpen(false);
     }
   }, [showShell]);
 
   const handleSelectTab = useCallback(
     (tab) => {
       setDrawerOpen(false);
-      setQuickCreateOpen(false);
       onSelectTab(tab);
     },
     [onSelectTab]
@@ -675,15 +677,8 @@ export const MobileLayout = ({
           navItems={mobileNavItems}
           activeTab={activeTab}
           onSelectTab={handleSelectTab}
-          onOpenQuickCreate={() => setQuickCreateOpen(true)}
-        />
-      ) : null}
-
-      {showShell && !isSettingsOnPhone ? (
-        <QuickCreateSheet
-          open={quickCreateOpen}
-          onClose={() => setQuickCreateOpen(false)}
-          onNavigate={handleSelectTab}
+          onPlusPress={onPlusPress}
+          showPlusButton={showPlusButton}
         />
       ) : null}
     </div>

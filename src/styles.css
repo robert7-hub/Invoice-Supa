@@ -102,21 +102,6 @@ body {
 .invoice-phone-panel .rounded-\[30px\].border:not(.border-dashed),
 .invoice-phone-panel .shadow-sm {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-  transition: transform 180ms ease, box-shadow 180ms ease;
-}
-
-.invoice-phone-panel .rounded-2xl.border:not(.border-dashed):active,
-.invoice-phone-panel .rounded-\[24px\].border:not(.border-dashed):active,
-.invoice-phone-panel .rounded-\[30px\].border:not(.border-dashed):active,
-.invoice-phone-panel .shadow-sm:active {
-  transform: scale(0.985);
-}
-
-.invoice-phone-panel .rounded-2xl.border:not(.border-dashed):hover,
-.invoice-phone-panel .rounded-\[24px\].border:not(.border-dashed):hover,
-.invoice-phone-panel .rounded-\[30px\].border:not(.border-dashed):hover,
-.invoice-phone-panel .shadow-sm:hover {
-  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
 }
 
 .invoice-phone-panel .rounded-2xl.border.p-4,
@@ -132,4 +117,20 @@ body {
 
 .invoice-phone-panel .space-y-4 > :not([hidden]) ~ :not([hidden]) {
   margin-top: 1.25rem !important;
+}
+
+/* Ensure inputs/textareas/selects always accept touch on mobile */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select,
+  [contenteditable="true"] {
+    touch-action: auto !important;
+    -webkit-user-select: auto !important;
+    user-select: auto !important;
+  }
+
+  .fixed.inset-0.z-50 {
+    touch-action: auto !important;
+  }
 }

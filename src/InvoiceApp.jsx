@@ -701,24 +701,24 @@ const ChartEmptyState = ({ title = 'No data available', description = 'Adjust yo
 );
 
 const AnalyticsCard = ({ title, subtitle, children, theme = THEMES.default, className = '' }) => (
-  <div className={`${theme.cardBg} border border-transparent rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden transition hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)] ${className}`}>
-    <div className={`p-5 border-b ${theme.border}`}>
-      <h3 className={`text-[16px] font-bold ${theme.textPrimary}`}>{title}</h3>
-      {subtitle ? <p className={`mt-1 text-sm ${theme.textMuted}`}>{subtitle}</p> : null}
+  <div className={`${theme.cardBg} border border-transparent rounded-xl sm:rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden transition hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)] ${className}`}>
+    <div className={`px-3 py-2.5 sm:p-5 border-b ${theme.border}`}>
+      <h3 className={`text-sm sm:text-[16px] font-bold ${theme.textPrimary}`}>{title}</h3>
+      {subtitle ? <p className={`mt-0.5 text-xs sm:mt-1 sm:text-sm ${theme.textMuted}`}>{subtitle}</p> : null}
     </div>
-    <div className="p-5">{children}</div>
+    <div className="p-3 sm:p-5">{children}</div>
   </div>
 );
 
 const SummaryMetricCard = ({ title, value, detail, accentClass, theme = THEMES.default }) => (
-  <div className={`${theme.cardBg} border border-transparent rounded-[24px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)]`}>
-    <div className="flex items-start justify-between gap-3">
+  <div className={`${theme.cardBg} border border-transparent rounded-2xl p-3 sm:rounded-[24px] sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)]`}>
+    <div className="flex items-start justify-between gap-2 sm:gap-3">
       <div>
-        <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${theme.textMuted}`}>{title}</p>
-        <p className={`mt-3 text-2xl font-bold ${theme.textPrimary}`}>{value}</p>
-        {detail ? <p className={`mt-2 text-sm ${theme.textSecondary}`}>{detail}</p> : null}
+        <p className={`text-[10px] sm:text-xs font-semibold uppercase tracking-[0.16em] ${theme.textMuted}`}>{title}</p>
+        <p className={`mt-1.5 text-base sm:mt-3 sm:text-2xl font-bold ${theme.textPrimary}`}>{value}</p>
+        {detail ? <p className={`mt-1 text-xs sm:mt-2 sm:text-sm ${theme.textSecondary}`}>{detail}</p> : null}
       </div>
-      <span className={`h-10 w-1.5 rounded-full ${accentClass}`} />
+      <span className={`h-8 w-1 sm:h-10 sm:w-1.5 rounded-full ${accentClass}`} />
     </div>
   </div>
 );
@@ -738,19 +738,22 @@ const SimpleMultiBarChart = ({ data, series, theme = THEMES.default, height = 26
   const maxValue = Math.max(1, ...data.flatMap((item) => series.map((entry) => Number(item[entry.key] || 0))));
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-3">
+    <div className="space-y-2.5 sm:space-y-4">
+      <div className="flex flex-wrap gap-2 sm:gap-3">
         {series.map((entry) => (
-          <div key={entry.key} className="flex items-center gap-2 text-xs">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+          <div key={entry.key} className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs">
+            <span className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
             <span className={theme.textMuted}>{entry.label}</span>
           </div>
         ))}
       </div>
-      <div className="flex items-end gap-4 overflow-x-auto pb-2" style={{ minHeight: `${height}px` }}>
+      <div
+        className="flex items-end gap-1.5 sm:gap-4 overflow-x-auto pb-1 sm:pb-2 min-h-[140px] sm:min-h-[var(--chart-height)]"
+        style={{ '--chart-height': `${height}px`, '--chart-body-height': `${Math.max(height - 40, 140)}px` }}
+      >
         {data.map((item) => (
-          <div key={item.label} className="flex min-w-[96px] flex-1 flex-col items-center gap-3">
-            <div className="flex h-[220px] w-full items-end justify-center gap-2">
+          <div key={item.label} className="flex min-w-[32px] sm:min-w-[96px] flex-1 flex-col items-center gap-1.5 sm:gap-3">
+            <div className="flex h-[140px] sm:h-[var(--chart-body-height)] w-full items-end justify-center gap-1 sm:gap-2">
               {series.map((entry) => {
                 const value = Number(item[entry.key] || 0);
                 const barHeight = `${Math.max((value / maxValue) * 100, value > 0 ? 6 : 0)}%`;
@@ -770,8 +773,8 @@ const SimpleMultiBarChart = ({ data, series, theme = THEMES.default, height = 26
               })}
             </div>
             <div className="text-center">
-              <p className={`text-xs font-semibold ${theme.textPrimary}`}>{item.label}</p>
-              <p className={`mt-1 text-[11px] ${theme.textMuted}`}>{formatCompactCurrency(item.total)}</p>
+              <p className={`text-[10px] sm:text-xs font-semibold leading-tight ${theme.textPrimary}`}>{item.label}</p>
+              <p className={`mt-0.5 sm:mt-1 text-[10px] sm:text-[11px] ${theme.textMuted}`}>{formatCompactCurrency(item.total)}</p>
             </div>
           </div>
         ))}
@@ -793,7 +796,7 @@ const DonutChart = ({ data, centerLabel, centerValue, theme = THEMES.default }) 
 
   return (
     <div className="grid gap-4 md:grid-cols-[220px_1fr] md:items-center">
-      <div className="mx-auto h-[220px] w-[220px]">
+      <div className="relative mx-auto h-[220px] w-[220px]">
         <svg viewBox="0 0 220 220" className="h-full w-full -rotate-90">
           <circle cx="110" cy="110" r={radius} fill="none" stroke="rgba(148,163,184,0.15)" strokeWidth={strokeWidth} />
           {data.map((item) => {
@@ -817,7 +820,7 @@ const DonutChart = ({ data, centerLabel, centerValue, theme = THEMES.default }) 
             return element;
           })}
         </svg>
-        <div className="pointer-events-none -mt-[138px] flex h-[220px] flex-col items-center justify-center text-center">
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
           <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${theme.textMuted}`}>{centerLabel}</p>
           <p className={`mt-2 text-3xl font-bold ${theme.textPrimary}`}>{centerValue}</p>
         </div>
@@ -879,28 +882,39 @@ const HorizontalBarChart = ({ data, theme = THEMES.default, formatter = formatCu
   );
 };
 
-const FormInput = ({ label, type = 'text', value, onChange, placeholder, multiline, rows = 3, theme = THEMES.default }) => (
-  <div className="space-y-1.5">
-    <label className={`text-sm font-medium ${theme.textSecondary}`}>{label}</label>
-    {multiline ? (
-      <textarea
-        value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        rows={rows}
-        className={`w-full px-4 py-2.5 border ${theme.inputBg} ${theme.inputBorder} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400 shadow-sm resize-none ${theme.textPrimary} transition-colors`}
-      />
-    ) : (
-      <input
-        type={type}
-        value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={`w-full px-4 py-2.5 border ${theme.inputBg} ${theme.inputBorder} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400 shadow-sm ${theme.textPrimary} transition-colors`}
-      />
-    )}
-  </div>
-);
+const CompactFormContext = React.createContext(false);
+
+const useCompactFormMode = () => React.useContext(CompactFormContext);
+
+const FormInput = ({ label, type = 'text', value, onChange, placeholder, multiline, rows = 3, theme = THEMES.default }) => {
+  const compactMode = useCompactFormMode();
+  const fieldClasses = compactMode
+    ? 'px-3 py-2 rounded-lg text-[13px]'
+    : 'px-4 py-2.5 rounded-xl text-sm';
+
+  return (
+    <div className={compactMode ? 'space-y-1' : 'space-y-1.5'}>
+      <label className={`${compactMode ? 'text-xs' : 'text-sm'} font-medium ${theme.textSecondary}`}>{label}</label>
+      {multiline ? (
+        <textarea
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={compactMode ? Math.max(2, rows - 1) : rows}
+          className={`w-full ${fieldClasses} border ${theme.inputBg} ${theme.inputBorder} focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400 shadow-sm resize-none ${theme.textPrimary} transition-colors`}
+        />
+      ) : (
+        <input
+          type={type}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={`w-full ${fieldClasses} border ${theme.inputBg} ${theme.inputBorder} focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400 shadow-sm ${theme.textPrimary} transition-colors`}
+        />
+      )}
+    </div>
+  );
+};
 
 const ToggleSwitch = ({ checked, onChange, theme = THEMES.default }) => (
   <button
@@ -969,22 +983,28 @@ const DocumentTotalsEditor = ({
   theme = THEMES.default,
   showPayments = false,
 }) => {
+  const compactMode = useCompactFormMode();
   const taxEnabled = isDocumentTaxEnabled(form);
+  const selectClasses = compactMode
+    ? `w-full px-3 py-2 border ${theme.inputBg} ${theme.inputBorder} rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400 shadow-sm ${theme.textPrimary} transition-colors`
+    : `w-full px-4 py-2.5 border ${theme.inputBg} ${theme.inputBorder} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400 shadow-sm ${theme.textPrimary} transition-colors`;
 
   return (
-    <div className={`${theme.cardBg} border border-transparent rounded-[24px] p-5 space-y-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)]`}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className={`${theme.cardBg} border border-transparent ${compactMode ? 'rounded-2xl p-3 space-y-3' : 'rounded-[24px] p-5 space-y-5'} shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)]`}>
+      <div className={`flex flex-col ${compactMode ? 'gap-2.5' : 'gap-3'} sm:flex-row sm:items-center sm:justify-between`}>
         <div>
           <p className={`font-semibold ${theme.textPrimary}`}>Totals</p>
-          <p className={`mt-1 text-sm ${theme.textMuted}`}>
-            {showPayments
-              ? `Add a document discount, control whether ${taxLabel} is applied, and track payments already received.`
-              : `Add a document discount and control whether ${taxLabel} is applied.`}
-          </p>
+          {!compactMode ? (
+            <p className={`mt-1 text-sm ${theme.textMuted}`}>
+              {showPayments
+                ? `Add a document discount, control whether ${taxLabel} is applied, and track payments already received.`
+                : `Add a document discount and control whether ${taxLabel} is applied.`}
+            </p>
+          ) : null}
         </div>
-        <div className={`flex items-center gap-3 rounded-2xl border ${theme.border} px-3 py-2 ${theme.subtleBg}`}>
+        <div className={`flex items-center ${compactMode ? 'gap-2.5 rounded-xl px-2.5 py-1.5' : 'gap-3 rounded-2xl px-3 py-2'} border ${theme.border} ${theme.subtleBg}`}>
           <div className="text-right">
-            <p className={`text-sm font-medium ${theme.textPrimary}`}>{taxLabel}</p>
+            <p className={`${compactMode ? 'text-xs' : 'text-sm'} font-medium ${theme.textPrimary}`}>{taxLabel}</p>
             <p className={`text-xs ${theme.textMuted}`}>{taxEnabled ? `${taxRate}% on taxable items` : 'Not applied to this document'}</p>
           </div>
           <ToggleSwitch
@@ -995,13 +1015,13 @@ const DocumentTotalsEditor = ({
         </div>
       </div>
 
-      <div className={`grid gap-3 ${showPayments ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
-        <div className="space-y-1.5">
-          <label className={`text-sm font-medium ${theme.textSecondary}`}>Discount Type</label>
+      <div className={`grid ${compactMode ? 'gap-2.5' : 'gap-3'} ${showPayments ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+        <div className={compactMode ? 'space-y-1' : 'space-y-1.5'}>
+          <label className={`${compactMode ? 'text-xs' : 'text-sm'} font-medium ${theme.textSecondary}`}>Discount Type</label>
           <select
             value={form.overallDiscountType || 'percentage'}
             onChange={(e) => setForm({ ...form, overallDiscountType: e.target.value })}
-            className={`w-full px-4 py-2.5 border ${theme.inputBg} ${theme.inputBorder} rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-400 shadow-sm ${theme.textPrimary} transition-colors`}
+            className={selectClasses}
           >
             <option value="percentage">Percentage</option>
             <option value="flat">Flat Amount</option>
@@ -1039,16 +1059,22 @@ const DocumentTotalsEditor = ({
 };
 
 const ClientSelect = ({ label, value, onChange, clients, onAddNew, theme = THEMES.default }) => {
+  const compactMode = useCompactFormMode();
   const [showModal, setShowModal] = useState(false);
   const [newClient, setNewClient] = useState({
     name: '',
     phone: '',
     email: '',
+    vatNumber: '',
+    extraLine1: '',
+    extraLine2: '',
+    extraLine3: '',
+    extraLine4: '',
+    extraLine5: '',
     addressLine1: '',
     addressLine2: '',
     city: '',
     postalCode: '',
-    vatNumber: '',
     notes: '',
   });
 
@@ -1061,24 +1087,29 @@ const ClientSelect = ({ label, value, onChange, clients, onAddNew, theme = THEME
       name: '',
       phone: '',
       email: '',
+      vatNumber: '',
+      extraLine1: '',
+      extraLine2: '',
+      extraLine3: '',
+      extraLine4: '',
+      extraLine5: '',
       addressLine1: '',
       addressLine2: '',
       city: '',
       postalCode: '',
-      vatNumber: '',
       notes: '',
     });
   };
 
   return (
     <>
-      <div className="space-y-1">
-        <label className={`text-sm font-medium ${theme.labelColor}`}>{label}</label>
+      <div className={compactMode ? 'space-y-1' : 'space-y-1'}>
+        <label className={`${compactMode ? 'text-xs' : 'text-sm'} font-medium ${theme.labelColor}`}>{label}</label>
         <div className="flex gap-2">
           <select
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            className={`flex-1 px-3 py-2 border ${theme.inputBorder} rounded-xl text-sm ${theme.inputBg} ${theme.textPrimary} focus:outline-none focus:ring-2 focus:ring-slate-900`}
+            className={`flex-1 ${compactMode ? 'px-3 py-2 rounded-lg text-[13px]' : 'px-3 py-2 rounded-xl text-sm'} border ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary} focus:outline-none focus:ring-2 focus:ring-slate-900`}
           >
             <option value="">Select a client...</option>
             {clients.map((c) => (
@@ -1090,7 +1121,7 @@ const ClientSelect = ({ label, value, onChange, clients, onAddNew, theme = THEME
           <button
             type="button"
             onClick={() => setShowModal(true)}
-            className={`px-3 py-2 ${theme.accent} rounded-xl text-sm font-medium ${theme.accentHover}`}
+            className={`${compactMode ? 'px-2.5 py-2 rounded-lg text-[13px]' : 'px-3 py-2 rounded-xl text-sm'} ${theme.accent} font-medium ${theme.accentHover}`}
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -1098,28 +1129,48 @@ const ClientSelect = ({ label, value, onChange, clients, onAddNew, theme = THEME
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className={`${theme.modalBg} rounded-2xl w-full max-w-md p-4 space-y-3`}>
-            <div className="flex items-center justify-between">
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModal(false);
+            }
+          }}
+        >
+          <div
+            className={`${theme.modalBg} rounded-t-2xl sm:rounded-2xl w-full max-w-md flex flex-col max-h-[90vh] sm:max-h-[85vh] min-h-0 overflow-hidden`}
+            onClick={(e) => e.stopPropagation()}
+            style={{ touchAction: 'auto' }}
+          >
+            <div className={`px-4 py-3 border-b ${theme.border} flex items-center justify-between shrink-0`}>
               <h2 className={`font-semibold ${theme.textPrimary}`}>New Client</h2>
               <button onClick={() => setShowModal(false)}>
                 <X className={`w-5 h-5 ${theme.iconColor}`} />
               </button>
             </div>
-            <FormInput label="Client Name" value={newClient.name} onChange={(v) => setNewClient({ ...newClient, name: v })} theme={theme} />
-            <FormInput label="Phone" value={newClient.phone} onChange={(v) => setNewClient({ ...newClient, phone: v })} theme={theme} />
-            <FormInput label="Email" value={newClient.email} onChange={(v) => setNewClient({ ...newClient, email: v })} theme={theme} />
-            <FormInput
-              label="Address Line 1"
-              value={newClient.addressLine1}
-              onChange={(v) => setNewClient({ ...newClient, addressLine1: v })}
-              theme={theme}
-            />
-            <div className="flex gap-2">
-              <button onClick={() => setShowModal(false)} className={`flex-1 py-2 border ${theme.border} ${theme.textPrimary} rounded-xl`}>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0" style={{ touchAction: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <FormInput label="Client Name" value={newClient.name} onChange={(v) => setNewClient({ ...newClient, name: v })} theme={theme} />
+              <FormInput label="Phone" value={newClient.phone} onChange={(v) => setNewClient({ ...newClient, phone: v })} theme={theme} />
+              <FormInput label="Email" value={newClient.email} onChange={(v) => setNewClient({ ...newClient, email: v })} theme={theme} />
+              <FormInput label="VAT Number" value={newClient.vatNumber} onChange={(v) => setNewClient({ ...newClient, vatNumber: v })} theme={theme} />
+              <FormInput label="Extra Info 1" value={newClient.extraLine1} onChange={(v) => setNewClient({ ...newClient, extraLine1: v })} theme={theme} />
+              <FormInput label="Extra Info 2" value={newClient.extraLine2} onChange={(v) => setNewClient({ ...newClient, extraLine2: v })} theme={theme} />
+              <FormInput label="Extra Info 3" value={newClient.extraLine3} onChange={(v) => setNewClient({ ...newClient, extraLine3: v })} theme={theme} />
+              <FormInput label="Extra Info 4" value={newClient.extraLine4} onChange={(v) => setNewClient({ ...newClient, extraLine4: v })} theme={theme} />
+              <FormInput label="Extra Info 5" value={newClient.extraLine5} onChange={(v) => setNewClient({ ...newClient, extraLine5: v })} theme={theme} />
+              <FormInput label="Address Line 1" value={newClient.addressLine1} onChange={(v) => setNewClient({ ...newClient, addressLine1: v })} theme={theme} />
+              <FormInput label="Address Line 2" value={newClient.addressLine2} onChange={(v) => setNewClient({ ...newClient, addressLine2: v })} theme={theme} />
+              <div className="grid grid-cols-2 gap-3">
+                <FormInput label="City" value={newClient.city} onChange={(v) => setNewClient({ ...newClient, city: v })} theme={theme} />
+                <FormInput label="Postal Code" value={newClient.postalCode} onChange={(v) => setNewClient({ ...newClient, postalCode: v })} theme={theme} />
+              </div>
+              <FormInput label="Notes" value={newClient.notes} onChange={(v) => setNewClient({ ...newClient, notes: v })} multiline rows={2} theme={theme} />
+            </div>
+            <div className={`px-4 py-3 border-t ${theme.border} flex gap-2 shrink-0`}>
+              <button onClick={() => setShowModal(false)} className={`flex-1 ${compactMode ? 'py-2 text-sm rounded-lg' : 'py-2 rounded-xl'} border ${theme.border} ${theme.textPrimary}`}>
                 Cancel
               </button>
-              <button onClick={handleSaveNewClient} className={`flex-1 py-2 ${theme.accent} rounded-xl`}>
+              <button onClick={handleSaveNewClient} className={`flex-1 ${compactMode ? 'py-2 text-sm rounded-lg' : 'py-2 rounded-xl'} ${theme.accent}`}>
                 Save
               </button>
             </div>
@@ -1140,6 +1191,7 @@ const LineItemModal = ({
   applyDocumentTax = true,
   theme = THEMES.default,
 }) => {
+  const compactMode = useCompactFormMode();
   const defaultItem = {
     id: generateId(),
     description: '',
@@ -1197,26 +1249,26 @@ const LineItemModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className={`${theme.modalBg} ${theme.textPrimary} border ${theme.border} rounded-2xl w-full max-w-lg max-h-[90vh] overflow-auto shadow-2xl`}>
-        <div className={`p-4 border-b ${theme.border} flex items-center justify-between sticky top-0 ${theme.modalBg}`}>
+    <div className={`fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center ${compactMode ? 'p-0 sm:p-4' : 'p-4'}`}>
+      <div className={`${theme.modalBg} ${theme.textPrimary} border ${theme.border} ${compactMode ? 'rounded-t-[24px] sm:rounded-2xl' : 'rounded-2xl'} w-full max-w-lg max-h-[92vh] overflow-auto shadow-2xl`}>
+        <div className={`${compactMode ? 'px-3 py-2.5' : 'p-4'} border-b ${theme.border} flex items-center justify-between sticky top-0 ${theme.modalBg}`}>
           <button onClick={onClose}>
             <X className={`w-5 h-5 ${theme.textPrimary}`} />
           </button>
           <h2 className="font-semibold">{item ? 'Edit Item' : 'Add Item'}</h2>
-          <button onClick={handleSave} className={`px-4 py-2 ${theme.accent} ${theme.accentHover} rounded-xl text-sm`}>
+          <button onClick={handleSave} className={`${compactMode ? 'px-3 py-1.5 text-[13px]' : 'px-4 py-2 text-sm'} ${theme.accent} ${theme.accentHover} rounded-xl`}>
             Save
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className={`${compactMode ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
           {savedItems?.length > 0 && (
             <div>
-              <label className={`text-sm font-medium ${theme.labelColor}`}>Quick Add</label>
+              <label className={`${compactMode ? 'text-xs' : 'text-sm'} font-medium ${theme.labelColor}`}>Quick Add</label>
               <select
                 onChange={(e) => handleSavedItemSelect(e.target.value)}
                 defaultValue=""
-                className={`w-full mt-1 px-3 py-2 border ${theme.inputBorder} rounded-xl text-sm ${theme.inputBg} ${theme.textPrimary}`}
+                className={`w-full mt-1 ${compactMode ? 'px-3 py-2 rounded-lg text-[13px]' : 'px-3 py-2 rounded-xl text-sm'} border ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary}`}
               >
                 <option value="">Select a saved item...</option>
                 {savedItems.map((i) => (
@@ -1230,7 +1282,7 @@ const LineItemModal = ({
 
           <FormInput label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} theme={theme} />
           <FormInput label="Additional Details" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={theme} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid grid-cols-2 ${compactMode ? 'gap-2.5' : 'gap-3'}`}>
             <FormInput
               label="Rate"
               type="number"
@@ -1247,13 +1299,13 @@ const LineItemModal = ({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className={`text-sm font-medium ${theme.labelColor}`}>Unit</label>
+          <div className={`grid grid-cols-2 ${compactMode ? 'gap-2.5' : 'gap-3'}`}>
+            <div className={compactMode ? 'space-y-1' : 'space-y-1'}>
+              <label className={`${compactMode ? 'text-xs' : 'text-sm'} font-medium ${theme.labelColor}`}>Unit</label>
               <select
                 value={form.unit}
                 onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                className={`w-full px-3 py-2 border ${theme.inputBorder} rounded-xl text-sm ${theme.inputBg} ${theme.textPrimary}`}
+                className={`w-full ${compactMode ? 'px-3 py-2 rounded-lg text-[13px]' : 'px-3 py-2 rounded-xl text-sm'} border ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary}`}
               >
                 <option value="unit">Unit</option>
                 <option value="hour">Hour</option>
@@ -1263,12 +1315,12 @@ const LineItemModal = ({
                 <option value="block">Block</option>
               </select>
             </div>
-            <div className="space-y-1">
-              <label className={`text-sm font-medium ${theme.labelColor}`}>Discount Type</label>
+            <div className={compactMode ? 'space-y-1' : 'space-y-1'}>
+              <label className={`${compactMode ? 'text-xs' : 'text-sm'} font-medium ${theme.labelColor}`}>Discount Type</label>
               <select
                 value={form.discountType}
                 onChange={(e) => setForm({ ...form, discountType: e.target.value })}
-                className={`w-full px-3 py-2 border ${theme.inputBorder} rounded-xl text-sm ${theme.inputBg} ${theme.textPrimary}`}
+                className={`w-full ${compactMode ? 'px-3 py-2 rounded-lg text-[13px]' : 'px-3 py-2 rounded-xl text-sm'} border ${theme.inputBorder} ${theme.inputBg} ${theme.textPrimary}`}
               >
                 <option value="percentage">Percentage</option>
                 <option value="flat">Flat Amount</option>
@@ -1285,7 +1337,7 @@ const LineItemModal = ({
           />
 
           <div className="flex items-center justify-between">
-            <span className={`text-sm font-medium ${theme.textPrimary}`}>Taxable</span>
+            <span className={`${compactMode ? 'text-xs' : 'text-sm'} font-medium ${theme.textPrimary}`}>Taxable</span>
             <button
               type="button"
               onClick={() => setForm({ ...form, taxable: !form.taxable })}
@@ -1295,7 +1347,7 @@ const LineItemModal = ({
             </button>
           </div>
 
-          <div className={`${theme.accent} rounded-2xl p-4`}>
+          <div className={`${theme.accent} ${compactMode ? 'rounded-xl p-3' : 'rounded-2xl p-4'}`}>
             <div className="flex justify-between text-sm">
               <span>Subtotal</span>
               <span>{formatCurrency(calc.subtotal)}</span>
@@ -1722,6 +1774,96 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     setSearchTerm('');
   }, []);
 
+  const openNewInvoice = useCallback(() => {
+    setCurrentItem({
+      id: generateId(),
+      number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
+      date: new Date().toISOString().split('T')[0],
+      dueDate: '',
+      status: 'outstanding',
+      clientId: '',
+      items: [],
+      amountPaid: 0,
+      overallDiscount: 0,
+      overallDiscountType: 'percentage',
+      taxEnabled: false,
+      notes: '',
+    });
+    setView('edit-invoice');
+  }, [data.estimates, data.invoices, data.settings]);
+
+  const openNewEstimate = useCallback(() => {
+    setCurrentItem({
+      id: generateId(),
+      number: generateDocumentNumber('estimate', data.invoices, data.estimates, data.settings),
+      date: new Date().toISOString().split('T')[0],
+      status: 'pending',
+      clientId: '',
+      items: [],
+      overallDiscount: 0,
+      overallDiscountType: 'percentage',
+      taxEnabled: false,
+      notes: '',
+    });
+    setView('edit-estimate');
+  }, [data.estimates, data.invoices, data.settings]);
+
+  const openNewClient = useCallback(() => {
+    setCurrentItem({
+      id: generateId(),
+      name: '',
+      phone: '',
+      email: '',
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      postalCode: '',
+      vatNumber: '',
+      extraLine1: '',
+      extraLine2: '',
+      extraLine3: '',
+      extraLine4: '',
+      extraLine5: '',
+      notes: '',
+    });
+    setView('edit-client');
+  }, []);
+
+  const openNewItem = useCallback(() => {
+    setCurrentItem({
+      id: generateId(),
+      name: '',
+      description: '',
+      unitCost: 0,
+      unit: '',
+      quantity: 1,
+      discountType: 'percentage',
+      discountAmount: 0,
+      taxable: false,
+      additionalDetails: '',
+    });
+    setView('edit-item');
+  }, []);
+
+  const handlePhonePlusPress = useCallback(() => {
+    switch (activeTab) {
+      case 'invoices':
+        openNewInvoice();
+        break;
+      case 'estimates':
+        openNewEstimate();
+        break;
+      case 'clients':
+        openNewClient();
+        break;
+      case 'items':
+        openNewItem();
+        break;
+      default:
+        break;
+    }
+  }, [activeTab, openNewClient, openNewEstimate, openNewInvoice, openNewItem]);
+
   // ============================================================================
   // INVOICES
   // ============================================================================
@@ -1788,37 +1930,21 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
     return (
       <div className="flex flex-col h-full">
-        <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.border}`}>
-          <div className={`flex items-center gap-2 ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
-            {!usePhoneLayout ? <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Invoices</h1> : null}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setCurrentItem({
-                    id: generateId(),
-                    number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
-                    date: new Date().toISOString().split('T')[0],
-                    dueDate: '',
-                    status: 'outstanding',
-                    clientId: '',
-                    items: [],
-                    amountPaid: 0,
-                    overallDiscount: 0,
-                    overallDiscountType: 'percentage',
-                    taxEnabled: false,
-                    notes: '',
-                  });
-                  setView('edit-invoice');
-                }}
-                className={`flex items-center ${usePhoneLayout ? 'gap-1.5 px-3 py-1.5 text-sm' : 'gap-1.5 px-3 py-1.5 text-sm'} ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                New Invoice
-              </button>
+        {!usePhoneLayout ? (
+          <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.border}`}>
+            <div className="flex items-center justify-between gap-2">
+              <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Invoices</h1>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={openNewInvoice}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  New Invoice
+                </button>
+              </div>
             </div>
-          </div>
 
-          {!usePhoneLayout ? (
             <div className="relative mt-3 max-w-sm">
               <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
               <input
@@ -1829,8 +1955,8 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
               />
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
           {filtered.length === 0 ? (
@@ -1846,18 +1972,18 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               }
             />
           ) : (
-            <div className={usePhoneLayout ? 'space-y-3' : 'space-y-2'}>
+            <div className={usePhoneLayout ? 'space-y-1.5' : 'space-y-2'}>
               {filtered.map((invoice) => {
                 const client = getClient(invoice.clientId);
                 const total = calculateDocumentTotal(invoice, data.settings?.taxRate || 15);
                 return (
                   <div
                     key={invoice.id}
-                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
+                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_1px_6px_rgba(0,0,0,0.06)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
                   >
                     {usePhoneLayout ? (
-                      <div className="px-3.5 py-3">
-                        <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <div className="px-3 py-2.5">
+                        <div className="mb-1 flex items-center justify-between gap-3">
                           <div
                             onClick={() => {
                               setCurrentItem(invoice);
@@ -1879,7 +2005,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           }}
                           className="cursor-pointer"
                         >
-                          <p className={`mb-2 truncate text-xs ${activeTheme.textMuted}`}>
+                          <p className={`mb-1 truncate text-xs ${activeTheme.textMuted}`}>
                             {client?.name || 'No client'}
                           </p>
                         </div>
@@ -2296,6 +2422,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     const taxRate = data.settings?.taxRate || 15;
     const taxLabel = data.settings?.taxLabel || 'VAT';
     const taxEnabled = isDocumentTaxEnabled(form);
+    const compactForm = usePhoneLayout;
 
     const isExistingInvoice = data.invoices.some((inv) => inv.id === form.id);
 
@@ -2326,113 +2453,115 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     };
 
     return (
-      <div className="flex flex-col h-full">
-        <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
-          <button onClick={() => setView(isExistingInvoice ? 'view-invoice' : 'list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
-            <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-          </button>
-          <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{isExistingInvoice ? 'Edit Invoice' : 'New Invoice'}</h1>
-          <button onClick={handleSave} className={`px-4 py-2 ${activeTheme.accent} rounded-xl`}>
-            Save
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:pb-4 space-y-4">
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
-            <FormInput label="Invoice Number" value={form.number} onChange={(v) => setForm({ ...form, number: v })} theme={activeTheme} />
-            <div className="grid grid-cols-2 gap-3">
-              <FormInput label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} theme={activeTheme} />
-              <FormInput label="Due Date" type="date" value={form.dueDate} onChange={(v) => setForm({ ...form, dueDate: v })} theme={activeTheme} />
-            </div>
-            <ClientSelect
-              label="Client"
-              value={form.clientId}
-              onChange={(v) => setForm({ ...form, clientId: v })}
-              clients={data.clients}
-              onAddNew={handleAddClient}
-              theme={activeTheme}
-            />
+      <CompactFormContext.Provider value={compactForm}>
+        <div className="flex flex-col h-full">
+          <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
+            <button onClick={() => setView(isExistingInvoice ? 'view-invoice' : 'list')} className={`${compactForm ? 'p-1.5' : 'p-2'} ${activeTheme.buttonHover} rounded-xl`}>
+              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{isExistingInvoice ? 'Edit Invoice' : 'New Invoice'}</h1>
+            <button onClick={handleSave} className={`${compactForm ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} ${activeTheme.accent} rounded-xl`}>
+              Save
+            </button>
           </div>
 
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
-            <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
-              <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
-              <button
-                onClick={() => {
-                  setEditingItem(null);
-                  setItemModalOpen(true);
-                }}
-                className={`px-3 py-1.5 ${activeTheme.accent} rounded-lg text-sm flex items-center gap-1`}
-              >
-                <Plus className="w-4 h-4" />
-                Add Item
-              </button>
+          <div className={`flex-1 overflow-auto ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'} phone-dock-scroll-space lg:pb-4`}>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
+              <FormInput label="Invoice Number" value={form.number} onChange={(v) => setForm({ ...form, number: v })} theme={activeTheme} />
+              <div className={`grid grid-cols-2 ${compactForm ? 'gap-2.5' : 'gap-3'}`}>
+                <FormInput label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} theme={activeTheme} />
+                <FormInput label="Due Date" type="date" value={form.dueDate} onChange={(v) => setForm({ ...form, dueDate: v })} theme={activeTheme} />
+              </div>
+              <ClientSelect
+                label="Client"
+                value={form.clientId}
+                onChange={(v) => setForm({ ...form, clientId: v })}
+                clients={data.clients}
+                onAddNew={handleAddClient}
+                theme={activeTheme}
+              />
             </div>
 
-            {form.items.length === 0 ? (
-              <div className={`p-8 text-center ${activeTheme.textMuted}`}>No items added yet</div>
-            ) : (
-              <div className="divide-y">
-                {form.items.map((item, idx) => (
-                  <div
-                    key={item.id}
-                    className={`p-4 ${activeTheme.tableRowHover} cursor-pointer`}
-                    onClick={() => {
-                      setEditingItem(item);
-                      setItemModalOpen(true);
-                    }}
-                  >
-                    <div className="flex justify-between items-start gap-3">
-                      <div>
-                        <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
-                        {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.notes}</p>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <p className={`font-semibold ${activeTheme.textPrimary}`}>
-                          {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: taxEnabled }).total)}
-                        </p>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
-                          }}
-                          className="p-1.5 hover:bg-red-50 rounded-lg"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
+              <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
+                <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
+                <button
+                  onClick={() => {
+                    setEditingItem(null);
+                    setItemModalOpen(true);
+                  }}
+                  className={`${compactForm ? 'px-2.5 py-1.5 text-[13px]' : 'px-3 py-1.5 text-sm'} ${activeTheme.accent} rounded-lg flex items-center gap-1`}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Item
+                </button>
+              </div>
+
+              {form.items.length === 0 ? (
+                <div className={`${compactForm ? 'p-5 text-sm' : 'p-8'} text-center ${activeTheme.textMuted}`}>No items added yet</div>
+              ) : (
+                <div className="divide-y">
+                  {form.items.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} ${activeTheme.tableRowHover} cursor-pointer`}
+                      onClick={() => {
+                        setEditingItem(item);
+                        setItemModalOpen(true);
+                      }}
+                    >
+                      <div className="flex justify-between items-start gap-3">
+                        <div>
+                          <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
+                          {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.notes}</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <p className={`font-semibold ${activeTheme.textPrimary}`}>
+                            {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: taxEnabled }).total)}
+                          </p>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
+                            }}
+                            className="p-1.5 hover:bg-red-50 rounded-lg"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <DocumentTotalsEditor
+              form={form}
+              setForm={setForm}
+              taxRate={taxRate}
+              taxLabel={taxLabel}
+              theme={activeTheme}
+              showPayments
+            />
+
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3' : 'p-4'}`}>
+              <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
+            </div>
           </div>
 
-          <DocumentTotalsEditor
-            form={form}
-            setForm={setForm}
+          <LineItemModal
+            isOpen={itemModalOpen}
+            onClose={() => setItemModalOpen(false)}
+            onSave={handleSaveItem}
+            item={editingItem}
+            savedItems={data.items}
             taxRate={taxRate}
-            taxLabel={taxLabel}
+            applyDocumentTax={taxEnabled}
             theme={activeTheme}
-            showPayments
           />
-
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
-            <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
-          </div>
         </div>
-
-        <LineItemModal
-          isOpen={itemModalOpen}
-          onClose={() => setItemModalOpen(false)}
-          onSave={handleSaveItem}
-          item={editingItem}
-          savedItems={data.items}
-          taxRate={taxRate}
-          applyDocumentTax={taxEnabled}
-          theme={activeTheme}
-        />
-      </div>
+      </CompactFormContext.Provider>
     );
   };
 
@@ -2501,33 +2630,19 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
     return (
       <div className="flex flex-col h-full">
-        <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.border}`}>
-          <div className={`flex items-center ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
-            {!usePhoneLayout ? <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Estimates</h1> : null}
-            <button
-              onClick={() => {
-                setCurrentItem({
-                  id: generateId(),
-                  number: generateDocumentNumber('estimate', data.invoices, data.estimates, data.settings),
-                  date: new Date().toISOString().split('T')[0],
-                  status: 'pending',
-                  clientId: '',
-                  items: [],
-                  overallDiscount: 0,
-                  overallDiscountType: 'percentage',
-                  taxEnabled: false,
-                  notes: '',
-                });
-                setView('edit-estimate');
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              New Estimate
-            </button>
-          </div>
+        {!usePhoneLayout ? (
+          <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.border}`}>
+            <div className="flex items-center justify-between">
+              <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Estimates</h1>
+              <button
+                onClick={openNewEstimate}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                New Estimate
+              </button>
+            </div>
 
-          {!usePhoneLayout ? (
             <div className="relative mt-3 max-w-sm">
               <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
               <input
@@ -2538,25 +2653,25 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
               />
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
           {filtered.length === 0 ? (
             <EmptyState icon={FileSignature} title="No estimates yet" description="Create your first estimate" theme={activeTheme} />
           ) : (
-            <div className={usePhoneLayout ? 'space-y-3' : 'space-y-2'}>
+            <div className={usePhoneLayout ? 'space-y-1.5' : 'space-y-2'}>
               {filtered.map((estimate) => {
                 const client = getClient(estimate.clientId);
                 const total = calculateDocumentTotal(estimate, data.settings?.taxRate || 15);
                 return (
                   <div
                     key={estimate.id}
-                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
+                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_1px_6px_rgba(0,0,0,0.06)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
                   >
                     {usePhoneLayout ? (
-                      <div className="px-3.5 py-3">
-                        <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <div className="px-3 py-2.5">
+                        <div className="mb-1 flex items-center justify-between gap-3">
                           <div
                             onClick={() => {
                               setCurrentItem(estimate);
@@ -2578,7 +2693,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           }}
                           className="cursor-pointer"
                         >
-                          <p className={`mb-2 truncate text-xs ${activeTheme.textMuted}`}>
+                          <p className={`mb-1 truncate text-xs ${activeTheme.textMuted}`}>
                             {client?.name || 'No client'}
                           </p>
                         </div>
@@ -2983,6 +3098,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     const taxRate = data.settings?.taxRate || 15;
     const taxLabel = data.settings?.taxLabel || 'VAT';
     const taxEnabled = isDocumentTaxEnabled(form);
+    const compactForm = usePhoneLayout;
 
     const isExistingEstimate = data.estimates.some((est) => est.id === form.id);
 
@@ -3013,109 +3129,111 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     };
 
     return (
-      <div className="flex flex-col h-full">
-        <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
-          <button onClick={() => setView(isExistingEstimate ? 'view-estimate' : 'list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
-            <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-          </button>
-          <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{isExistingEstimate ? 'Edit Estimate' : 'New Estimate'}</h1>
-          <button onClick={handleSave} className={`px-4 py-2 ${activeTheme.accent} rounded-xl`}>
-            Save
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:pb-4 space-y-4">
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
-            <FormInput label="Estimate Number" value={form.number} onChange={(v) => setForm({ ...form, number: v })} theme={activeTheme} />
-            <FormInput label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} theme={activeTheme} />
-            <ClientSelect
-              label="Client"
-              value={form.clientId}
-              onChange={(v) => setForm({ ...form, clientId: v })}
-              clients={data.clients}
-              onAddNew={handleAddClient}
-              theme={activeTheme}
-            />
+      <CompactFormContext.Provider value={compactForm}>
+        <div className="flex flex-col h-full">
+          <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
+            <button onClick={() => setView(isExistingEstimate ? 'view-estimate' : 'list')} className={`${compactForm ? 'p-1.5' : 'p-2'} ${activeTheme.buttonHover} rounded-xl`}>
+              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{isExistingEstimate ? 'Edit Estimate' : 'New Estimate'}</h1>
+            <button onClick={handleSave} className={`${compactForm ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} ${activeTheme.accent} rounded-xl`}>
+              Save
+            </button>
           </div>
 
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
-            <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
-              <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
-              <button
-                onClick={() => {
-                  setEditingItem(null);
-                  setItemModalOpen(true);
-                }}
-                className={`px-3 py-1.5 ${activeTheme.accent} rounded-lg text-sm flex items-center gap-1`}
-              >
-                <Plus className="w-4 h-4" />
-                Add Item
-              </button>
+          <div className={`flex-1 overflow-auto ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'} phone-dock-scroll-space lg:pb-4`}>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
+              <FormInput label="Estimate Number" value={form.number} onChange={(v) => setForm({ ...form, number: v })} theme={activeTheme} />
+              <FormInput label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} theme={activeTheme} />
+              <ClientSelect
+                label="Client"
+                value={form.clientId}
+                onChange={(v) => setForm({ ...form, clientId: v })}
+                clients={data.clients}
+                onAddNew={handleAddClient}
+                theme={activeTheme}
+              />
             </div>
 
-            {form.items.length === 0 ? (
-              <div className={`p-8 text-center ${activeTheme.textMuted}`}>No items added yet</div>
-            ) : (
-              <div className="divide-y">
-                {form.items.map((item, idx) => (
-                  <div
-                    key={item.id}
-                    className={`p-4 ${activeTheme.tableRowHover} cursor-pointer`}
-                    onClick={() => {
-                      setEditingItem(item);
-                      setItemModalOpen(true);
-                    }}
-                  >
-                    <div className="flex justify-between items-start gap-3">
-                      <div>
-                        <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
-                        {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.notes}</p>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <p className={`font-semibold ${activeTheme.textPrimary}`}>
-                          {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: taxEnabled }).total)}
-                        </p>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
-                          }}
-                          className="p-1.5 hover:bg-red-50 rounded-lg"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
+              <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
+                <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
+                <button
+                  onClick={() => {
+                    setEditingItem(null);
+                    setItemModalOpen(true);
+                  }}
+                  className={`${compactForm ? 'px-2.5 py-1.5 text-[13px]' : 'px-3 py-1.5 text-sm'} ${activeTheme.accent} rounded-lg flex items-center gap-1`}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Item
+                </button>
+              </div>
+
+              {form.items.length === 0 ? (
+                <div className={`${compactForm ? 'p-5 text-sm' : 'p-8'} text-center ${activeTheme.textMuted}`}>No items added yet</div>
+              ) : (
+                <div className="divide-y">
+                  {form.items.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} ${activeTheme.tableRowHover} cursor-pointer`}
+                      onClick={() => {
+                        setEditingItem(item);
+                        setItemModalOpen(true);
+                      }}
+                    >
+                      <div className="flex justify-between items-start gap-3">
+                        <div>
+                          <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
+                          {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.notes}</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <p className={`font-semibold ${activeTheme.textPrimary}`}>
+                            {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: taxEnabled }).total)}
+                          </p>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
+                            }}
+                            className="p-1.5 hover:bg-red-50 rounded-lg"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <DocumentTotalsEditor
+              form={form}
+              setForm={setForm}
+              taxRate={taxRate}
+              taxLabel={taxLabel}
+              theme={activeTheme}
+            />
+
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3' : 'p-4'}`}>
+              <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
+            </div>
           </div>
 
-          <DocumentTotalsEditor
-            form={form}
-            setForm={setForm}
+          <LineItemModal
+            isOpen={itemModalOpen}
+            onClose={() => setItemModalOpen(false)}
+            onSave={handleSaveItem}
+            item={editingItem}
+            savedItems={data.items}
             taxRate={taxRate}
-            taxLabel={taxLabel}
+            applyDocumentTax={taxEnabled}
             theme={activeTheme}
           />
-
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
-            <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
-          </div>
         </div>
-
-        <LineItemModal
-          isOpen={itemModalOpen}
-          onClose={() => setItemModalOpen(false)}
-          onSave={handleSaveItem}
-          item={editingItem}
-          savedItems={data.items}
-          taxRate={taxRate}
-          applyDocumentTax={taxEnabled}
-          theme={activeTheme}
-        />
-      </div>
+      </CompactFormContext.Provider>
     );
   };
 
@@ -3134,38 +3252,19 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
     return (
       <div className="flex flex-col h-full">
-        <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
-          <div className={`flex items-center ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
-            {!usePhoneLayout ? <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Clients</h1> : null}
-            <button
-              onClick={() => {
-                setCurrentItem({
-                  id: generateId(),
-                  name: '',
-                  phone: '',
-                  email: '',
-                  addressLine1: '',
-                  addressLine2: '',
-                  city: '',
-                  postalCode: '',
-                  vatNumber: '',
-                  extraLine1: '',
-                  extraLine2: '',
-                  extraLine3: '',
-                  extraLine4: '',
-                  extraLine5: '',
-                  notes: '',
-                });
-                setView('edit-client');
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Client
-            </button>
-          </div>
+        {!usePhoneLayout ? (
+          <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
+            <div className="flex items-center justify-between">
+              <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Clients</h1>
+              <button
+                onClick={openNewClient}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Client
+              </button>
+            </div>
 
-          {!usePhoneLayout ? (
             <div className="relative mt-3 max-w-sm">
               <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
               <input
@@ -3176,21 +3275,21 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
               />
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
           {filtered.length === 0 ? (
             <EmptyState icon={Users} title="No clients yet" description="Add your first client" theme={activeTheme} />
           ) : (
-            <div className={usePhoneLayout ? 'space-y-3' : 'space-y-2'}>
+            <div className={usePhoneLayout ? 'space-y-1.5' : 'space-y-2'}>
               {filtered.map((client) => (
                 <div
                   key={client.id}
-                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
+                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_1px_6px_rgba(0,0,0,0.06)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
                 >
                   {usePhoneLayout ? (
-                    <div className="flex items-center gap-3 px-3.5 py-3">
+                    <div className="flex items-center gap-2.5 px-3 py-2.5">
                       <div
                         onClick={() => {
                           setCurrentItem(client);
@@ -3397,39 +3496,43 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
       setView('list');
     };
 
-    return (
-      <div className="flex flex-col h-full">
-        <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
-          <button onClick={() => setView(currentItem?.name ? 'view-client' : 'list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
-            <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-          </button>
-          <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{currentItem?.name ? 'Edit Client' : 'New Client'}</h1>
-          <button onClick={handleSave} className={`px-4 py-2 ${activeTheme.accent} rounded-xl`}>
-            Save
-          </button>
-        </div>
+    const compactForm = usePhoneLayout;
 
-        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:pb-4 space-y-4">
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
-            <FormInput label="Client Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} theme={activeTheme} />
-            <FormInput label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} theme={activeTheme} />
-            <FormInput label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} theme={activeTheme} />
-            <FormInput label="VAT Number" value={form.vatNumber} onChange={(v) => setForm({ ...form, vatNumber: v })} theme={activeTheme} />
-            <FormInput label="Extra Info 1" value={form.extraLine1 || ''} onChange={(v) => setForm({ ...form, extraLine1: v })} theme={activeTheme} />
-            <FormInput label="Extra Info 2" value={form.extraLine2 || ''} onChange={(v) => setForm({ ...form, extraLine2: v })} theme={activeTheme} />
-            <FormInput label="Extra Info 3" value={form.extraLine3 || ''} onChange={(v) => setForm({ ...form, extraLine3: v })} theme={activeTheme} />
-            <FormInput label="Extra Info 4" value={form.extraLine4 || ''} onChange={(v) => setForm({ ...form, extraLine4: v })} theme={activeTheme} />
-            <FormInput label="Extra Info 5" value={form.extraLine5 || ''} onChange={(v) => setForm({ ...form, extraLine5: v })} theme={activeTheme} />
-            <FormInput label="Address Line 1" value={form.addressLine1} onChange={(v) => setForm({ ...form, addressLine1: v })} theme={activeTheme} />
-            <FormInput label="Address Line 2" value={form.addressLine2} onChange={(v) => setForm({ ...form, addressLine2: v })} theme={activeTheme} />
-            <div className="grid grid-cols-2 gap-3">
-              <FormInput label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} theme={activeTheme} />
-              <FormInput label="Postal Code" value={form.postalCode} onChange={(v) => setForm({ ...form, postalCode: v })} theme={activeTheme} />
+    return (
+      <CompactFormContext.Provider value={compactForm}>
+        <div className="flex flex-col h-full">
+          <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
+            <button onClick={() => setView(currentItem?.name ? 'view-client' : 'list')} className={`${compactForm ? 'p-1.5' : 'p-2'} ${activeTheme.buttonHover} rounded-xl`}>
+              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{currentItem?.name ? 'Edit Client' : 'New Client'}</h1>
+            <button onClick={handleSave} className={`${compactForm ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} ${activeTheme.accent} rounded-xl`}>
+              Save
+            </button>
+          </div>
+
+          <div className={`flex-1 overflow-auto ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'} phone-dock-scroll-space lg:pb-4`}>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
+              <FormInput label="Client Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} theme={activeTheme} />
+              <FormInput label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} theme={activeTheme} />
+              <FormInput label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} theme={activeTheme} />
+              <FormInput label="VAT Number" value={form.vatNumber} onChange={(v) => setForm({ ...form, vatNumber: v })} theme={activeTheme} />
+              <FormInput label="Extra Info 1" value={form.extraLine1 || ''} onChange={(v) => setForm({ ...form, extraLine1: v })} theme={activeTheme} />
+              <FormInput label="Extra Info 2" value={form.extraLine2 || ''} onChange={(v) => setForm({ ...form, extraLine2: v })} theme={activeTheme} />
+              <FormInput label="Extra Info 3" value={form.extraLine3 || ''} onChange={(v) => setForm({ ...form, extraLine3: v })} theme={activeTheme} />
+              <FormInput label="Extra Info 4" value={form.extraLine4 || ''} onChange={(v) => setForm({ ...form, extraLine4: v })} theme={activeTheme} />
+              <FormInput label="Extra Info 5" value={form.extraLine5 || ''} onChange={(v) => setForm({ ...form, extraLine5: v })} theme={activeTheme} />
+              <FormInput label="Address Line 1" value={form.addressLine1} onChange={(v) => setForm({ ...form, addressLine1: v })} theme={activeTheme} />
+              <FormInput label="Address Line 2" value={form.addressLine2} onChange={(v) => setForm({ ...form, addressLine2: v })} theme={activeTheme} />
+              <div className={`grid grid-cols-2 ${compactForm ? 'gap-2.5' : 'gap-3'}`}>
+                <FormInput label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} theme={activeTheme} />
+                <FormInput label="Postal Code" value={form.postalCode} onChange={(v) => setForm({ ...form, postalCode: v })} theme={activeTheme} />
+              </div>
+              <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
             </div>
-            <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
           </div>
         </div>
-      </div>
+      </CompactFormContext.Provider>
     );
   };
 
@@ -3445,33 +3548,19 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
     return (
       <div className="flex flex-col h-full">
-        <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
-          <div className={`flex items-center ${usePhoneLayout ? 'justify-end' : 'justify-between'}`}>
-            {!usePhoneLayout ? <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Items</h1> : null}
-            <button
-              onClick={() => {
-                setCurrentItem({
-                  id: generateId(),
-                  name: '',
-                  description: '',
-                  unitCost: 0,
-                  unit: '',
-                  quantity: 1,
-                  discountType: 'percentage',
-                  discountAmount: 0,
-                  taxable: false,
-                  additionalDetails: '',
-                });
-                setView('edit-item');
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Item
-            </button>
-          </div>
+        {!usePhoneLayout ? (
+          <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
+            <div className="flex items-center justify-between">
+              <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Items</h1>
+              <button
+                onClick={openNewItem}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Item
+              </button>
+            </div>
 
-          {!usePhoneLayout ? (
             <div className="relative mt-3 max-w-sm">
               <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
               <input
@@ -3482,27 +3571,27 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
               />
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
           {filtered.length === 0 ? (
             <EmptyState icon={Package} title="No items yet" description="Add your products and services" theme={activeTheme} />
           ) : (
-            <div className={usePhoneLayout ? 'space-y-3' : 'space-y-2'}>
+            <div className={usePhoneLayout ? 'space-y-2' : 'space-y-2'}>
               {filtered.map((item) => (
                 <div
                   key={item.id}
-                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
+                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-xl shadow-[0_1px_6px_rgba(0,0,0,0.06)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
                 >
                   {usePhoneLayout ? (
-                    <div className="px-3.5 py-3">
+                    <div className="px-3 py-2.5">
                       <div
                         onClick={() => {
                           setCurrentItem(item);
                           setView('edit-item');
                         }}
-                        className="flex items-center justify-between mb-1 cursor-pointer"
+                        className="flex items-center justify-between mb-0.5 cursor-pointer"
                       >
                         <p className={`text-sm font-bold ${activeTheme.textPrimary} truncate mr-3`}>
                           {item.name}
@@ -3521,7 +3610,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           className="cursor-pointer"
                         >
                           <p
-                            className={`text-xs ${activeTheme.textMuted} mb-2`}
+                            className={`text-[11px] leading-tight ${activeTheme.textMuted} mb-1.5`}
                             style={{
                               display: '-webkit-box',
                               WebkitLineClamp: 2,
@@ -3537,17 +3626,17 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {item.unit && (
-                            <span className={`text-[10px] ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-2 py-0.5 rounded-full border ${activeTheme.border}`}>
+                            <span className={`text-[9px] ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-1.5 py-px rounded-full border ${activeTheme.border}`}>
                               per {item.unit}
                             </span>
                           )}
                           {item.taxable && (
-                            <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-200">
+                            <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-px rounded-full border border-emerald-200">
                               Taxable
                             </span>
                           )}
                           {item.discountAmount > 0 && (
-                            <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            <span className="text-[9px] text-amber-600 bg-amber-50 px-1.5 py-px rounded-full border border-amber-200">
                               {item.discountType === 'percentage'
                                 ? `${item.discountAmount}% off`
                                 : `${formatCurrency(item.discountAmount)} off`}
@@ -3661,105 +3750,109 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
       setView('list');
     };
 
+    const compactForm = usePhoneLayout;
+
     return (
-      <div className="flex flex-col h-full">
-        <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
-          <button onClick={() => setView('list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
-            <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-          </button>
-          <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{currentItem?.name ? 'Edit Item' : 'New Item'}</h1>
-          <div className="flex gap-2">
-            {currentItem?.name && (
-              <button
-                onClick={() => {
-                  setConfirmMessage(`Are you sure you want to delete item ${form.name}? This action cannot be undone.`);
-                  setConfirmAction(() => async () => {
-                    await save('items', data.items.filter((i) => i.id !== form.id));
-                    setView('list');
-                  });
-                  setConfirmOpen(true);
-                }}
-                className="p-2 hover:bg-red-50 rounded-xl"
-              >
-                <Trash2 className="w-5 h-5 text-red-500" />
-              </button>
-            )}
-            <button onClick={handleSave} className={`px-4 py-2 ${activeTheme.accent} rounded-xl`}>
-              Save
+      <CompactFormContext.Provider value={compactForm}>
+        <div className="flex flex-col h-full">
+          <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
+            <button onClick={() => setView('list')} className={`${compactForm ? 'p-1.5' : 'p-2'} ${activeTheme.buttonHover} rounded-xl`}>
+              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
             </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:pb-4 space-y-4">
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
-            <FormInput label="Item Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} theme={activeTheme} />
-            <FormInput label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} multiline theme={activeTheme} />
-            <FormInput
-              label="Unit Cost"
-              type="number"
-              value={form.unitCost}
-              onChange={(v) => setForm({ ...form, unitCost: parseFloat(v) || 0 })}
-              theme={activeTheme}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <FormInput label="Unit" value={form.unit} onChange={(v) => setForm({ ...form, unit: v })} theme={activeTheme} />
-              <FormInput
-                label="Quantity"
-                type="number"
-                value={form.quantity}
-                onChange={(v) => setForm({ ...form, quantity: v === '' ? '' : parseInt(v, 10) || 0 })}
-                theme={activeTheme}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className={`text-sm font-medium ${activeTheme.labelColor}`}>Discount Type</label>
-                <select
-                  value={form.discountType}
-                  onChange={(e) => setForm({ ...form, discountType: e.target.value })}
-                  className={`w-full px-3 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+            <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{currentItem?.name ? 'Edit Item' : 'New Item'}</h1>
+            <div className="flex gap-2">
+              {currentItem?.name && (
+                <button
+                  onClick={() => {
+                    setConfirmMessage(`Are you sure you want to delete item ${form.name}? This action cannot be undone.`);
+                    setConfirmAction(() => async () => {
+                      await save('items', data.items.filter((i) => i.id !== form.id));
+                      setView('list');
+                    });
+                    setConfirmOpen(true);
+                  }}
+                  className={`${compactForm ? 'p-1.5' : 'p-2'} hover:bg-red-50 rounded-xl`}
                 >
-                  <option value="percentage">Percentage</option>
-                  <option value="flat">Fixed Amount</option>
-                </select>
-              </div>
-              <FormInput
-                label="Discount Amount"
-                type="number"
-                value={form.discountAmount}
-                onChange={(v) => setForm({ ...form, discountAmount: parseFloat(v) || 0 })}
-                theme={activeTheme}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className={`text-sm font-medium ${activeTheme.textPrimary}`}>Taxable</span>
-              <button
-                onClick={() => setForm({ ...form, taxable: !form.taxable })}
-                className={`relative w-12 h-7 rounded-full ${form.taxable ? activeTheme.accent : activeTheme.toggleInactive}`}
-              >
-                <span className={`absolute top-1 w-5 h-5 bg-white rounded-full ${form.taxable ? 'left-6' : 'left-1'}`} />
+                  <Trash2 className="w-5 h-5 text-red-500" />
+                </button>
+              )}
+              <button onClick={handleSave} className={`${compactForm ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} ${activeTheme.accent} rounded-xl`}>
+                Save
               </button>
             </div>
+          </div>
 
-            <div className={`flex justify-between items-center pt-4 border-t ${activeTheme.border}`}>
-              <span className={`font-semibold ${activeTheme.textPrimary}`}>Total</span>
-              <span className={`text-xl font-bold ${activeTheme.textPrimary}`}>{formatCurrency(finalTotal)}</span>
+          <div className={`flex-1 overflow-auto ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'} phone-dock-scroll-space lg:pb-4`}>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
+              <FormInput label="Item Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} theme={activeTheme} />
+              <FormInput label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} multiline theme={activeTheme} />
+              <FormInput
+                label="Unit Cost"
+                type="number"
+                value={form.unitCost}
+                onChange={(v) => setForm({ ...form, unitCost: parseFloat(v) || 0 })}
+                theme={activeTheme}
+              />
+              <div className={`grid grid-cols-2 ${compactForm ? 'gap-2.5' : 'gap-3'}`}>
+                <FormInput label="Unit" value={form.unit} onChange={(v) => setForm({ ...form, unit: v })} theme={activeTheme} />
+                <FormInput
+                  label="Quantity"
+                  type="number"
+                  value={form.quantity}
+                  onChange={(v) => setForm({ ...form, quantity: v === '' ? '' : parseInt(v, 10) || 0 })}
+                  theme={activeTheme}
+                />
+              </div>
+
+              <div className={`grid grid-cols-2 ${compactForm ? 'gap-2.5' : 'gap-3'}`}>
+                <div className={compactForm ? 'space-y-1' : 'space-y-1'}>
+                  <label className={`${compactForm ? 'text-xs' : 'text-sm'} font-medium ${activeTheme.labelColor}`}>Discount Type</label>
+                  <select
+                    value={form.discountType}
+                    onChange={(e) => setForm({ ...form, discountType: e.target.value })}
+                    className={`w-full ${compactForm ? 'px-3 py-2 rounded-lg text-[13px]' : 'px-3 py-2 rounded-xl text-sm'} border ${activeTheme.inputBorder} ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
+                  >
+                    <option value="percentage">Percentage</option>
+                    <option value="flat">Fixed Amount</option>
+                  </select>
+                </div>
+                <FormInput
+                  label="Discount Amount"
+                  type="number"
+                  value={form.discountAmount}
+                  onChange={(v) => setForm({ ...form, discountAmount: parseFloat(v) || 0 })}
+                  theme={activeTheme}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className={`${compactForm ? 'text-xs' : 'text-sm'} font-medium ${activeTheme.textPrimary}`}>Taxable</span>
+                <button
+                  onClick={() => setForm({ ...form, taxable: !form.taxable })}
+                  className={`relative w-12 h-7 rounded-full ${form.taxable ? activeTheme.accent : activeTheme.toggleInactive}`}
+                >
+                  <span className={`absolute top-1 w-5 h-5 bg-white rounded-full ${form.taxable ? 'left-6' : 'left-1'}`} />
+                </button>
+              </div>
+
+              <div className={`flex justify-between items-center ${compactForm ? 'pt-3' : 'pt-4'} border-t ${activeTheme.border}`}>
+                <span className={`font-semibold ${activeTheme.textPrimary}`}>Total</span>
+                <span className={`${compactForm ? 'text-lg' : 'text-xl'} font-bold ${activeTheme.textPrimary}`}>{formatCurrency(finalTotal)}</span>
+              </div>
+            </div>
+
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3' : 'p-4'}`}>
+              <FormInput
+                label="Additional Details"
+                value={form.additionalDetails}
+                onChange={(v) => setForm({ ...form, additionalDetails: v })}
+                multiline
+                theme={activeTheme}
+              />
             </div>
           </div>
-
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
-            <FormInput
-              label="Additional Details"
-              value={form.additionalDetails}
-              onChange={(v) => setForm({ ...form, additionalDetails: v })}
-              multiline
-              theme={activeTheme}
-            />
-          </div>
         </div>
-      </div>
+      </CompactFormContext.Provider>
     );
   };
 
@@ -4158,15 +4251,15 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
             </>
           ) : null}
           <div
-            className={`${usePhoneLayout ? '' : 'mt-4 '} inline-flex rounded-2xl ${
+            className={`${usePhoneLayout ? '' : 'mt-4 '} inline-flex rounded-xl sm:rounded-2xl ${
               usePhoneLayout
-                ? 'bg-white/80 p-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.06)] backdrop-blur-xl'
+                ? 'bg-white/80 p-1 shadow-[0_2px_12px_rgba(0,0,0,0.06)] backdrop-blur-xl'
                 : `border ${activeTheme.border} ${activeTheme.subtleBg} p-1`
             }`}
           >
             <button
               onClick={() => setReportView('overview')}
-              className={`px-4 py-2 text-sm rounded-xl transition-all ${
+              className={`${usePhoneLayout ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm'} rounded-lg sm:rounded-xl transition-all ${
                 reportView === 'overview'
                   ? usePhoneLayout
                     ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
@@ -4176,11 +4269,11 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
               }`}
             >
-              Reports Overview
+              {usePhoneLayout ? 'Overview' : 'Reports Overview'}
             </button>
             <button
               onClick={() => setReportView('business')}
-              className={`px-4 py-2 text-sm rounded-xl transition-all ${
+              className={`${usePhoneLayout ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm'} rounded-lg sm:rounded-xl transition-all ${
                 reportView === 'business'
                   ? usePhoneLayout
                     ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
@@ -4190,11 +4283,11 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
               }`}
             >
-              Business View
+              {usePhoneLayout ? 'Business' : 'Business View'}
             </button>
             <button
               onClick={() => setReportView('analytics')}
-              className={`px-4 py-2 text-sm rounded-xl transition-all ${
+              className={`${usePhoneLayout ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm'} rounded-lg sm:rounded-xl transition-all ${
                 reportView === 'analytics'
                   ? usePhoneLayout
                     ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
@@ -4210,67 +4303,67 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
         </div>
 
         {/* Filters */}
-        <div className={`px-4 lg:px-6 py-4 border-b ${activeTheme.sectionHeaderBg}`}>
-          <div className="flex flex-wrap gap-3 items-center">
+        <div className={`px-3 py-2.5 sm:px-4 sm:py-4 lg:px-6 border-b ${activeTheme.sectionHeaderBg}`}>
+          <div className={`${usePhoneLayout ? 'grid grid-cols-2 gap-2' : 'flex flex-wrap gap-3'} items-center`}>
             {/* Month */}
-            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-xl overflow-hidden shadow-sm`}>
-              <span className={`px-3 py-2 text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Month</span>
+            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-lg sm:rounded-xl overflow-hidden shadow-sm`}>
+              <span className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Month</span>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className={`px-3 py-2 text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none`}
+                className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none min-w-0`}
               >
                 <option value="all">All Months</option>
                 {monthOptions.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
             </div>
             {/* Year */}
-            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-xl overflow-hidden shadow-sm`}>
-              <span className={`px-3 py-2 text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Year</span>
+            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-lg sm:rounded-xl overflow-hidden shadow-sm`}>
+              <span className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Year</span>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className={`px-3 py-2 text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none`}
+                className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none min-w-0`}
               >
                 <option value="all">All Years</option>
                 {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
             {/* Status */}
-            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-xl overflow-hidden shadow-sm`}>
-              <span className={`px-3 py-2 text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Status</span>
+            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-lg sm:rounded-xl overflow-hidden shadow-sm`}>
+              <span className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Status</span>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className={`px-3 py-2 text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none`}
+                className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none min-w-0`}
               >
                 {statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </div>
             {/* Client */}
-            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-xl overflow-hidden shadow-sm`}>
-              <span className={`px-3 py-2 text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Client</span>
+            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-lg sm:rounded-xl overflow-hidden shadow-sm`}>
+              <span className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Client</span>
               <select
                 value={selectedClient}
                 onChange={(e) => setSelectedClient(e.target.value)}
-                className={`px-3 py-2 text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none`}
+                className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none min-w-0`}
               >
                 {clientOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
             <button
               onClick={resetFilters}
-              className={`px-4 py-2 ${activeTheme.accent} ${activeTheme.accentHover} rounded-xl text-sm font-medium shadow-sm transition-colors`}
+              className={`px-3 py-1.5 sm:px-4 sm:py-2 ${activeTheme.accent} ${activeTheme.accentHover} rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium shadow-sm transition-colors ${usePhoneLayout ? 'col-span-2' : ''}`}
             >
               Reset Filters
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:p-6 lg:pb-6 space-y-6">
+        <div className="flex-1 overflow-auto px-2.5 pt-2 pb-3 phone-dock-scroll-space sm:p-4 lg:p-6 lg:pb-6 space-y-3 sm:space-y-6">
           {reportView === 'analytics' ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">
                 {analyticsSummaryCards.map((card) => (
                   <SummaryMetricCard key={card.title} {...card} theme={activeTheme} />
                 ))}
@@ -4379,27 +4472,27 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     <table className="w-full">
                       <thead className={activeTheme.tableHeaderBg}>
                         <tr>
-                          <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Period</th>
-                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
-                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
-                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
-                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
-                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Invoiced Value</th>
-                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Estimated Value</th>
-                          <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Clients</th>
+                          <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Period</th>
+                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
+                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
+                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
+                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
+                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoiced Value</th>
+                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Estimated Value</th>
+                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Clients</th>
                         </tr>
                       </thead>
                       <tbody className={`divide-y ${activeTheme.border}`}>
                         {monthlyBreakdown.map((row, idx) => (
                           <tr key={idx} className={activeTheme.tableRowHover}>
-                            <td className={`px-4 py-3 text-sm font-medium ${activeTheme.textPrimary}`}>{row.period}</td>
-                            <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{row.invoices}</td>
-                            <td className="px-4 py-3 text-sm text-right text-emerald-600">{row.paid}</td>
-                            <td className="px-4 py-3 text-sm text-right text-amber-600">{row.outstanding}</td>
-                            <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{row.estimates}</td>
-                            <td className={`px-4 py-3 text-sm text-right font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(row.totalInvoiced)}</td>
-                            <td className={`px-4 py-3 text-sm text-right font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(row.totalEstimated)}</td>
-                            <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{row.clients}</td>
+                            <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{row.period}</td>
+                            <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.invoices}</td>
+                            <td className="px-2 py-1.5 text-[11px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{row.paid}</td>
+                            <td className="px-2 py-1.5 text-[11px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{row.outstanding}</td>
+                            <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.estimates}</td>
+                            <td className={`px-2 py-1.5 text-[11px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalInvoiced)}</td>
+                            <td className={`px-2 py-1.5 text-[11px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalEstimated)}</td>
+                            <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.clients}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -4422,23 +4515,23 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                       <table className="w-full">
                         <thead className={activeTheme.tableHeaderBg}>
                           <tr>
-                            <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
-                            <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
-                            <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
-                            <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Invoiced</th>
-                            <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
-                            <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
+                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
+                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
+                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
+                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoiced</th>
+                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
+                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
                           </tr>
                         </thead>
                         <tbody className={`divide-y ${activeTheme.border}`}>
                           {clientReporting.map((client, idx) => (
                             <tr key={idx} className={activeTheme.tableRowHover}>
-                              <td className={`px-4 py-3 text-sm font-medium ${activeTheme.textPrimary}`}>{client.name}</td>
-                              <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{client.invoices}</td>
-                              <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{client.estimates}</td>
-                              <td className={`px-4 py-3 text-sm text-right font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(client.totalInvoiced)}</td>
-                              <td className="px-4 py-3 text-sm text-right text-emerald-600">{formatCurrency(client.totalPaid)}</td>
-                              <td className="px-4 py-3 text-sm text-right text-amber-600">{formatCurrency(client.outstanding)}</td>
+                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{client.name}</td>
+                              <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.invoices}</td>
+                              <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.estimates}</td>
+                              <td className={`px-2 py-1.5 text-[11px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(client.totalInvoiced)}</td>
+                              <td className="px-2 py-1.5 text-[11px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.totalPaid)}</td>
+                              <td className="px-2 py-1.5 text-[11px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.outstanding)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -4460,21 +4553,21 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                       <table className="w-full">
                         <thead className={activeTheme.tableHeaderBg}>
                           <tr>
-                            <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Document</th>
-                            <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
-                            <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Date</th>
-                            <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Status</th>
-                            <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Total</th>
+                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Document</th>
+                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
+                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Date</th>
+                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Status</th>
+                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total</th>
                           </tr>
                         </thead>
                         <tbody className={`divide-y ${activeTheme.border}`}>
                           {recentActivity.map((item, idx) => (
                             <tr key={`${item.id || item.number}-${idx}`} className={activeTheme.tableRowHover}>
-                              <td className={`px-4 py-3 text-sm font-medium ${activeTheme.textPrimary}`}>{item.number}</td>
-                              <td className={`px-4 py-3 text-sm ${activeTheme.textPrimary}`}>{item.clientName}</td>
-                              <td className={`px-4 py-3 text-sm ${activeTheme.textPrimary}`}>{formatDate(item.date)}</td>
-                              <td className={`px-4 py-3 text-sm ${activeTheme.textPrimary}`}>{item.status}</td>
-                              <td className={`px-4 py-3 text-sm text-right font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</td>
+                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{item.number}</td>
+                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{item.clientName}</td>
+                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatDate(item.date)}</td>
+                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{item.status}</td>
+                              <td className={`px-2 py-1.5 text-[11px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -4694,27 +4787,27 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               <table className="w-full">
                 <thead className={activeTheme.tableHeaderBg}>
                   <tr>
-                    <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Period</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Total Invoiced</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Total Estimated</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Clients</th>
+                    <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Period</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total Invoiced</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total Estimated</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Clients</th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${activeTheme.border}`}>
                   {monthlyBreakdown.map((row, idx) => (
                     <tr key={idx} className={activeTheme.tableRowHover}>
-                      <td className={`px-4 py-3 text-sm font-medium ${activeTheme.textPrimary}`}>{row.period}</td>
-                      <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{row.invoices}</td>
-                      <td className="px-4 py-3 text-sm text-right text-emerald-600">{row.paid}</td>
-                      <td className="px-4 py-3 text-sm text-right text-amber-600">{row.outstanding}</td>
-                      <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{row.estimates}</td>
-                      <td className={`px-4 py-3 text-sm text-right font-medium ${activeTheme.textPrimary}`}>{formatCurrency(row.totalInvoiced)}</td>
-                      <td className={`px-4 py-3 text-sm text-right font-medium ${activeTheme.textPrimary}`}>{formatCurrency(row.totalEstimated)}</td>
-                      <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{row.clients}</td>
+                      <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{row.period}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.invoices}</td>
+                      <td className="px-2 py-1.5 text-[11px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{row.paid}</td>
+                      <td className="px-2 py-1.5 text-[11px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{row.outstanding}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.estimates}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalInvoiced)}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalEstimated)}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.clients}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -4737,25 +4830,25 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               <table className="w-full">
                 <thead className={activeTheme.tableHeaderBg}>
                   <tr>
-                    <th className={`px-4 py-3 text-left text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Total Invoiced</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Total Paid</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
-                    <th className={`px-4 py-3 text-right text-sm font-medium ${activeTheme.labelColor}`}>Last Activity</th>
+                    <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total Invoiced</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total Paid</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Last Activity</th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${activeTheme.border}`}>
                   {clientReporting.map((client, idx) => (
                     <tr key={idx} className={activeTheme.tableRowHover}>
-                      <td className={`px-4 py-3 text-sm font-medium ${activeTheme.textPrimary}`}>{client.name}</td>
-                      <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{client.invoices}</td>
-                      <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{client.estimates}</td>
-                      <td className={`px-4 py-3 text-sm text-right font-medium ${activeTheme.textPrimary}`}>{formatCurrency(client.totalInvoiced)}</td>
-                      <td className="px-4 py-3 text-sm text-right text-emerald-600">{formatCurrency(client.totalPaid)}</td>
-                      <td className="px-4 py-3 text-sm text-right text-amber-600">{formatCurrency(client.outstanding)}</td>
-                      <td className={`px-4 py-3 text-sm text-right ${activeTheme.textPrimary}`}>{client.lastActivity ? formatDate(client.lastActivity.toISOString().split('T')[0]) : 'N/A'}</td>
+                      <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{client.name}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.invoices}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.estimates}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(client.totalInvoiced)}</td>
+                      <td className="px-2 py-1.5 text-[11px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.totalPaid)}</td>
+                      <td className="px-2 py-1.5 text-[11px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.outstanding)}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.lastActivity ? formatDate(client.lastActivity.toISOString().split('T')[0]) : 'N/A'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -4900,6 +4993,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
       <MobileLayout
         activeTab={activeTab}
         onSelectTab={selectAppTab}
+        onPlusPress={handlePhonePlusPress}
         navItems={navItems}
         businessName={data.settings?.businessName}
         businessEmail={data.settings?.email}
