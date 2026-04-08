@@ -1853,7 +1853,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 return (
                   <div
                     key={invoice.id}
-                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]' : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
+                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
                   >
                     {usePhoneLayout ? (
                       <div className="px-3.5 py-3">
@@ -2552,7 +2552,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                 return (
                   <div
                     key={estimate.id}
-                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]' : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
+                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
                   >
                     {usePhoneLayout ? (
                       <div className="px-3.5 py-3">
@@ -3187,7 +3187,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               {filtered.map((client) => (
                 <div
                   key={client.id}
-                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]' : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
+                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
                 >
                   {usePhoneLayout ? (
                     <div className="flex items-center gap-3 px-3.5 py-3">
@@ -3493,7 +3493,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
               {filtered.map((item) => (
                 <div
                   key={item.id}
-                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? 'border-transparent rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]' : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
+                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.08)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
                 >
                   {usePhoneLayout ? (
                     <div className="px-3.5 py-3">

@@ -15,7 +15,7 @@ import {
 
 const PHONE_LAYOUT_MAX_WIDTH = 767;
 const TABLET_LAYOUT_MAX_WIDTH = 1180;
-const PHONE_PANEL_CLASS = 'invoice-phone-panel w-full max-w-md mx-auto rounded-[30px]';
+const PHONE_PANEL_CLASS = 'invoice-phone-panel w-full h-full max-w-none rounded-none';
 const MOBILE_SCROLL_THUMB_HEIGHT = 28;
 
 const getBusinessMonogram = (businessName = 'Invoice App') => {
@@ -181,39 +181,41 @@ export const MobileHeader = ({
   const shellBg = activeTheme?.panelBg || 'bg-white';
   const shellBorder = activeTheme?.border || 'border-zinc-200';
   const shellText = activeTheme?.textPrimary || 'text-zinc-950';
+  const shellControlText = activeTheme?.textSecondary || shellText;
   const shellMuted = activeTheme?.iconColor || 'text-zinc-400';
   const controlBg = activeTheme?.subtleBg || 'bg-zinc-50';
   const controlBorder = activeTheme?.inputBorder || 'border-zinc-200';
   const controlHover = activeTheme?.buttonHover || 'hover:bg-zinc-100';
   const inputBg = activeTheme?.inputBg || 'bg-white';
+  const iconButtonClass = `flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${controlBorder} ${controlBg} ${shellControlText} shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition-all duration-200 ${controlHover} hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]`;
 
   return (
-    <div className={`sticky top-0 z-40 border-b ${shellBorder} ${shellBg}/95 shadow-sm backdrop-blur-xl`}>
-      <div className="px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="flex items-center justify-between gap-3">
+    <div className={`sticky top-0 z-40 border-b ${shellBorder} ${shellBg}/95 shadow-[0_10px_28px_rgba(15,23,42,0.06)] backdrop-blur-2xl`}>
+      <div className="px-4 pb-2.5 pt-[max(0.875rem,env(safe-area-inset-top))]">
+        <div className="flex items-center justify-between gap-4">
           <button
             type="button"
             onClick={onMenu}
-            className={`flex h-9 w-9 items-center justify-center rounded-[18px] border ${controlBorder} ${controlBg} ${shellText} shadow-[0_6px_18px_rgba(15,23,42,0.07)] transition ${controlHover}`}
+            className={iconButtonClass}
             aria-label="Open navigation menu"
           >
-            <Menu className="h-4.5 w-4.5" />
+            <Menu className="h-[18px] w-[18px]" strokeWidth={2.1} />
           </button>
-          <div className="min-w-0 text-center">
-            <p className={`truncate text-[15px] font-bold tracking-tight ${shellText}`}>{title}</p>
+          <div className="min-w-0 flex-1 px-1 text-center">
+            <p className={`truncate text-[15px] font-semibold tracking-[-0.02em] ${shellText}`}>{title}</p>
           </div>
           <button
             type="button"
             onClick={onSettings}
-            className={`flex h-9 w-9 items-center justify-center rounded-[18px] border ${controlBorder} ${controlBg} ${shellText} shadow-[0_6px_18px_rgba(15,23,42,0.07)] transition ${controlHover}`}
+            className={iconButtonClass}
             aria-label={rightAriaLabel}
           >
-            <RightIcon className="h-4.5 w-4.5" />
+            <RightIcon className="h-[18px] w-[18px]" strokeWidth={2.1} />
           </button>
         </div>
       </div>
       {showSearch ? (
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-3.5">
           <div className="relative">
             <Search className={`absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${shellMuted}`} />
             <input
@@ -221,7 +223,7 @@ export const MobileHeader = ({
               value={searchTerm}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder={`Search ${title.toLowerCase()}...`}
-              className={`h-10 w-full rounded-[18px] border ${controlBorder} ${inputBg} pl-9 pr-4 text-sm ${shellText} shadow-[0_6px_18px_rgba(15,23,42,0.05)] placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-200`}
+              className={`h-11 w-full rounded-[20px] border ${controlBorder} ${inputBg} pl-9 pr-4 text-sm ${shellText} shadow-[0_8px_20px_rgba(15,23,42,0.06)] placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-200`}
             />
           </div>
         </div>
@@ -620,15 +622,15 @@ export const MobileLayout = ({
 
   return (
     <div
-      className="h-[100dvh] overflow-hidden invoice-phone-stage bg-gradient-to-b from-slate-100 to-slate-200"
+      className={`h-[100dvh] overflow-hidden ${activeTheme.appBg}`}
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
-      <div className="flex h-full invoice-phone-frame items-start">
+      <div className="flex h-full">
         <main className="flex flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 px-0 pt-0 pb-0">
             <div
               ref={scrollRootRef}
-              className={`${activeTheme.panelBg} shadow-sm ${activeTheme.border} h-full overflow-hidden ${PHONE_PANEL_CLASS}`}
+              className={`${activeTheme.panelBg} ${activeTheme.border} h-full overflow-hidden ${PHONE_PANEL_CLASS}`}
               style={isSettingsOnPhone ? undefined : { maxWidth: '1600px' }}
             >
               <div className="flex h-full flex-col overflow-hidden">
