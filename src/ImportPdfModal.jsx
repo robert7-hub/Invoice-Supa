@@ -133,6 +133,10 @@ export default function ImportPdfModal({ isOpen, onClose, onImport, existingClie
     setSelectedClientId('__new__');
   }, []);
 
+  const confirmDelete = useCallback((message, onConfirm) => {
+    if (window.confirm(message)) onConfirm();
+  }, []);
+
   const handleClose = () => { reset(); onClose(); };
 
   const handleFile = async (file) => {
@@ -188,7 +192,10 @@ export default function ImportPdfModal({ isOpen, onClose, onImport, existingClie
   };
 
   const removeItem = (idx) => {
-    setEditData((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
+    const itemLabel = editData?.items?.[idx]?.description?.trim() || `line item ${idx + 1}`;
+    confirmDelete(`Are you sure you want to delete ${itemLabel}? This action cannot be undone.`, () => {
+      setEditData((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
+    });
   };
 
   const addItem = () => {

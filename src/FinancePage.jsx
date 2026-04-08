@@ -171,6 +171,9 @@ export default function FinancePage({ data, save, theme }) {
   const saveBudgets = useCallback((val) => { saveFinance('budgets', val); setFinanceData(p => ({ ...p, budgets: val })); }, []);
   const saveCategories = useCallback((val) => { saveFinance('categories', val); setFinanceData(p => ({ ...p, categories: val })); }, []);
   const saveManualIncome = useCallback((val) => { saveFinance('manualIncome', val); setFinanceData(p => ({ ...p, manualIncome: val })); }, []);
+  const confirmDelete = useCallback((message, onConfirm) => {
+    if (window.confirm(message)) onConfirm();
+  }, []);
 
   const taxRate = data.settings?.taxRate || 15;
   const now = new Date();
@@ -400,7 +403,11 @@ export default function FinancePage({ data, save, theme }) {
     };
 
     const handleDelete = (id) => {
-      saveExpenses((financeData.expenses || []).filter(e => e.id !== id));
+      const expense = (financeData.expenses || []).find(e => e.id === id);
+      const expenseLabel = expense?.title ? `expense "${expense.title}"` : 'this expense';
+      confirmDelete(`Are you sure you want to delete ${expenseLabel}? This action cannot be undone.`, () => {
+        saveExpenses((financeData.expenses || []).filter(e => e.id !== id));
+      });
     };
 
     const filtered = useMemo(() => {
@@ -508,13 +515,13 @@ export default function FinancePage({ data, save, theme }) {
 
         {/* Expense Form Modal */}
         {showForm && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overscroll-y-contain">
-            <div className={`${theme.modalBg} rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl border ${theme.border} flex flex-col max-h-[90vh] sm:max-h-[85vh] min-h-0 overflow-hidden`}>
+          <div className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overscroll-y-contain" style={{ paddingBottom: 'max(140px, calc(env(safe-area-inset-bottom) + 130px))' }}>
+            <div className={`${theme.modalBg} rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl border ${theme.border} flex flex-col max-h-[80vh] sm:max-h-[85vh] min-h-0 overflow-hidden`}>
               <div className={`p-4 sm:p-5 border-b ${theme.border} flex items-center justify-between shrink-0`}>
                 <h3 className={`text-lg font-bold ${theme.textPrimary}`}>{editItem ? 'Edit Expense' : 'Add Expense'}</h3>
                 <button onClick={() => setShowForm(false)} className={`p-1.5 ${theme.buttonHover} rounded-lg`}><X size={18} /></button>
               </div>
-              <div className="p-4 sm:p-5 space-y-3 sm:space-y-4 overflow-y-auto flex-1 min-h-0" style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}>
+              <div className="p-4 sm:p-5 space-y-3 sm:space-y-4 overflow-y-auto flex-1 min-h-0 [&::-webkit-scrollbar]:hidden" style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <FormInput label="Title" value={form.title} onChange={v => setForm({ ...form, title: v })} placeholder="e.g. New speaker cable" theme={theme} />
                 <FormInput label="Amount (R)" type="number" value={form.amount} onChange={v => setForm({ ...form, amount: v })} theme={theme} />
                 <div className="space-y-1.5">
@@ -572,7 +579,11 @@ export default function FinancePage({ data, save, theme }) {
     };
 
     const handleDelete = (id) => {
-      saveManualIncome(manualEntries.filter(e => e.id !== id));
+      const entry = manualEntries.find(e => e.id === id);
+      const entryLabel = entry?.title ? `income entry "${entry.title}"` : 'this income entry';
+      confirmDelete(`Are you sure you want to delete ${entryLabel}? This action cannot be undone.`, () => {
+        saveManualIncome(manualEntries.filter(e => e.id !== id));
+      });
     };
 
     const paidByMonth = useMemo(() => {
@@ -721,13 +732,13 @@ export default function FinancePage({ data, save, theme }) {
 
         {/* Add/Edit Income Modal */}
         {showForm && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overscroll-y-contain">
-            <div className={`${theme.modalBg} rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl border ${theme.border} flex flex-col max-h-[90vh] sm:max-h-[85vh] min-h-0 overflow-hidden`}>
+          <div className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overscroll-y-contain" style={{ paddingBottom: 'max(140px, calc(env(safe-area-inset-bottom) + 130px))' }}>
+            <div className={`${theme.modalBg} rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl border ${theme.border} flex flex-col max-h-[80vh] sm:max-h-[85vh] min-h-0 overflow-hidden`}>
               <div className={`p-4 sm:p-5 border-b ${theme.border} flex items-center justify-between shrink-0`}>
                 <h3 className={`text-lg font-bold ${theme.textPrimary}`}>{editItem ? 'Edit Income' : 'Add Income'}</h3>
                 <button onClick={() => setShowForm(false)} className={`p-1.5 ${theme.buttonHover} rounded-lg`}><X size={18} /></button>
               </div>
-              <div className="p-4 sm:p-5 space-y-3 sm:space-y-4 overflow-y-auto flex-1 min-h-0" style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}>
+              <div className="p-4 sm:p-5 space-y-3 sm:space-y-4 overflow-y-auto flex-1 min-h-0 [&::-webkit-scrollbar]:hidden" style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <FormInput label="Description" value={form.title} onChange={v => setForm({ ...form, title: v })} placeholder="e.g. Freelance gig, Cash payment" theme={theme} />
                 <FormInput label="Amount (R)" type="number" value={form.amount} onChange={v => setForm({ ...form, amount: v })} theme={theme} />
                 <FormInput label="Source" value={form.source} onChange={v => setForm({ ...form, source: v })} placeholder="e.g. Client name, Cash, EFT" theme={theme} />
@@ -770,7 +781,13 @@ export default function FinancePage({ data, save, theme }) {
       setShowForm(false);
     };
 
-    const handleDelete = (id) => savePockets(pockets.filter(p => p.id !== id));
+    const handleDelete = (id) => {
+      const pocket = pockets.find(p => p.id === id);
+      const pocketLabel = pocket?.name ? `savings pocket "${pocket.name}"` : 'this savings pocket';
+      confirmDelete(`Are you sure you want to delete ${pocketLabel}? This action cannot be undone.`, () => {
+        savePockets(pockets.filter(p => p.id !== id));
+      });
+    };
 
     const handleAllocate = (id) => {
       const amt = Math.max(0, Number(allocateAmount) || 0);
@@ -848,13 +865,13 @@ export default function FinancePage({ data, save, theme }) {
 
         {/* Pocket Form Modal */}
         {showForm && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overscroll-y-contain">
-            <div className={`${theme.modalBg} rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl border ${theme.border} flex flex-col max-h-[90vh] sm:max-h-[85vh] min-h-0 overflow-hidden`}>
+          <div className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overscroll-y-contain" style={{ paddingBottom: 'max(140px, calc(env(safe-area-inset-bottom) + 130px))' }}>
+            <div className={`${theme.modalBg} rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl border ${theme.border} flex flex-col max-h-[80vh] sm:max-h-[85vh] min-h-0 overflow-hidden`}>
               <div className={`p-4 sm:p-5 border-b ${theme.border} flex items-center justify-between shrink-0`}>
                 <h3 className={`text-lg font-bold ${theme.textPrimary}`}>{editItem ? 'Edit Pocket' : 'New Pocket'}</h3>
                 <button onClick={() => setShowForm(false)} className={`p-1.5 ${theme.buttonHover} rounded-lg`}><X size={18} /></button>
               </div>
-              <div className="p-4 sm:p-5 space-y-3 sm:space-y-4 overflow-y-auto flex-1 min-h-0" style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}>
+              <div className="p-4 sm:p-5 space-y-3 sm:space-y-4 overflow-y-auto flex-1 min-h-0 [&::-webkit-scrollbar]:hidden" style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <FormInput label="Pocket Name" value={form.name} onChange={v => setForm({ ...form, name: v })} placeholder="e.g. Emergency Fund" theme={theme} />
                 <FormInput label="Target Amount (R)" type="number" value={form.target} onChange={v => setForm({ ...form, target: v })} placeholder="Optional" theme={theme} />
                 <FormInput label="Current Amount (R)" type="number" value={form.current} onChange={v => setForm({ ...form, current: v })} theme={theme} />
@@ -1069,11 +1086,14 @@ export default function FinancePage({ data, save, theme }) {
                       </div>
                       {!isDefault && (
                         <button onClick={() => {
-                          const updated = categories.filter(c => c.id !== cat.id);
-                          saveCategories(updated.length ? updated : null);
-                          const newCats = { ...form.categories };
-                          delete newCats[cat.id];
-                          setForm({ ...form, categories: newCats });
+                          const categoryLabel = cat.name ? `custom category "${cat.name}"` : 'this custom category';
+                          confirmDelete(`Are you sure you want to delete ${categoryLabel}? This action cannot be undone.`, () => {
+                            const updated = categories.filter(c => c.id !== cat.id);
+                            saveCategories(updated.length ? updated : null);
+                            const newCats = { ...form.categories };
+                            delete newCats[cat.id];
+                            setForm({ ...form, categories: newCats });
+                          });
                         }}
                           className="p-1.5 rounded-lg hover:bg-red-500/10" title="Remove category">
                           <Trash2 size={14} className="text-red-400" />

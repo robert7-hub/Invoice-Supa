@@ -290,6 +290,9 @@ export default function StaffEventPage({ data, save, theme }) {
   const saveEvents = useCallback((val) => { saveStaffEvent('events', val); setSeData(p => ({ ...p, events: val })); }, []);
   const saveAssignments = useCallback((val) => { saveStaffEvent('assignments', val); setSeData(p => ({ ...p, assignments: val })); }, []);
   const savePayments = useCallback((val) => { saveStaffEvent('payments', val); setSeData(p => ({ ...p, payments: val })); }, []);
+  const confirmDelete = useCallback((message, onConfirm) => {
+    if (window.confirm(message)) onConfirm();
+  }, []);
 
   const clients = data.clients || [];
   const estimates = data.estimates || [];
@@ -322,8 +325,10 @@ export default function StaffEventPage({ data, save, theme }) {
   }, [seData.assignments, seData.payments, saveAssignments, savePayments]);
 
   const handleRemoveAssignment = useCallback((assignmentId) => {
-    saveAssignments(seData.assignments.filter(a => a.id !== assignmentId));
-  }, [seData.assignments, saveAssignments]);
+    confirmDelete('Are you sure you want to remove this staff assignment?', () => {
+      saveAssignments(seData.assignments.filter(a => a.id !== assignmentId));
+    });
+  }, [confirmDelete, seData.assignments, saveAssignments]);
 
   const openGoogleCalendarForEvent = useCallback((event, assignment) => {
     const staff = seData.staff.find(s => s.id === assignment.staffId);
@@ -521,7 +526,11 @@ export default function StaffEventPage({ data, save, theme }) {
     };
 
     const handleDelete = (id) => {
-      saveStaff(seData.staff.filter(s => s.id !== id));
+      const staffMember = seData.staff.find(s => s.id === id);
+      const staffLabel = staffMember ? `staff member "${staffFullName(staffMember)}"` : 'this staff member';
+      confirmDelete(`Are you sure you want to delete ${staffLabel}? This action cannot be undone.`, () => {
+        saveStaff(seData.staff.filter(s => s.id !== id));
+      });
     };
 
     const toggleRole = (role) => {
@@ -745,8 +754,12 @@ export default function StaffEventPage({ data, save, theme }) {
     };
 
     const handleDelete = (id) => {
-      saveEvents(seData.events.filter(e => e.id !== id));
-      saveAssignments(seData.assignments.filter(a => a.eventId !== id));
+      const event = seData.events.find(e => e.id === id);
+      const eventLabel = event?.title ? `event "${event.title}"` : 'this event';
+      confirmDelete(`Are you sure you want to delete ${eventLabel}? This action cannot be undone.`, () => {
+        saveEvents(seData.events.filter(e => e.id !== id));
+        saveAssignments(seData.assignments.filter(a => a.eventId !== id));
+      });
     };
 
     const toggleRequiredRole = (role) => {
@@ -1028,7 +1041,12 @@ export default function StaffEventPage({ data, save, theme }) {
     };
 
     const deletePayment = (paymentId) => {
-      savePayments(seData.payments.filter(p => p.id !== paymentId));
+      const payment = seData.payments.find(p => p.id === paymentId);
+      const staffMember = seData.staff.find(s => s.id === payment?.staffId);
+      const paymentLabel = staffMember ? `payment for "${staffFullName(staffMember)}"` : 'this payment record';
+      confirmDelete(`Are you sure you want to delete ${paymentLabel}? This action cannot be undone.`, () => {
+        savePayments(seData.payments.filter(p => p.id !== paymentId));
+      });
     };
 
     return (

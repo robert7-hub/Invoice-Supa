@@ -701,24 +701,24 @@ const ChartEmptyState = ({ title = 'No data available', description = 'Adjust yo
 );
 
 const AnalyticsCard = ({ title, subtitle, children, theme = THEMES.default, className = '' }) => (
-  <div className={`${theme.cardBg} border border-transparent rounded-xl sm:rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden transition hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)] ${className}`}>
-    <div className={`px-3 py-2.5 sm:p-5 border-b ${theme.border}`}>
-      <h3 className={`text-sm sm:text-[16px] font-bold ${theme.textPrimary}`}>{title}</h3>
+  <div className={`${theme.cardBg} border border-transparent rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-hidden transition hover:shadow-[0_4px_16px_rgba(0,0,0,0.07)] sm:rounded-[24px] sm:shadow-[0_4px_20px_rgba(0,0,0,0.05)] sm:hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)] ${className}`}>
+    <div className={`px-3 py-2.5 border-b sm:p-5 ${theme.border}`}>
+      <h3 className={`text-sm font-bold sm:text-[16px] ${theme.textPrimary}`}>{title}</h3>
       {subtitle ? <p className={`mt-0.5 text-xs sm:mt-1 sm:text-sm ${theme.textMuted}`}>{subtitle}</p> : null}
     </div>
-    <div className="p-3 sm:p-5">{children}</div>
+    <div className="p-2.5 sm:p-5">{children}</div>
   </div>
 );
 
 const SummaryMetricCard = ({ title, value, detail, accentClass, theme = THEMES.default }) => (
-  <div className={`${theme.cardBg} border border-transparent rounded-2xl p-3 sm:rounded-[24px] sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)]`}>
-    <div className="flex items-start justify-between gap-2 sm:gap-3">
-      <div>
-        <p className={`text-[10px] sm:text-xs font-semibold uppercase tracking-[0.16em] ${theme.textMuted}`}>{title}</p>
-        <p className={`mt-1.5 text-base sm:mt-3 sm:text-2xl font-bold ${theme.textPrimary}`}>{value}</p>
-        {detail ? <p className={`mt-1 text-xs sm:mt-2 sm:text-sm ${theme.textSecondary}`}>{detail}</p> : null}
+  <div className={`${theme.cardBg} border border-transparent rounded-xl p-3 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition hover:shadow-[0_4px_16px_rgba(0,0,0,0.07)] sm:rounded-[24px] sm:p-5 sm:shadow-[0_4px_20px_rgba(0,0,0,0.05)] sm:hover:shadow-[0_6px_25px_rgba(0,0,0,0.08)]`}>
+    <div className="flex items-center justify-between gap-2 sm:items-start sm:gap-3">
+      <div className="min-w-0">
+        <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] sm:text-xs sm:tracking-[0.16em] ${theme.textMuted}`}>{title}</p>
+        <p className={`mt-1 text-lg font-bold sm:mt-3 sm:text-2xl ${theme.textPrimary}`}>{value}</p>
+        {detail ? <p className={`mt-0.5 text-xs sm:mt-2 sm:text-sm ${theme.textSecondary}`}>{detail}</p> : null}
       </div>
-      <span className={`h-8 w-1 sm:h-10 sm:w-1.5 rounded-full ${accentClass}`} />
+      <span className={`h-7 w-1 rounded-full sm:h-10 sm:w-1.5 ${accentClass}`} />
     </div>
   </div>
 );
@@ -1664,6 +1664,12 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
   const [confirmAction, setConfirmAction] = useState(() => () => {});
   const [showImportPdf, setShowImportPdf] = useState(false);
 
+  const requestDeleteConfirmation = useCallback((message, action) => {
+    setConfirmMessage(message);
+    setConfirmAction(() => action);
+    setConfirmOpen(true);
+  }, []);
+
   useEffect(() => {
     const initSampleData = async () => {
       const isFirstRun = Object.values(DB_KEYS).every((dbKey) => localStorage.getItem(dbKey) === null);
@@ -2522,7 +2528,13 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
+                              const itemLabel = item.description?.trim() || `line item ${idx + 1}`;
+                              requestDeleteConfirmation(`Are you sure you want to delete ${itemLabel}? This action cannot be undone.`, async () => {
+                                setForm((current) => ({
+                                  ...current,
+                                  items: current.items.filter((_, i) => i !== idx),
+                                }));
+                              });
                             }}
                             className="p-1.5 hover:bg-red-50 rounded-lg"
                           >
@@ -3195,7 +3207,13 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
+                              const itemLabel = item.description?.trim() || `line item ${idx + 1}`;
+                              requestDeleteConfirmation(`Are you sure you want to delete ${itemLabel}? This action cannot be undone.`, async () => {
+                                setForm((current) => ({
+                                  ...current,
+                                  items: current.items.filter((_, i) => i !== idx),
+                                }));
+                              });
                             }}
                             className="p-1.5 hover:bg-red-50 rounded-lg"
                           >
@@ -4468,31 +4486,31 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                   subtitle="Revenue and document activity by period"
                   theme={activeTheme}
                 >
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto -mx-2 sm:mx-0">
                     <table className="w-full">
                       <thead className={activeTheme.tableHeaderBg}>
                         <tr>
-                          <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Period</th>
-                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
-                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
-                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
-                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
-                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoiced Value</th>
-                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Estimated Value</th>
-                          <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Clients</th>
+                          <th className={`px-2 py-1.5 text-left text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Period</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Inv</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Paid</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Out</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Est</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Tot Inv</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Tot Est</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Cli</th>
                         </tr>
                       </thead>
                       <tbody className={`divide-y ${activeTheme.border}`}>
                         {monthlyBreakdown.map((row, idx) => (
                           <tr key={idx} className={activeTheme.tableRowHover}>
-                            <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{row.period}</td>
-                            <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.invoices}</td>
-                            <td className="px-2 py-1.5 text-[11px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{row.paid}</td>
-                            <td className="px-2 py-1.5 text-[11px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{row.outstanding}</td>
-                            <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.estimates}</td>
-                            <td className={`px-2 py-1.5 text-[11px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalInvoiced)}</td>
-                            <td className={`px-2 py-1.5 text-[11px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalEstimated)}</td>
-                            <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.clients}</td>
+                            <td className={`px-2 py-1.5 text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.period}</td>
+                            <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.invoices}</td>
+                            <td className="px-1.5 py-1.5 text-[10px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{row.paid}</td>
+                            <td className="px-1.5 py-1.5 text-[10px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{row.outstanding}</td>
+                            <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.estimates}</td>
+                            <td className={`px-1.5 py-1.5 text-[10px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalInvoiced)}</td>
+                            <td className={`px-1.5 py-1.5 text-[10px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalEstimated)}</td>
+                            <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.clients}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -4511,27 +4529,27 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
                     subtitle="Detailed client-level financial activity"
                     theme={activeTheme}
                   >
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto -mx-2 sm:mx-0">
                       <table className="w-full">
                         <thead className={activeTheme.tableHeaderBg}>
                           <tr>
-                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
-                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
-                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
-                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoiced</th>
-                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
-                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
+                            <th className={`px-2 py-1.5 text-left text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Client</th>
+                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Inv</th>
+                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Est</th>
+                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Invoiced</th>
+                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Paid</th>
+                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Owed</th>
                           </tr>
                         </thead>
                         <tbody className={`divide-y ${activeTheme.border}`}>
                           {clientReporting.map((client, idx) => (
                             <tr key={idx} className={activeTheme.tableRowHover}>
-                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{client.name}</td>
-                              <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.invoices}</td>
-                              <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.estimates}</td>
-                              <td className={`px-2 py-1.5 text-[11px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(client.totalInvoiced)}</td>
-                              <td className="px-2 py-1.5 text-[11px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.totalPaid)}</td>
-                              <td className="px-2 py-1.5 text-[11px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.outstanding)}</td>
+                              <td className={`max-w-[80px] truncate px-2 py-1.5 text-[10px] font-medium sm:max-w-none sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.name}</td>
+                              <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.invoices}</td>
+                              <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.estimates}</td>
+                              <td className={`px-1.5 py-1.5 text-[10px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(client.totalInvoiced)}</td>
+                              <td className="px-1.5 py-1.5 text-[10px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.totalPaid)}</td>
+                              <td className="px-1.5 py-1.5 text-[10px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.outstanding)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -4761,19 +4779,19 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           </div>
 
           {/* Additional Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 shadow-sm`}>
-              <p className={`text-sm ${activeTheme.textMuted}`}>Active Clients</p>
-              <p className={`text-xl font-bold mt-1 ${activeTheme.textPrimary}`}>{summary.activeClients}</p>
+          <div className={`grid ${usePhoneLayout ? 'grid-cols-3 gap-2' : 'grid-cols-1 md:grid-cols-3 gap-4'}`}>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} flex aspect-square flex-col justify-between rounded-xl p-2.5 shadow-sm sm:aspect-auto sm:rounded-2xl sm:p-4`}>
+              <p className={`text-[10px] leading-tight sm:text-sm ${activeTheme.textMuted}`}>Active Clients</p>
+              <p className={`text-xl font-bold leading-none sm:mt-1 sm:text-xl ${activeTheme.textPrimary}`}>{summary.activeClients}</p>
             </div>
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 shadow-sm`}>
-              <p className={`text-sm ${activeTheme.textMuted}`}>Conversion Rate</p>
-              <p className={`text-xl font-bold mt-1 ${activeTheme.textPrimary}`}>{summary.conversionRate.toFixed(1)}%</p>
-              <p className={`text-xs ${activeTheme.iconColor} mt-1`}>Estimates to invoices</p>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} flex aspect-square flex-col justify-between rounded-xl p-2.5 shadow-sm sm:aspect-auto sm:rounded-2xl sm:p-4`}>
+              <p className={`text-[10px] leading-tight sm:text-sm ${activeTheme.textMuted}`}>Conversion Rate</p>
+              <p className={`text-xl font-bold leading-none sm:mt-1 sm:text-xl ${activeTheme.textPrimary}`}>{summary.conversionRate.toFixed(1)}%</p>
+              <p className={`text-[10px] leading-tight sm:mt-1 sm:text-xs ${activeTheme.iconColor}`}>Estimates to invoices</p>
             </div>
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 shadow-sm`}>
-              <p className={`text-sm ${activeTheme.textMuted}`}>Average Invoice Value</p>
-              <p className={`text-xl font-bold mt-1 ${activeTheme.textPrimary}`}>{summary.invoiceCount > 0 ? formatCurrency(summary.totalInvoiced / summary.invoiceCount) : formatCurrency(0)}</p>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} flex aspect-square flex-col justify-between rounded-xl p-2.5 shadow-sm sm:aspect-auto sm:rounded-2xl sm:p-4`}>
+              <p className={`text-[10px] leading-tight sm:text-sm ${activeTheme.textMuted}`}>Average Invoice Value</p>
+              <p className={`text-xl font-bold leading-none sm:mt-1 sm:text-xl ${activeTheme.textPrimary}`}>{summary.invoiceCount > 0 ? formatCurrency(summary.totalInvoiced / summary.invoiceCount) : formatCurrency(0)}</p>
             </div>
           </div>
 
