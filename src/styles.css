@@ -54,7 +54,7 @@ body {
 }
 
 .invoice-phone-stage {
-  padding: 0.75rem 0.75rem 0.5rem;
+  padding: 0;
 }
 
 .invoice-phone-frame {
@@ -63,7 +63,6 @@ body {
 
 .invoice-phone-frame > main {
   width: 100%;
-  max-width: 28rem;
   height: 100%;
 }
 

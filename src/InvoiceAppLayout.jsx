@@ -15,7 +15,7 @@ import {
 
 const PHONE_LAYOUT_MAX_WIDTH = 767;
 const TABLET_LAYOUT_MAX_WIDTH = 1180;
-const PHONE_PANEL_CLASS = 'invoice-phone-panel w-full max-w-md mx-auto rounded-[30px]';
+const PHONE_PANEL_CLASS = 'invoice-phone-panel w-full';
 const MOBILE_SCROLL_THUMB_HEIGHT = 28;
 
 const getBusinessMonogram = (businessName = 'Invoice App') => {
@@ -189,7 +189,7 @@ export const MobileHeader = ({
 
   return (
     <div className={`sticky top-0 z-40 border-b ${shellBorder} ${shellBg}/95 shadow-sm backdrop-blur-xl`}>
-      <div className="px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <div className="px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
@@ -197,7 +197,7 @@ export const MobileHeader = ({
             className={`flex h-9 w-9 items-center justify-center rounded-[18px] border ${controlBorder} ${controlBg} ${shellText} shadow-[0_6px_18px_rgba(15,23,42,0.07)] transition ${controlHover}`}
             aria-label="Open navigation menu"
           >
-            <Menu className="h-4.5 w-4.5" />
+            <Menu className="h-4 w-4" strokeWidth={1.5} />
           </button>
           <div className="min-w-0 text-center">
             <p className={`truncate text-[15px] font-bold tracking-tight ${shellText}`}>{title}</p>
@@ -208,12 +208,12 @@ export const MobileHeader = ({
             className={`flex h-9 w-9 items-center justify-center rounded-[18px] border ${controlBorder} ${controlBg} ${shellText} shadow-[0_6px_18px_rgba(15,23,42,0.07)] transition ${controlHover}`}
             aria-label={rightAriaLabel}
           >
-            <RightIcon className="h-4.5 w-4.5" />
+            <RightIcon className="h-4 w-4" strokeWidth={1.5} />
           </button>
         </div>
       </div>
       {showSearch ? (
-        <div className="px-4 pb-3">
+        <div className="px-4 pt-1 pb-3.5">
           <div className="relative">
             <Search className={`absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${shellMuted}`} />
             <input
@@ -620,7 +620,7 @@ export const MobileLayout = ({
 
   return (
     <div
-      className="h-[100dvh] overflow-hidden invoice-phone-stage bg-gradient-to-b from-slate-100 to-slate-200"
+      className="h-[100dvh] overflow-hidden invoice-phone-stage"
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
       <div className="flex h-full invoice-phone-frame items-start">
