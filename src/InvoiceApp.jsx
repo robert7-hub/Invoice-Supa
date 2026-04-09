@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   Trash2,
   Edit,
+  Eye,
   ArrowRightLeft,
   MoreVertical,
   Check,
@@ -61,13 +62,20 @@ const DB_KEYS = {
   estimates: 'invoiceapp_estimates',
 };
 
+const parseQuoteNumber = (value, allowPlain = false) =>
+  parseDocumentNumber(value, 'QTE', allowPlain) || parseDocumentNumber(value, 'EST', allowPlain);
+
 // Migration function to fix old document numbers
 const migrateDocumentNumbers = (invoices = [], estimates = []) => {
   let invoiceCounter = 1;
-  let estimateCounter = 1;
+  let estimateCounter =
+    estimates.reduce((max, est) => {
+      const parsed = parseQuoteNumber(est.number, true);
+      return parsed ? Math.max(max, parsed.number) : max;
+    }, 0) + 1;
 
   const fixedInvoices = invoices.map((inv) => {
-    if (String(inv.number || '').startsWith('EST')) {
+    if (/^(EST|QTE)/i.test(String(inv.number || ''))) {
       return {
         ...inv,
         number: `INV${String(invoiceCounter++).padStart(5, '0')}`,
@@ -77,13 +85,23 @@ const migrateDocumentNumbers = (invoices = [], estimates = []) => {
   });
 
   const fixedEstimates = estimates.map((est) => {
-    if (!String(est.number || '').startsWith('EST')) {
+    const currentNumber = String(est.number || '');
+    if (/^QTE/i.test(currentNumber)) {
+      return est;
+    }
+
+    const parsed = parseQuoteNumber(currentNumber, true);
+    if (parsed) {
       return {
         ...est,
-        number: `EST${String(estimateCounter++).padStart(5, '0')}`,
+        number: formatDocumentNumber('QTE', parsed.number, Math.max(parsed.width, 3)),
       };
     }
-    return est;
+
+    return {
+      ...est,
+      number: formatDocumentNumber('QTE', estimateCounter++, 5),
+    };
   });
 
   return { fixedInvoices, fixedEstimates };
@@ -950,10 +968,12 @@ const DocumentTotalsSummary = ({
           <span className={theme.textSecondary}>Document Discount</span>
           <span className={theme.textPrimary}>{formatCurrency(totals.overallDiscountAmount)}</span>
         </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className={theme.textSecondary}>{`${taxLabel} ${totals.taxEnabled ? `(${taxRate}%)` : '(Off)'}`}</span>
-          <span className={theme.textPrimary}>{formatCurrency(totals.totalTax)}</span>
-        </div>
+        {totals.taxEnabled ? (
+          <div className="flex items-center justify-between gap-4">
+            <span className={theme.textSecondary}>{`${taxLabel} (${taxRate}%)`}</span>
+            <span className={theme.textPrimary}>{formatCurrency(totals.totalTax)}</span>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between gap-4 pt-2">
           <span className={`font-semibold ${theme.textPrimary}`}>Total</span>
           <span className={`font-semibold ${theme.textPrimary}`}>{formatCurrency(totals.total)}</span>
@@ -1375,7 +1395,7 @@ const SettingsPage = ({ save, saveTheme, activeTheme, uploadLogo }) => {
       return {
         ...parsed,
         nextInvoiceNumber: String(parsed.nextInvoiceNumber || '').replace(/^INV/i, '') || SAMPLE_SETTINGS.nextInvoiceNumber,
-        nextEstimateNumber: String(parsed.nextEstimateNumber || '').replace(/^EST/i, '') || SAMPLE_SETTINGS.nextEstimateNumber,
+        nextEstimateNumber: String(parsed.nextEstimateNumber || '').replace(/^(EST|QTE)/i, '') || SAMPLE_SETTINGS.nextEstimateNumber,
       };
     } catch {
       return SAMPLE_SETTINGS;
@@ -1523,7 +1543,7 @@ const SettingsPage = ({ save, saveTheme, activeTheme, uploadLogo }) => {
           <div className="space-y-3">
             {[
               { label: 'Invoice No', field: 'nextInvoiceNumber', placeholder: '00000', prefix: 'INV' },
-              { label: 'Estimate No', field: 'nextEstimateNumber', placeholder: '00000', prefix: 'EST' },
+              { label: 'Quote No', field: 'nextEstimateNumber', placeholder: '00000', prefix: 'QTE' },
             ].map(({ label, field, placeholder, prefix }) => (
               <div key={field} className="flex items-center gap-3">
                 <span className={`w-24 shrink-0 text-xs font-medium ${activeTheme.labelColor}`}>{label}</span>
@@ -1547,12 +1567,12 @@ const SettingsPage = ({ save, saveTheme, activeTheme, uploadLogo }) => {
         <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
           <div className={`flex items-center gap-2 pb-2 mb-3 border-b ${activeTheme.border}`}>
             <FileText className={`w-4 h-4 ${activeTheme.iconColor}`} />
-            <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>Default Notes</p>
+            <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>Terms and Conditions</p>
           </div>
           <div className="space-y-4">
             {[
               { label: 'Invoices', field: 'defaultInvoiceNotes' },
-              { label: 'Estimates', field: 'defaultEstimateNotes' },
+              { label: 'Quotes', field: 'defaultEstimateNotes' },
             ].map(({ label, field }) => (
               <div key={field} className="flex items-start gap-3">
                 <span className={`w-20 shrink-0 pt-2 text-xs font-medium ${activeTheme.labelColor}`}>{label}</span>
@@ -1560,7 +1580,7 @@ const SettingsPage = ({ save, saveTheme, activeTheme, uploadLogo }) => {
                   value={form[field] || ''}
                   onChange={(e) => setForm({ ...form, [field]: e.target.value })}
                   rows={4}
-                  placeholder={`Default notes for ${label.toLowerCase()}…`}
+                  placeholder={`Terms and conditions for ${label.toLowerCase()}…`}
                   className={`flex-1 px-3 py-2 border ${activeTheme.inputBorder} ${activeTheme.inputBg} ${activeTheme.textPrimary} rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-slate-400/50 resize-none`}
                 />
               </div>
@@ -1649,6 +1669,3001 @@ const SettingsPage = ({ save, saveTheme, activeTheme, uploadLogo }) => {
 };
 
 // ============================================================================
+const PdfPreviewModal = ({
+  open,
+  compact,
+  previewUrl,
+  loadingPreview,
+  previewError,
+  title,
+  onDownload,
+  onClose,
+  theme
+}) => {
+  if (!open) return null;
+  return ReactDOM.createPortal(<div className="fixed inset-0 z-[90] bg-black/70 flex items-end sm:items-center justify-center">
+        <div className={`${theme.modalBg} ${theme.textPrimary} border ${theme.border} ${compact ? 'h-[100dvh] w-full rounded-none' : 'h-[90vh] w-full max-w-6xl rounded-2xl'} flex flex-col overflow-hidden shadow-2xl`}>
+          <div className={`${compact ? 'px-3 py-2.5' : 'px-4 py-3'} border-b ${theme.border} flex items-center justify-between`}>
+            <h2 className={`${compact ? 'text-sm' : 'text-base'} font-semibold ${theme.textPrimary}`}>{title}</h2>
+            <div className="flex items-center gap-2">
+              <button onClick={onDownload} className={`${compact ? 'p-2' : 'px-3 py-1.5 text-sm'} border ${theme.border} ${theme.buttonHover} rounded-xl flex items-center gap-1.5`} title="Download PDF">
+                <Printer className="w-4 h-4" />
+                {!compact ? 'Download PDF' : null}
+              </button>
+              <button onClick={onClose} className={`${compact ? 'p-2' : 'px-3 py-1.5 text-sm'} border ${theme.border} ${theme.buttonHover} rounded-xl flex items-center gap-1.5`} title="Close preview">
+                <X className="w-4 h-4" />
+                {!compact ? 'Close' : null}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 bg-slate-200">
+            {loadingPreview ? <div className="h-full flex items-center justify-center">
+                <p className={`text-sm ${theme.textSecondary}`}>Generating PDF preview...</p>
+              </div> : null}
+
+            {!loadingPreview && previewError ? <div className="h-full flex items-center justify-center p-6 text-center">
+                <p className={`text-sm ${theme.textSecondary}`}>{previewError}</p>
+              </div> : null}
+
+            {!loadingPreview && !previewError && previewUrl ? <iframe title={title} src={previewUrl} className="w-full h-full bg-white" /> : null}
+          </div>
+        </div>
+      </div>, document.body);
+};
+
+// ============================================================================
+// INVOICES
+// ============================================================================
+
+const InvoicesList = ({
+  app
+}) => {
+  const {
+    activeTheme,
+    data,
+    downloadInvoicePDF,
+    getClient,
+    listContextMenuClass,
+    listContextMenuDividerClass,
+    listContextMenuItemClass,
+    listContextMenuStyle,
+    openNewInvoice,
+    save,
+    searchTerm,
+    setConfirmAction,
+    setConfirmMessage,
+    setConfirmOpen,
+    setCurrentItem,
+    setSearchTerm,
+    setView,
+    updateNextDocumentSetting,
+    usePhoneLayout
+  } = app;
+  const filtered = data.invoices.filter(inv => {
+    if (!searchTerm) return true;
+    const client = getClient(inv.clientId);
+    return inv.number?.toLowerCase().includes(searchTerm.toLowerCase()) || client?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+  const [activeInvoiceMenu, setActiveInvoiceMenu] = useState(null);
+  const [invoiceMenuPosition, setInvoiceMenuPosition] = useState(null);
+  const invoiceMenuRef = useRef(null);
+  useEffect(() => {
+    if (!activeInvoiceMenu) return undefined;
+    const handleOutsideClick = event => {
+      if (invoiceMenuRef.current && !invoiceMenuRef.current.contains(event.target)) {
+        setActiveInvoiceMenu(null);
+        setInvoiceMenuPosition(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [activeInvoiceMenu]);
+  const closeInvoiceMenu = () => {
+    setActiveInvoiceMenu(null);
+    setInvoiceMenuPosition(null);
+  };
+  const handleStatusChange = async (status, invoiceToUpdate) => {
+    if (!invoiceToUpdate) return;
+    const updatedInvoice = {
+      ...invoiceToUpdate,
+      status
+    };
+    const updated = data.invoices.map(inv => inv.id === invoiceToUpdate.id ? updatedInvoice : inv);
+    await save('invoices', updated);
+    closeInvoiceMenu();
+  };
+  const duplicateInvoice = async invoice => {
+    const duplicatedInvoice = {
+      ...invoice,
+      id: generateId(),
+      number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
+      items: (invoice.items || []).map(item => ({
+        ...item,
+        id: generateId()
+      })),
+      amountPaid: 0,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    await save('invoices', [...data.invoices, duplicatedInvoice]);
+    await updateNextDocumentSetting('invoice', duplicatedInvoice.number);
+    closeInvoiceMenu();
+  };
+  return <div className="flex flex-col h-full">
+        {!usePhoneLayout ? <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.border}`}>
+            <div className="flex items-center justify-between gap-2">
+              <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Invoices</h1>
+              <div className="flex items-center gap-2">
+                <button onClick={openNewInvoice} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}>
+                  <Plus className="w-3.5 h-3.5" />
+                  New Invoice
+                </button>
+              </div>
+            </div>
+
+            <div className="relative mt-3 max-w-sm">
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
+              <input type="text" placeholder="Search invoices..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`} />
+            </div>
+          </div> : null}
+
+        <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
+          {filtered.length === 0 ? <EmptyState icon={FileText} title="No invoices yet" description="Create your first invoice" theme={activeTheme} action={<button className={`px-4 py-2 ${activeTheme.accent} rounded-xl`} onClick={() => setView('edit-invoice')}>
+                  Create Invoice
+                </button>} /> : <div className={usePhoneLayout ? 'space-y-1.5' : 'space-y-2'}>
+              {filtered.map(invoice => {
+          const client = getClient(invoice.clientId);
+          const total = calculateDocumentTotal(invoice, data.settings?.taxRate || 15);
+          const clientCompanyName = String(client?.name || '').trim();
+          const documentClientName = String(invoice.clientName || '').trim();
+          const showSecondaryClientName = Boolean(clientCompanyName) && Boolean(documentClientName) && documentClientName !== clientCompanyName;
+          const primaryClientName = clientCompanyName || documentClientName;
+          return <div key={invoice.id} className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_1px_6px_rgba(0,0,0,0.06)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}>
+                    {usePhoneLayout ? <div className="px-3 py-2.5">
+                        <div className="mb-1 flex items-center justify-between gap-3">
+                          <div onClick={() => {
+                  setCurrentItem(invoice);
+                  setView('view-invoice');
+                }} className="min-w-0 cursor-pointer">
+                            <p className={`text-sm font-medium tracking-tight ${activeTheme.textPrimary}`}>
+                              {invoice.number}
+                            </p>
+                          </div>
+                          <StatusBadge status={invoice.status} theme={activeTheme} />
+                        </div>
+
+                        <div onClick={() => {
+                setCurrentItem(invoice);
+                setView('view-invoice');
+              }} className="cursor-pointer">
+                          {primaryClientName ? <p className="mb-1 truncate text-xs">
+                              <span className={`font-medium ${activeTheme.textSecondary}`}>{primaryClientName}</span>
+                              {showSecondaryClientName ? <>
+                                  <span className={`mx-1.5 font-normal ${activeTheme.textMuted}`}>|</span>
+                                  <span className={`font-normal ${activeTheme.textMuted}`}>{documentClientName}</span>
+                                </> : null}
+                            </p> : null}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <p className={`text-[11px] ${activeTheme.iconColor}`}>
+                            {formatDate(invoice.date)}
+                          </p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <p className={`text-sm font-bold ${activeTheme.textPrimary}`}>
+                              {formatCurrency(total)}
+                            </p>
+                            <button onClick={e => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const menuHeight = 180;
+                    const spaceBelow = window.innerHeight - rect.bottom;
+                    const openUpward = spaceBelow < menuHeight;
+                    setActiveInvoiceMenu(current => {
+                      if (current === invoice.id) {
+                        setInvoiceMenuPosition(null);
+                        return null;
+                      }
+                      setInvoiceMenuPosition({
+                        ...(openUpward ? {
+                          bottom: window.innerHeight - rect.top
+                        } : {
+                          top: rect.bottom + 4
+                        }),
+                        right: window.innerWidth - rect.right
+                      });
+                      return invoice.id;
+                    });
+                  }} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                              <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
+                            </button>
+                            <button onClick={e => {
+                    e.stopPropagation();
+                    closeInvoiceMenu();
+                    setConfirmMessage(`Are you sure you want to delete invoice ${invoice.number}? This action cannot be undone.`);
+                    setConfirmAction(() => async () => {
+                      await save('invoices', data.invoices.filter(inv => inv.id !== invoice.id));
+                    });
+                    setConfirmOpen(true);
+                  }} className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}>
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        </div>
+                      </div> : <div className="flex items-center gap-2 px-3 py-2.5">
+                        <div onClick={() => {
+                setCurrentItem(invoice);
+                setView('view-invoice');
+              }} className="flex-1 min-w-0 cursor-pointer">
+                          <div className="flex items-baseline gap-2">
+                            <p className={`text-sm font-medium leading-tight ${activeTheme.textPrimary}`}>{invoice.number}</p>
+                            {primaryClientName ? <p className="text-xs truncate">
+                                <span className={`font-medium ${activeTheme.textSecondary}`}>{primaryClientName}</span>
+                                {showSecondaryClientName ? <>
+                                    <span className={`mx-1.5 font-normal ${activeTheme.textMuted}`}>|</span>
+                                    <span className={`font-normal ${activeTheme.textMuted}`}>{documentClientName}</span>
+                                  </> : null}
+                              </p> : null}
+                          </div>
+                          <p className={`text-[11px] ${activeTheme.iconColor} mt-0.5`}>{formatDate(invoice.date)}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="text-right">
+                            <StatusBadge status={invoice.status} theme={activeTheme} />
+                            <p className={`text-sm font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
+                          </div>
+                          <button onClick={e => {
+                  e.stopPropagation();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const menuHeight = 180;
+                  const spaceBelow = window.innerHeight - rect.bottom;
+                  const openUpward = spaceBelow < menuHeight;
+                  setActiveInvoiceMenu(current => {
+                    if (current === invoice.id) {
+                      setInvoiceMenuPosition(null);
+                      return null;
+                    }
+                    setInvoiceMenuPosition({
+                      ...(openUpward ? {
+                        bottom: window.innerHeight - rect.top
+                      } : {
+                        top: rect.bottom + 4
+                      }),
+                      right: window.innerWidth - rect.right
+                    });
+                    return invoice.id;
+                  });
+                }} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                            <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
+                          </button>
+                          <button onClick={e => {
+                  e.stopPropagation();
+                  closeInvoiceMenu();
+                  setConfirmMessage(`Are you sure you want to delete invoice ${invoice.number}? This action cannot be undone.`);
+                  setConfirmAction(() => async () => {
+                    await save('invoices', data.invoices.filter(inv => inv.id !== invoice.id));
+                  });
+                  setConfirmOpen(true);
+                }} className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}>
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
+                      </div>}
+                  </div>;
+        })}
+            </div>}
+        </div>
+
+        {activeInvoiceMenu && invoiceMenuPosition && ReactDOM.createPortal(<div ref={invoiceMenuRef} className={listContextMenuClass} style={{
+      ...listContextMenuStyle,
+      ...(invoiceMenuPosition.top != null ? {
+        top: `${invoiceMenuPosition.top}px`
+      } : {}),
+      ...(invoiceMenuPosition.bottom != null ? {
+        bottom: `${invoiceMenuPosition.bottom}px`
+      } : {}),
+      right: `${invoiceMenuPosition.right}px`
+    }}>
+            {(() => {
+        const invoice = data.invoices.find(item => item.id === activeInvoiceMenu);
+        if (!invoice) return null;
+        return <>
+                  <button onClick={async () => {
+            await handleStatusChange('outstanding', invoice);
+          }} className={listContextMenuItemClass}>
+                    Mark as Outstanding
+                  </button>
+                  <button onClick={async () => {
+            await handleStatusChange('paid', invoice);
+          }} className={listContextMenuItemClass}>
+                    Mark as Paid
+                  </button>
+                  <div className={listContextMenuDividerClass} />
+                  <button onClick={() => duplicateInvoice(invoice)} className={listContextMenuItemClass}>
+                    Duplicate
+                  </button>
+                  <button onClick={async () => {
+            await downloadInvoicePDF(invoice);
+          }} className={listContextMenuItemClass}>
+                    Download PDF
+                  </button>
+                </>;
+      })()}
+          </div>, document.body)}
+      </div>;
+};
+
+const InvoiceView = ({
+  app
+}) => {
+  const {
+    activeTheme,
+    createPdfPreviewUrl,
+    currentItem,
+    data,
+    downloadInvoicePDF,
+    getClient,
+    getPdfClientForDocument,
+    save,
+    setActiveTab,
+    setConfirmAction,
+    setConfirmMessage,
+    setConfirmOpen,
+    setCurrentItem,
+    setView,
+    updateNextDocumentSetting,
+    usePhoneLayout
+  } = app;
+  const [itemModalOpen, setItemModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState('');
+  const client = getClient(currentItem?.clientId);
+  const documentClientName = String(currentItem?.clientName || '').trim();
+  const showSecondaryClientName = Boolean(client?.name) && Boolean(documentClientName) && documentClientName !== client.name;
+  const primaryClientName = client?.name || documentClientName || 'No client selected';
+  const taxRate = data.settings?.taxRate || 15;
+  const taxLabel = data.settings?.taxLabel || 'VAT';
+  const totals = calculateDocumentTotals(currentItem, taxRate);
+  const total = totals.total;
+  const saveInvoice = async updatedInvoice => {
+    const updated = data.invoices.map(inv => inv.id === updatedInvoice.id ? updatedInvoice : inv);
+    await save('invoices', updated);
+    setCurrentItem(updatedInvoice);
+  };
+  const handleSaveItem = async updatedItem => {
+    const updatedInvoice = {
+      ...currentItem,
+      items: currentItem.items.map(item => item.id === updatedItem.id ? updatedItem : item)
+    };
+    await saveInvoice(updatedInvoice);
+  };
+  const closePreview = () => {
+    setPreviewOpen(false);
+    setLoadingPreview(false);
+    setPreviewError('');
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+  };
+  const handleOpenPreview = async () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+    setPreviewOpen(true);
+    setLoadingPreview(true);
+    setPreviewError('');
+    const nextPreviewUrl = await createPdfPreviewUrl('invoice', currentItem, getPdfClientForDocument(currentItem));
+    if (nextPreviewUrl) {
+      setPreviewUrl(nextPreviewUrl);
+    } else {
+      setPreviewError('Unable to generate preview. Please try again.');
+    }
+    setLoadingPreview(false);
+  };
+  const handleDownloadFromPreview = async () => {
+    await downloadInvoicePDF(currentItem);
+  };
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+  return <div className="flex flex-col h-full">
+        <div className="p-4 lg:p-6 border-b flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setView('list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <h1 className={`font-bold text-xl ${activeTheme.textPrimary}`}>{currentItem.number}</h1>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleOpenPreview} className={`p-2 ${activeTheme.buttonHover} rounded-xl`} title="Preview Invoice PDF">
+              <Eye className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <button onClick={() => downloadInvoicePDF(currentItem)} className={`p-2 ${activeTheme.buttonHover} rounded-xl`} title="Download Invoice PDF">
+              <Printer className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <button onClick={() => setView('edit-invoice')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+              <Edit className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <button onClick={() => {
+          setConfirmMessage(`Are you sure you want to delete invoice ${currentItem.number}? This action cannot be undone.`);
+          setConfirmAction(() => async () => {
+            await save('invoices', data.invoices.filter(inv => inv.id !== currentItem.id));
+            setView('list');
+          });
+          setConfirmOpen(true);
+        }} className="p-2 hover:bg-red-50 rounded-xl">
+              <Trash2 className="w-5 h-5 text-red-500" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:p-6 lg:pb-6 space-y-4">
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+            <div className="flex justify-between items-start">
+              <div>
+                <p className={`text-sm ${activeTheme.textMuted}`}>Invoice</p>
+                <p className={`text-2xl font-bold ${activeTheme.textPrimary}`}>{currentItem.number}</p>
+              </div>
+              <StatusBadge status={currentItem.status} />
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+              <div>
+                <p className={activeTheme.textMuted}>Date</p>
+                <p className={activeTheme.textPrimary}>{formatDate(currentItem.date)}</p>
+              </div>
+              <div>
+                <p className={activeTheme.textMuted}>Due Date</p>
+                <p className={activeTheme.textPrimary}>{formatDate(currentItem.dueDate)}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+            <p className={`text-sm ${activeTheme.textMuted} mb-2`}>Bill To</p>
+            <p className={`font-semibold ${activeTheme.textPrimary}`}>{primaryClientName}</p>
+            {showSecondaryClientName ? <p className={`text-sm ${activeTheme.textSecondary} mt-1`}>{documentClientName}</p> : null}
+            {formatClientAddress(client) && <p className={`text-sm ${activeTheme.textSecondary} whitespace-pre-line mt-1`}>{formatClientAddress(client)}</p>}
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
+            <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
+              <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
+              <span className={`text-xs ${activeTheme.iconColor}`}>Tap to edit</span>
+            </div>
+            <div className={`${usePhoneLayout ? 'hidden' : 'grid'} grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] gap-4 px-4 py-3 border-b ${activeTheme.border} ${activeTheme.tableHeaderBg}`}>
+              <span className={`text-xs font-semibold uppercase tracking-wide ${activeTheme.textMuted}`}>Description</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Discount</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-center ${activeTheme.textMuted}`}>Qty</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Rate</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Amount</span>
+            </div>
+            <div className="divide-y">
+              {currentItem.items.map(item => <div key={item.id} className={`p-4 ${activeTheme.tableRowHover} cursor-pointer`} onClick={() => {
+            setEditingItem(item);
+            setItemModalOpen(true);
+          }}>
+                  <div className={`grid gap-3 ${usePhoneLayout ? '' : 'grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] items-start'}`}>
+                    <div className="min-w-0">
+                      <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
+                      <div className={`${usePhoneLayout ? 'block' : 'hidden'} text-xs ${activeTheme.textMuted} mt-1 space-y-1`}>
+                        <p>{`${item.qty || 0} x ${formatCurrency(item.rate || 0)}`}</p>
+                        {item.discountAmount > 0 && <p>
+                            {item.discountType === 'percentage' ? `${item.discountAmount}% discount` : `${formatCurrency(item.discountAmount)} discount`}
+                          </p>}
+                      </div>
+                      {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1 whitespace-pre-line`}>{item.notes}</p>}
+                    </div>
+                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-right ${activeTheme.textPrimary}`}>
+                      {item.discountAmount > 0 ? item.discountType === 'percentage' ? `${item.discountAmount}%` : formatCurrency(item.discountAmount) : '—'}
+                    </p>
+                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-center ${activeTheme.textPrimary}`}>
+                      {item.qty || 0}
+                    </p>
+                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-right ${activeTheme.textPrimary}`}>
+                      {formatCurrency(item.rate || 0)}
+                    </p>
+                    <p className={`font-semibold ${usePhoneLayout ? '' : 'text-right'} ${activeTheme.textPrimary}`}>
+                      {formatCurrency(calculateItemTotal(item, taxRate, {
+                  applyTax: totals.taxEnabled
+                }).total)}
+                    </p>
+                  </div>
+                </div>)}
+            </div>
+            <div className={`p-4 ${activeTheme.tableHeaderBg} border-t ${activeTheme.border}`}>
+              <div className="flex justify-between">
+                <span className={`font-semibold ${activeTheme.textPrimary}`}>Total</span>
+                <span className={`font-bold ${activeTheme.textPrimary}`}>{formatCurrency(total)}</span>
+              </div>
+            </div>
+          </div>
+
+          <DocumentTotalsSummary doc={currentItem} taxRate={taxRate} taxLabel={taxLabel} theme={activeTheme} showPayments />
+
+          <div className="flex gap-2">
+            <button onClick={async () => {
+          const newEstimate = {
+            id: generateId(),
+            number: generateDocumentNumber('estimate', data.invoices, data.estimates, data.settings),
+            clientId: currentItem.clientId,
+            clientName: currentItem.clientName || '',
+            date: new Date().toISOString().split('T')[0],
+            status: 'pending',
+            items: currentItem.items.map(item => ({
+              ...item,
+              id: generateId()
+            })),
+            overallDiscount: currentItem.overallDiscount || 0,
+            overallDiscountType: currentItem.overallDiscountType || 'percentage',
+            taxEnabled: currentItem.taxEnabled !== false,
+            notes: currentItem.notes,
+            createdAt: new Date().toISOString().split('T')[0]
+          };
+          await save('estimates', [...data.estimates, newEstimate]);
+          await updateNextDocumentSetting('estimate', newEstimate.number);
+          setActiveTab('estimates');
+          setCurrentItem(newEstimate);
+          setView('view-estimate');
+        }} className={`w-full py-3 ${activeTheme.subtleBg} ${activeTheme.labelColor} rounded-xl flex items-center justify-center gap-2`}>
+              <ArrowRightLeft className="w-4 h-4" />
+              Convert
+            </button>
+          </div>
+        </div>
+
+        <LineItemModal isOpen={itemModalOpen} onClose={() => setItemModalOpen(false)} onSave={handleSaveItem} item={editingItem} savedItems={data.items} taxRate={taxRate} applyDocumentTax={totals.taxEnabled} theme={activeTheme} />
+
+        <PdfPreviewModal open={previewOpen} compact={usePhoneLayout} previewUrl={previewUrl} loadingPreview={loadingPreview} previewError={previewError} title="Invoice Preview" onDownload={handleDownloadFromPreview} onClose={closePreview} theme={activeTheme} />
+      </div>;
+};
+
+// eslint-disable-next-line react-hooks/exhaustive-deps
+
+// eslint-disable-next-line react-hooks/exhaustive-deps
+const InvoiceEdit = ({
+  app
+}) => {
+  const {
+    activeTheme,
+    createPdfPreviewUrl,
+    currentItem,
+    data,
+    downloadInvoicePDF,
+    getPdfClientForDocument,
+    requestDeleteConfirmation,
+    save,
+    setView,
+    updateNextDocumentSetting,
+    usePhoneLayout
+  } = app;
+  const [form, setForm] = useState(currentItem || {
+    id: generateId(),
+    number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
+    date: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    status: 'outstanding',
+    clientId: '',
+    clientName: '',
+    items: [],
+    amountPaid: 0,
+    overallDiscount: 0,
+    overallDiscountType: 'percentage',
+    taxEnabled: false,
+    notes: ''
+  });
+  const [itemModalOpen, setItemModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState('');
+  const taxRate = data.settings?.taxRate || 15;
+  const taxLabel = data.settings?.taxLabel || 'VAT';
+  const taxEnabled = isDocumentTaxEnabled(form);
+  const compactForm = usePhoneLayout;
+  const isExistingInvoice = data.invoices.some(inv => inv.id === form.id);
+  const handleSave = async () => {
+    const normalizedForm = {
+      ...form,
+      clientName: String(form.clientName || '').trim()
+    };
+    const isNew = !data.invoices.find(i => i.id === form.id);
+    const updated = isNew ? [...data.invoices, {
+      ...normalizedForm,
+      createdAt: new Date().toISOString().split('T')[0]
+    }] : data.invoices.map(inv => inv.id === form.id ? normalizedForm : inv);
+    await save('invoices', updated);
+    if (isNew) {
+      await updateNextDocumentSetting('invoice', normalizedForm.number);
+    }
+    setView('list');
+  };
+  const closePreview = () => {
+    setPreviewOpen(false);
+    setLoadingPreview(false);
+    setPreviewError('');
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+  };
+  const handleOpenPreview = async () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+    setPreviewOpen(true);
+    setLoadingPreview(true);
+    setPreviewError('');
+    const nextPreviewUrl = await createPdfPreviewUrl('invoice', form, getPdfClientForDocument(form));
+    if (nextPreviewUrl) {
+      setPreviewUrl(nextPreviewUrl);
+    } else {
+      setPreviewError('Unable to generate preview. Please try again.');
+    }
+    setLoadingPreview(false);
+  };
+  const handleDownloadFromPreview = async () => {
+    await downloadInvoicePDF(form);
+  };
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+  const handleSaveItem = item => {
+    if (editingItem) {
+      setForm({
+        ...form,
+        items: form.items.map(i => i.id === item.id ? item : i)
+      });
+    } else {
+      setForm({
+        ...form,
+        items: [...form.items, item]
+      });
+    }
+  };
+  const handleAddClient = async newClientData => {
+    const newClient = {
+      id: generateId(),
+      ...newClientData,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    await save('clients', [...data.clients, newClient]);
+    return newClient.id;
+  };
+  return <CompactFormContext.Provider value={compactForm}>
+        <div className="flex flex-col h-full">
+          <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
+            <button onClick={() => setView(isExistingInvoice ? 'view-invoice' : 'list')} className={`${compactForm ? 'p-1.5' : 'p-2'} ${activeTheme.buttonHover} rounded-xl`}>
+              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{isExistingInvoice ? 'Edit Invoice' : 'New Invoice'}</h1>
+            <div className="flex items-center gap-2">
+              <button onClick={handleOpenPreview} className={`${compactForm ? 'p-1.5' : 'px-3 py-1.5 text-sm'} border ${activeTheme.border} ${activeTheme.buttonHover} rounded-xl flex items-center gap-1.5`} title="Preview PDF">
+                <Eye className="w-4 h-4" />
+                {!compactForm ? 'Preview' : null}
+              </button>
+              <button onClick={handleSave} className={`${compactForm ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} ${activeTheme.accent} rounded-xl`}>
+                Save
+              </button>
+            </div>
+          </div>
+
+          <div className={`flex-1 overflow-auto ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'} phone-dock-scroll-space lg:pb-4`}>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
+              <FormInput label="Invoice Number" value={form.number} onChange={v => setForm({
+            ...form,
+            number: v
+          })} theme={activeTheme} />
+              <div className={`grid grid-cols-2 ${compactForm ? 'gap-2.5' : 'gap-3'}`}>
+                <FormInput label="Date" type="date" value={form.date} onChange={v => setForm({
+              ...form,
+              date: v
+            })} theme={activeTheme} />
+                <FormInput label="Due Date" type="date" value={form.dueDate} onChange={v => setForm({
+              ...form,
+              dueDate: v
+            })} theme={activeTheme} />
+              </div>
+              <ClientSelect label="Client" value={form.clientId} onChange={v => setForm({
+            ...form,
+            clientId: v
+          })} clients={data.clients} onAddNew={handleAddClient} theme={activeTheme} />
+              <FormInput label="Client Name" value={form.clientName} onChange={v => setForm({
+            ...form,
+            clientName: v
+          })} placeholder="e.g. John Smith" theme={activeTheme} />
+            </div>
+
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
+              <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
+                <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
+                <button onClick={() => {
+              setEditingItem(null);
+              setItemModalOpen(true);
+            }} className={`${compactForm ? 'px-2.5 py-1.5 text-[13px]' : 'px-3 py-1.5 text-sm'} ${activeTheme.accent} rounded-lg flex items-center gap-1`}>
+                  <Plus className="w-4 h-4" />
+                  Add Item
+                </button>
+              </div>
+
+              {form.items.length === 0 ? <div className={`${compactForm ? 'p-5 text-sm' : 'p-8'} text-center ${activeTheme.textMuted}`}>No items added yet</div> : <div className="divide-y">
+                  {form.items.map((item, idx) => {
+              const displayQuantity = Number(item.quantity) > 0 ? Number(item.quantity) : 1;
+              const displayUnit = String(item.unit || '').trim();
+              return <div key={item.id} className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} ${activeTheme.tableRowHover} cursor-pointer`} onClick={() => {
+                setEditingItem(item);
+                setItemModalOpen(true);
+              }}>
+                        <div className="flex justify-between items-start gap-3">
+                          <div>
+                            <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
+                            {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.notes}</p>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <p className={`text-xs ${activeTheme.textMuted} whitespace-nowrap`}>
+                              x{displayQuantity}{displayUnit ? ` ${displayUnit}` : ''}
+                            </p>
+                            <p className={`font-semibold ${activeTheme.textPrimary}`}>
+                              {formatCurrency(calculateItemTotal(item, taxRate, {
+                        applyTax: taxEnabled
+                      }).total)}
+                            </p>
+                            <button onClick={e => {
+                      e.stopPropagation();
+                      const itemLabel = item.description?.trim() || `line item ${idx + 1}`;
+                      requestDeleteConfirmation(`Are you sure you want to delete ${itemLabel}? This action cannot be undone.`, async () => {
+                        setForm(current => ({
+                          ...current,
+                          items: current.items.filter((_, i) => i !== idx)
+                        }));
+                      });
+                    }} className="p-1.5 hover:bg-red-50 rounded-lg">
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>;
+            })}
+                </div>}
+            </div>
+
+            <DocumentTotalsEditor form={form} setForm={setForm} taxRate={taxRate} taxLabel={taxLabel} theme={activeTheme} showPayments />
+
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3' : 'p-4'}`}>
+              <FormInput label="Notes (optional - added to this document only)" value={form.notes} onChange={v => setForm({
+            ...form,
+            notes: v
+          })} multiline theme={activeTheme} />
+            </div>
+          </div>
+
+          <LineItemModal isOpen={itemModalOpen} onClose={() => setItemModalOpen(false)} onSave={handleSaveItem} item={editingItem} savedItems={data.items} taxRate={taxRate} applyDocumentTax={taxEnabled} theme={activeTheme} />
+
+          <PdfPreviewModal open={previewOpen} compact={compactForm} previewUrl={previewUrl} loadingPreview={loadingPreview} previewError={previewError} title={isExistingInvoice ? 'Invoice Preview' : 'New Invoice Preview'} onDownload={handleDownloadFromPreview} onClose={closePreview} theme={activeTheme} />
+        </div>
+      </CompactFormContext.Provider>;
+};
+
+// ============================================================================
+// QUOTES
+// ============================================================================
+
+// ============================================================================
+// QUOTES
+// ============================================================================
+
+const EstimatesList = ({
+  app
+}) => {
+  const {
+    activeTheme,
+    data,
+    downloadQuotePDF,
+    getClient,
+    listContextMenuClass,
+    listContextMenuDividerClass,
+    listContextMenuItemClass,
+    listContextMenuStyle,
+    openNewEstimate,
+    save,
+    searchTerm,
+    setConfirmAction,
+    setConfirmMessage,
+    setConfirmOpen,
+    setCurrentItem,
+    setSearchTerm,
+    setView,
+    updateNextDocumentSetting,
+    usePhoneLayout
+  } = app;
+  const filtered = data.estimates.filter(est => {
+    if (!searchTerm) return true;
+    const client = getClient(est.clientId);
+    return est.number?.toLowerCase().includes(searchTerm.toLowerCase()) || client?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+  const [activeEstimateMenu, setActiveEstimateMenu] = useState(null);
+  const [estimateMenuPosition, setEstimateMenuPosition] = useState(null);
+  const estimateMenuRef = useRef(null);
+  useEffect(() => {
+    if (!activeEstimateMenu) return undefined;
+    const handleOutsideClick = event => {
+      if (estimateMenuRef.current && !estimateMenuRef.current.contains(event.target)) {
+        setActiveEstimateMenu(null);
+        setEstimateMenuPosition(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [activeEstimateMenu]);
+  const closeEstimateMenu = () => {
+    setActiveEstimateMenu(null);
+    setEstimateMenuPosition(null);
+  };
+  const handleStatusChange = async (status, estimateToUpdate) => {
+    if (!estimateToUpdate) return;
+    const updatedEstimate = {
+      ...estimateToUpdate,
+      status
+    };
+    const updated = data.estimates.map(est => est.id === estimateToUpdate.id ? updatedEstimate : est);
+    await save('estimates', updated);
+    closeEstimateMenu();
+  };
+  const duplicateEstimate = async estimate => {
+    const duplicatedEstimate = {
+      ...estimate,
+      id: generateId(),
+      number: generateDocumentNumber('estimate', data.invoices, data.estimates, data.settings),
+      items: (estimate.items || []).map(item => ({
+        ...item,
+        id: generateId()
+      })),
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    await save('estimates', [...data.estimates, duplicatedEstimate]);
+    await updateNextDocumentSetting('estimate', duplicatedEstimate.number);
+    closeEstimateMenu();
+  };
+  return <div className="flex flex-col h-full">
+        {!usePhoneLayout ? <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.border}`}>
+            <div className="flex items-center justify-between">
+              <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Quotes</h1>
+              <button onClick={openNewEstimate} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}>
+                <Plus className="w-3.5 h-3.5" />
+                New Quote
+              </button>
+            </div>
+
+            <div className="relative mt-3 max-w-sm">
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
+              <input type="text" placeholder="Search quotes..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`} />
+            </div>
+          </div> : null}
+
+        <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
+          {filtered.length === 0 ? <EmptyState icon={FileSignature} title="No quotes yet" description="Create your first quote" theme={activeTheme} /> : <div className={usePhoneLayout ? 'space-y-1.5' : 'space-y-2'}>
+              {filtered.map(estimate => {
+          const client = getClient(estimate.clientId);
+          const total = calculateDocumentTotal(estimate, data.settings?.taxRate || 15);
+          const clientCompanyName = String(client?.name || '').trim();
+          const documentClientName = String(estimate.clientName || '').trim();
+          const showSecondaryClientName = Boolean(clientCompanyName) && Boolean(documentClientName) && documentClientName !== clientCompanyName;
+          const primaryClientName = clientCompanyName || documentClientName;
+          return <div key={estimate.id} className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_1px_6px_rgba(0,0,0,0.06)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}>
+                    {usePhoneLayout ? <div className="px-3 py-2.5">
+                        <div className="mb-1 flex items-center justify-between gap-3">
+                          <div onClick={() => {
+                  setCurrentItem(estimate);
+                  setView('view-estimate');
+                }} className="min-w-0 cursor-pointer">
+                            <p className={`text-sm font-medium tracking-tight ${activeTheme.textPrimary}`}>
+                              {estimate.number}
+                            </p>
+                          </div>
+                          <StatusBadge status={estimate.status} theme={activeTheme} />
+                        </div>
+
+                        <div onClick={() => {
+                setCurrentItem(estimate);
+                setView('view-estimate');
+              }} className="cursor-pointer">
+                          {primaryClientName ? <p className="mb-1 truncate text-xs">
+                              <span className={`font-medium ${activeTheme.textSecondary}`}>{primaryClientName}</span>
+                              {showSecondaryClientName ? <>
+                                  <span className={`mx-1.5 font-normal ${activeTheme.textMuted}`}>|</span>
+                                  <span className={`font-normal ${activeTheme.textMuted}`}>{documentClientName}</span>
+                                </> : null}
+                            </p> : null}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <p className={`text-[11px] ${activeTheme.iconColor}`}>
+                            {formatDate(estimate.date)}
+                          </p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <p className={`text-sm font-bold ${activeTheme.textPrimary}`}>
+                              {formatCurrency(total)}
+                            </p>
+                            <button onClick={e => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const menuHeight = 180;
+                    const spaceBelow = window.innerHeight - rect.bottom;
+                    const openUpward = spaceBelow < menuHeight;
+                    setActiveEstimateMenu(current => {
+                      if (current === estimate.id) {
+                        setEstimateMenuPosition(null);
+                        return null;
+                      }
+                      setEstimateMenuPosition({
+                        ...(openUpward ? {
+                          bottom: window.innerHeight - rect.top
+                        } : {
+                          top: rect.bottom + 4
+                        }),
+                        right: window.innerWidth - rect.right
+                      });
+                      return estimate.id;
+                    });
+                  }} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                              <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
+                            </button>
+                            <button onClick={e => {
+                    e.stopPropagation();
+                    closeEstimateMenu();
+                    setConfirmMessage(`Are you sure you want to delete quote ${estimate.number}? This action cannot be undone.`);
+                    setConfirmAction(() => async () => {
+                      await save('estimates', data.estimates.filter(est => est.id !== estimate.id));
+                    });
+                    setConfirmOpen(true);
+                  }} className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}>
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        </div>
+                      </div> : <div className="flex items-center gap-2 px-3 py-2.5">
+                        <div onClick={() => {
+                setCurrentItem(estimate);
+                setView('view-estimate');
+              }} className="flex-1 min-w-0 cursor-pointer">
+                          <div className="flex items-baseline gap-2">
+                            <p className={`text-sm font-medium leading-tight ${activeTheme.textPrimary}`}>{estimate.number}</p>
+                            {primaryClientName ? <p className="text-xs truncate">
+                                <span className={`font-medium ${activeTheme.textSecondary}`}>{primaryClientName}</span>
+                                {showSecondaryClientName ? <>
+                                    <span className={`mx-1.5 font-normal ${activeTheme.textMuted}`}>|</span>
+                                    <span className={`font-normal ${activeTheme.textMuted}`}>{documentClientName}</span>
+                                  </> : null}
+                              </p> : null}
+                          </div>
+                          <p className={`text-[11px] ${activeTheme.iconColor} mt-0.5`}>{formatDate(estimate.date)}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="text-right">
+                            <StatusBadge status={estimate.status} theme={activeTheme} />
+                            <p className={`text-sm font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
+                          </div>
+                          <button onClick={e => {
+                  e.stopPropagation();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const menuHeight = 180;
+                  const spaceBelow = window.innerHeight - rect.bottom;
+                  const openUpward = spaceBelow < menuHeight;
+                  setActiveEstimateMenu(current => {
+                    if (current === estimate.id) {
+                      setEstimateMenuPosition(null);
+                      return null;
+                    }
+                    setEstimateMenuPosition({
+                      ...(openUpward ? {
+                        bottom: window.innerHeight - rect.top
+                      } : {
+                        top: rect.bottom + 4
+                      }),
+                      right: window.innerWidth - rect.right
+                    });
+                    return estimate.id;
+                  });
+                }} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                            <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
+                          </button>
+                          <button onClick={e => {
+                  e.stopPropagation();
+                  closeEstimateMenu();
+                  setConfirmMessage(`Are you sure you want to delete quote ${estimate.number}? This action cannot be undone.`);
+                  setConfirmAction(() => async () => {
+                    await save('estimates', data.estimates.filter(est => est.id !== estimate.id));
+                  });
+                  setConfirmOpen(true);
+                }} className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}>
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
+                      </div>}
+                  </div>;
+        })}
+            </div>}
+        </div>
+
+        {activeEstimateMenu && estimateMenuPosition && ReactDOM.createPortal(<div ref={estimateMenuRef} className={listContextMenuClass} style={{
+      ...listContextMenuStyle,
+      ...(estimateMenuPosition.top != null ? {
+        top: `${estimateMenuPosition.top}px`
+      } : {}),
+      ...(estimateMenuPosition.bottom != null ? {
+        bottom: `${estimateMenuPosition.bottom}px`
+      } : {}),
+      right: `${estimateMenuPosition.right}px`
+    }}>
+            {(() => {
+        const estimate = data.estimates.find(item => item.id === activeEstimateMenu);
+        if (!estimate) return null;
+        return <>
+                  <button onClick={async () => {
+            await handleStatusChange('pending', estimate);
+          }} className={listContextMenuItemClass}>
+                    Mark as Pending
+                  </button>
+                  <button onClick={async () => {
+            await handleStatusChange('accepted', estimate);
+          }} className={listContextMenuItemClass}>
+                    Mark as Approved
+                  </button>
+                  <button onClick={async () => {
+            await handleStatusChange('declined', estimate);
+          }} className={listContextMenuItemClass}>
+                    Mark as Declined
+                  </button>
+                  <div className={listContextMenuDividerClass} />
+                  <button onClick={() => duplicateEstimate(estimate)} className={listContextMenuItemClass}>
+                    Duplicate
+                  </button>
+                  <button onClick={async () => {
+            await downloadQuotePDF(estimate);
+          }} className={listContextMenuItemClass}>
+                    Download PDF
+                  </button>
+                </>;
+      })()}
+          </div>, document.body)}
+      </div>;
+};
+
+const EstimateView = ({
+  app
+}) => {
+  const {
+    activeTheme,
+    createPdfPreviewUrl,
+    currentItem,
+    data,
+    downloadQuotePDF,
+    getClient,
+    getPdfClientForDocument,
+    save,
+    setActiveTab,
+    setConfirmAction,
+    setConfirmMessage,
+    setConfirmOpen,
+    setCurrentItem,
+    setView,
+    updateNextDocumentSetting,
+    usePhoneLayout
+  } = app;
+  const [itemModalOpen, setItemModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState('');
+  const client = getClient(currentItem?.clientId);
+  const documentClientName = String(currentItem?.clientName || '').trim();
+  const showSecondaryClientName = Boolean(client?.name) && Boolean(documentClientName) && documentClientName !== client.name;
+  const primaryClientName = client?.name || documentClientName || 'No client selected';
+  const taxRate = data.settings?.taxRate || 15;
+  const taxLabel = data.settings?.taxLabel || 'VAT';
+  const totals = calculateDocumentTotals(currentItem, taxRate);
+  const total = totals.total;
+  const saveEstimate = async updatedEstimate => {
+    const updated = data.estimates.map(est => est.id === updatedEstimate.id ? updatedEstimate : est);
+    await save('estimates', updated);
+    setCurrentItem(updatedEstimate);
+  };
+  const handleSaveItem = async updatedItem => {
+    const updatedEstimate = {
+      ...currentItem,
+      items: currentItem.items.map(item => item.id === updatedItem.id ? updatedItem : item)
+    };
+    await saveEstimate(updatedEstimate);
+  };
+  const closePreview = () => {
+    setPreviewOpen(false);
+    setLoadingPreview(false);
+    setPreviewError('');
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+  };
+  const handleOpenPreview = async () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+    setPreviewOpen(true);
+    setLoadingPreview(true);
+    setPreviewError('');
+    const nextPreviewUrl = await createPdfPreviewUrl('estimate', currentItem, getPdfClientForDocument(currentItem));
+    if (nextPreviewUrl) {
+      setPreviewUrl(nextPreviewUrl);
+    } else {
+      setPreviewError('Unable to generate preview. Please try again.');
+    }
+    setLoadingPreview(false);
+  };
+  const handleDownloadFromPreview = async () => {
+    await downloadQuotePDF(currentItem);
+  };
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+  return <div className="flex flex-col h-full">
+        <div className="p-4 lg:p-6 border-b flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setView('list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <h1 className={`font-bold text-xl ${activeTheme.textPrimary}`}>{currentItem.number}</h1>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleOpenPreview} className={`p-2 ${activeTheme.buttonHover} rounded-xl`} title="Preview Quote PDF">
+              <Eye className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <button onClick={() => downloadQuotePDF(currentItem)} className={`p-2 ${activeTheme.buttonHover} rounded-xl`} title="Download PDF">
+              <Printer className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <button onClick={() => setView('edit-estimate')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+              <Edit className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <button onClick={() => {
+          setConfirmMessage(`Are you sure you want to delete quote ${currentItem.number}? This action cannot be undone.`);
+          setConfirmAction(() => async () => {
+            await save('estimates', data.estimates.filter(est => est.id !== currentItem.id));
+            setView('list');
+          });
+          setConfirmOpen(true);
+        }} className="p-2 hover:bg-red-50 rounded-xl">
+              <Trash2 className="w-5 h-5 text-red-500" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:p-6 lg:pb-6 space-y-4">
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+            <div className="flex justify-between items-start">
+              <div>
+                <p className={`text-sm ${activeTheme.textMuted}`}>Quote</p>
+                <p className={`text-2xl font-bold ${activeTheme.textPrimary}`}>{currentItem.number}</p>
+              </div>
+              <StatusBadge status={currentItem.status} theme={activeTheme} />
+            </div>
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+            <p className={`text-sm ${activeTheme.textMuted} mb-2`}>Prepared For</p>
+            <p className={`font-semibold ${activeTheme.textPrimary}`}>{primaryClientName}</p>
+            {showSecondaryClientName ? <p className={`text-sm ${activeTheme.textSecondary} mt-1`}>{documentClientName}</p> : null}
+            {formatClientAddress(client) && <p className={`text-sm ${activeTheme.textSecondary} whitespace-pre-line mt-1`}>{formatClientAddress(client)}</p>}
+          </div>
+
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
+            <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
+              <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
+              <span className={`text-xs ${activeTheme.iconColor}`}>Tap to edit</span>
+            </div>
+            <div className={`${usePhoneLayout ? 'hidden' : 'grid'} grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] gap-4 px-4 py-3 border-b ${activeTheme.border} ${activeTheme.tableHeaderBg}`}>
+              <span className={`text-xs font-semibold uppercase tracking-wide ${activeTheme.textMuted}`}>Description</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Discount</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-center ${activeTheme.textMuted}`}>Qty</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Rate</span>
+              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Amount</span>
+            </div>
+            <div className="divide-y">
+              {currentItem.items.map(item => <div key={item.id} className={`p-4 ${activeTheme.tableRowHover} cursor-pointer`} onClick={() => {
+            setEditingItem(item);
+            setItemModalOpen(true);
+          }}>
+                  <div className={`grid gap-3 ${usePhoneLayout ? '' : 'grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] items-start'}`}>
+                    <div className="min-w-0">
+                      <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
+                      <div className={`${usePhoneLayout ? 'block' : 'hidden'} text-xs ${activeTheme.textMuted} mt-1 space-y-1`}>
+                        <p>{`${item.qty || 0} x ${formatCurrency(item.rate || 0)}`}</p>
+                        {item.discountAmount > 0 && <p>
+                            {item.discountType === 'percentage' ? `${item.discountAmount}% discount` : `${formatCurrency(item.discountAmount)} discount`}
+                          </p>}
+                      </div>
+                      {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1 whitespace-pre-line`}>{item.notes}</p>}
+                    </div>
+                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-right ${activeTheme.textPrimary}`}>
+                      {item.discountAmount > 0 ? item.discountType === 'percentage' ? `${item.discountAmount}%` : formatCurrency(item.discountAmount) : '—'}
+                    </p>
+                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-center ${activeTheme.textPrimary}`}>
+                      {item.qty || 0}
+                    </p>
+                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-right ${activeTheme.textPrimary}`}>
+                      {formatCurrency(item.rate || 0)}
+                    </p>
+                    <p className={`font-semibold ${usePhoneLayout ? '' : 'text-right'} ${activeTheme.textPrimary}`}>
+                      {formatCurrency(calculateItemTotal(item, taxRate, {
+                  applyTax: totals.taxEnabled
+                }).total)}
+                    </p>
+                  </div>
+                </div>)}
+            </div>
+            <div className={`p-4 ${activeTheme.tableHeaderBg} border-t ${activeTheme.border}`}>
+              <div className="flex justify-between">
+                <span className={`font-semibold ${activeTheme.textPrimary}`}>Total</span>
+                <span className={`font-bold ${activeTheme.textPrimary}`}>{formatCurrency(total)}</span>
+              </div>
+            </div>
+          </div>
+
+          <DocumentTotalsSummary doc={currentItem} taxRate={taxRate} taxLabel={taxLabel} theme={activeTheme} />
+
+          <div className="flex gap-2">
+            <button onClick={async () => {
+          const newInvoice = {
+            id: generateId(),
+            number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
+            clientId: currentItem.clientId,
+            clientName: currentItem.clientName || '',
+            date: new Date().toISOString().split('T')[0],
+            dueDate: '',
+            status: 'outstanding',
+            items: currentItem.items.map(item => ({
+              ...item,
+              id: generateId()
+            })),
+            amountPaid: 0,
+            overallDiscount: currentItem.overallDiscount || 0,
+            overallDiscountType: currentItem.overallDiscountType || 'percentage',
+            taxEnabled: currentItem.taxEnabled !== false,
+            notes: currentItem.notes,
+            createdAt: new Date().toISOString().split('T')[0]
+          };
+          await save('invoices', [...data.invoices, newInvoice]);
+          await updateNextDocumentSetting('invoice', newInvoice.number);
+          setActiveTab('invoices');
+          setCurrentItem(newInvoice);
+          setView('view-invoice');
+        }} className={`w-full py-3 ${activeTheme.subtleBg} ${activeTheme.labelColor} rounded-xl flex items-center justify-center gap-2`}>
+              <ArrowRightLeft className="w-4 h-4" />
+              Convert
+            </button>
+          </div>
+        </div>
+
+        <LineItemModal isOpen={itemModalOpen} onClose={() => setItemModalOpen(false)} onSave={handleSaveItem} item={editingItem} savedItems={data.items} taxRate={taxRate} applyDocumentTax={totals.taxEnabled} theme={activeTheme} />
+
+        <PdfPreviewModal open={previewOpen} compact={usePhoneLayout} previewUrl={previewUrl} loadingPreview={loadingPreview} previewError={previewError} title="Quote Preview" onDownload={handleDownloadFromPreview} onClose={closePreview} theme={activeTheme} />
+      </div>;
+};
+
+const EstimateEdit = ({
+  app
+}) => {
+  const {
+    activeTheme,
+    createPdfPreviewUrl,
+    currentItem,
+    data,
+    downloadQuotePDF,
+    getPdfClientForDocument,
+    requestDeleteConfirmation,
+    save,
+    setView,
+    updateNextDocumentSetting,
+    usePhoneLayout
+  } = app;
+  const [form, setForm] = useState(currentItem || {
+    id: generateId(),
+    number: generateDocumentNumber('estimate', data.invoices, data.estimates, data.settings),
+    date: new Date().toISOString().split('T')[0],
+    status: 'pending',
+    clientId: '',
+    clientName: '',
+    items: [],
+    overallDiscount: 0,
+    overallDiscountType: 'percentage',
+    taxEnabled: false,
+    notes: ''
+  });
+  const [itemModalOpen, setItemModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState('');
+  const taxRate = data.settings?.taxRate || 15;
+  const taxLabel = data.settings?.taxLabel || 'VAT';
+  const taxEnabled = isDocumentTaxEnabled(form);
+  const compactForm = usePhoneLayout;
+  const isExistingEstimate = data.estimates.some(est => est.id === form.id);
+  const handleSave = async () => {
+    const normalizedForm = {
+      ...form,
+      clientName: String(form.clientName || '').trim()
+    };
+    const isNew = !data.estimates.find(e => e.id === form.id);
+    const updated = isNew ? [...data.estimates, {
+      ...normalizedForm,
+      createdAt: new Date().toISOString().split('T')[0]
+    }] : data.estimates.map(est => est.id === form.id ? normalizedForm : est);
+    await save('estimates', updated);
+    if (isNew) {
+      await updateNextDocumentSetting('estimate', normalizedForm.number);
+    }
+    setView('list');
+  };
+  const closePreview = () => {
+    setPreviewOpen(false);
+    setLoadingPreview(false);
+    setPreviewError('');
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+  };
+  const handleOpenPreview = async () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+    setPreviewOpen(true);
+    setLoadingPreview(true);
+    setPreviewError('');
+    const nextPreviewUrl = await createPdfPreviewUrl('estimate', form, getPdfClientForDocument(form));
+    if (nextPreviewUrl) {
+      setPreviewUrl(nextPreviewUrl);
+    } else {
+      setPreviewError('Unable to generate preview. Please try again.');
+    }
+    setLoadingPreview(false);
+  };
+  const handleDownloadFromPreview = async () => {
+    await downloadQuotePDF(form);
+  };
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+  const handleSaveItem = item => {
+    if (editingItem) {
+      setForm({
+        ...form,
+        items: form.items.map(i => i.id === item.id ? item : i)
+      });
+    } else {
+      setForm({
+        ...form,
+        items: [...form.items, item]
+      });
+    }
+  };
+  const handleAddClient = async newClientData => {
+    const newClient = {
+      id: generateId(),
+      ...newClientData,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    await save('clients', [...data.clients, newClient]);
+    return newClient.id;
+  };
+  return <CompactFormContext.Provider value={compactForm}>
+        <div className="flex flex-col h-full">
+          <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
+            <button onClick={() => setView(isExistingEstimate ? 'view-estimate' : 'list')} className={`${compactForm ? 'p-1.5' : 'p-2'} ${activeTheme.buttonHover} rounded-xl`}>
+              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{isExistingEstimate ? 'Edit Quote' : 'New Quote'}</h1>
+            <div className="flex items-center gap-2">
+              <button onClick={handleOpenPreview} className={`${compactForm ? 'p-1.5' : 'px-3 py-1.5 text-sm'} border ${activeTheme.border} ${activeTheme.buttonHover} rounded-xl flex items-center gap-1.5`} title="Preview PDF">
+                <Eye className="w-4 h-4" />
+                {!compactForm ? 'Preview' : null}
+              </button>
+              <button onClick={handleSave} className={`${compactForm ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} ${activeTheme.accent} rounded-xl`}>
+                Save
+              </button>
+            </div>
+          </div>
+
+          <div className={`flex-1 overflow-auto ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'} phone-dock-scroll-space lg:pb-4`}>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
+              <FormInput label="Quote Number" value={form.number} onChange={v => setForm({
+            ...form,
+            number: v
+          })} theme={activeTheme} />
+              <FormInput label="Date" type="date" value={form.date} onChange={v => setForm({
+            ...form,
+            date: v
+          })} theme={activeTheme} />
+              <ClientSelect label="Client" value={form.clientId} onChange={v => setForm({
+            ...form,
+            clientId: v
+          })} clients={data.clients} onAddNew={handleAddClient} theme={activeTheme} />
+              <FormInput label="Client Name" value={form.clientName} onChange={v => setForm({
+            ...form,
+            clientName: v
+          })} placeholder="e.g. John Smith" theme={activeTheme} />
+            </div>
+
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
+              <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
+                <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
+                <button onClick={() => {
+              setEditingItem(null);
+              setItemModalOpen(true);
+            }} className={`${compactForm ? 'px-2.5 py-1.5 text-[13px]' : 'px-3 py-1.5 text-sm'} ${activeTheme.accent} rounded-lg flex items-center gap-1`}>
+                  <Plus className="w-4 h-4" />
+                  Add Item
+                </button>
+              </div>
+
+              {form.items.length === 0 ? <div className={`${compactForm ? 'p-5 text-sm' : 'p-8'} text-center ${activeTheme.textMuted}`}>No items added yet</div> : <div className="divide-y">
+                  {form.items.map((item, idx) => {
+              const displayQuantity = Number(item.quantity) > 0 ? Number(item.quantity) : 1;
+              const displayUnit = String(item.unit || '').trim();
+              return <div key={item.id} className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} ${activeTheme.tableRowHover} cursor-pointer`} onClick={() => {
+                setEditingItem(item);
+                setItemModalOpen(true);
+              }}>
+                        <div className="flex justify-between items-start gap-3">
+                          <div>
+                            <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
+                            {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.notes}</p>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <p className={`text-xs ${activeTheme.textMuted} whitespace-nowrap`}>
+                              x{displayQuantity}{displayUnit ? ` ${displayUnit}` : ''}
+                            </p>
+                            <p className={`font-semibold ${activeTheme.textPrimary}`}>
+                              {formatCurrency(calculateItemTotal(item, taxRate, {
+                        applyTax: taxEnabled
+                      }).total)}
+                            </p>
+                            <button onClick={e => {
+                      e.stopPropagation();
+                      const itemLabel = item.description?.trim() || `line item ${idx + 1}`;
+                      requestDeleteConfirmation(`Are you sure you want to delete ${itemLabel}? This action cannot be undone.`, async () => {
+                        setForm(current => ({
+                          ...current,
+                          items: current.items.filter((_, i) => i !== idx)
+                        }));
+                      });
+                    }} className="p-1.5 hover:bg-red-50 rounded-lg">
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>;
+            })}
+                </div>}
+            </div>
+
+            <DocumentTotalsEditor form={form} setForm={setForm} taxRate={taxRate} taxLabel={taxLabel} theme={activeTheme} />
+
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3' : 'p-4'}`}>
+              <FormInput label="Notes (optional - added to this document only)" value={form.notes} onChange={v => setForm({
+            ...form,
+            notes: v
+          })} multiline theme={activeTheme} />
+            </div>
+          </div>
+
+          <LineItemModal isOpen={itemModalOpen} onClose={() => setItemModalOpen(false)} onSave={handleSaveItem} item={editingItem} savedItems={data.items} taxRate={taxRate} applyDocumentTax={taxEnabled} theme={activeTheme} />
+
+          <PdfPreviewModal open={previewOpen} compact={compactForm} previewUrl={previewUrl} loadingPreview={loadingPreview} previewError={previewError} title={isExistingEstimate ? 'Quote Preview' : 'New Quote Preview'} onDownload={handleDownloadFromPreview} onClose={closePreview} theme={activeTheme} />
+        </div>
+      </CompactFormContext.Provider>;
+};
+
+// ============================================================================
+// CLIENTS
+// ============================================================================
+
+// ============================================================================
+// CLIENTS
+// ============================================================================
+
+const ClientsList = ({
+  app
+}) => {
+  const {
+    activeTheme,
+    data,
+    openNewClient,
+    save,
+    searchTerm,
+    setConfirmAction,
+    setConfirmMessage,
+    setConfirmOpen,
+    setCurrentItem,
+    setSearchTerm,
+    setView,
+    usePhoneLayout
+  } = app;
+  const filtered = data.clients.filter(client => {
+    if (!searchTerm) return true;
+    return client.name?.toLowerCase().includes(searchTerm.toLowerCase()) || client.email?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+  return <div className="flex flex-col h-full">
+        {!usePhoneLayout ? <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
+            <div className="flex items-center justify-between">
+              <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Clients</h1>
+              <button onClick={openNewClient} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}>
+                <Plus className="w-3.5 h-3.5" />
+                Add Client
+              </button>
+            </div>
+
+            <div className="relative mt-3 max-w-sm">
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
+              <input type="text" placeholder="Search clients..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`} />
+            </div>
+          </div> : null}
+
+        <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
+          {filtered.length === 0 ? <EmptyState icon={Users} title="No clients yet" description="Add your first client" theme={activeTheme} /> : <div className={usePhoneLayout ? 'space-y-1.5' : 'space-y-2'}>
+              {filtered.map(client => <div key={client.id} className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_1px_6px_rgba(0,0,0,0.06)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}>
+                  {usePhoneLayout ? <div className="flex items-center gap-2.5 px-3 py-2.5">
+                      <div onClick={() => {
+              setCurrentItem(client);
+              setView('view-client');
+            }} className={`w-10 h-10 rounded-full ${activeTheme.subtleBg} border ${activeTheme.border} flex items-center justify-center shrink-0 cursor-pointer`}>
+                        <span className={`text-xs font-bold ${activeTheme.textSecondary}`}>
+                          {(client.name || '').split(/\s+/).filter(Boolean).slice(0, 2).map(word => word.charAt(0)).join('').toUpperCase() || '?'}
+                        </span>
+                      </div>
+                      <div onClick={() => {
+              setCurrentItem(client);
+              setView('view-client');
+            }} className="flex-1 min-w-0 cursor-pointer">
+                        <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{client.name}</p>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {client.email && <span className={`text-[11px] ${activeTheme.textMuted} truncate max-w-[160px]`}>
+                              {client.email}
+                            </span>}
+                          {client.email && client.phone && <span className={`text-[11px] ${activeTheme.textMuted}`}>·</span>}
+                          {client.phone && <span className={`text-[11px] ${activeTheme.textMuted}`}>{client.phone}</span>}
+                        </div>
+                        {client.city && <p className={`text-[10px] ${activeTheme.iconColor} mt-0.5`}>{client.city}</p>}
+                      </div>
+                      <button onClick={e => {
+              e.stopPropagation();
+              setConfirmMessage(`Are you sure you want to delete client ${client.name}? This action cannot be undone.`);
+              setConfirmAction(() => async () => {
+                await save('clients', data.clients.filter(c => c.id !== client.id));
+              });
+              setConfirmOpen(true);
+            }} className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity shrink-0`}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div> : <div className="flex items-center gap-2 px-3 py-2.5">
+                      <div onClick={() => {
+              setCurrentItem(client);
+              setView('view-client');
+            }} className="flex-1 min-w-0 cursor-pointer">
+                        <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{client.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {client.email && <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client.email}</p>}
+                          {client.email && client.phone && <span className={`text-xs ${activeTheme.textMuted}`}>·</span>}
+                          {client.phone && <p className={`text-xs ${activeTheme.textMuted}`}>{client.phone}</p>}
+                        </div>
+                      </div>
+                      <button onClick={e => {
+              e.stopPropagation();
+              setConfirmMessage(`Are you sure you want to delete client ${client.name}? This action cannot be undone.`);
+              setConfirmAction(() => async () => {
+                await save('clients', data.clients.filter(c => c.id !== client.id));
+              });
+              setConfirmOpen(true);
+            }} className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity shrink-0`}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>}
+                </div>)}
+            </div>}
+        </div>
+      </div>;
+};
+
+const ClientView = ({
+  app
+}) => {
+  const {
+    activeTheme,
+    currentItem,
+    data,
+    save,
+    setConfirmAction,
+    setConfirmMessage,
+    setConfirmOpen,
+    setView
+  } = app;
+  return <div className="flex flex-col h-full">
+      <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
+        <button onClick={() => setView('list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+          <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+        </button>
+        <h1 className={`font-semibold ${activeTheme.textPrimary}`}>Client Details</h1>
+        <div className="flex gap-2">
+          <button onClick={() => setView('edit-client')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
+            <Edit className={`w-5 h-5 ${activeTheme.textSecondary}`} />
+          </button>
+          <button onClick={() => {
+          setConfirmMessage(`Are you sure you want to delete client ${currentItem.name}? This action cannot be undone.`);
+          setConfirmAction(() => async () => {
+            await save('clients', data.clients.filter(c => c.id !== currentItem.id));
+            setView('list');
+          });
+          setConfirmOpen(true);
+        }} className="p-2 hover:bg-red-50 rounded-xl">
+            <Trash2 className="w-5 h-5 text-red-500" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:pb-4">
+        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
+          <h2 className={`text-xl font-bold mb-4 ${activeTheme.textPrimary}`}>{currentItem?.name}</h2>
+          {currentItem?.phone && <div className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
+              <Phone className={`w-5 h-5 ${activeTheme.iconColor}`} />
+              <div>
+                <p className={`text-xs ${activeTheme.textMuted}`}>Phone</p>
+                <p className={`text-sm font-medium ${activeTheme.textPrimary}`}>{currentItem.phone}</p>
+              </div>
+            </div>}
+          {currentItem?.email && <div className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
+              <Mail className={`w-5 h-5 ${activeTheme.iconColor}`} />
+              <div>
+                <p className={`text-xs ${activeTheme.textMuted}`}>Email</p>
+                <p className={`text-sm font-medium ${activeTheme.textPrimary}`}>{currentItem.email}</p>
+              </div>
+            </div>}
+          {formatClientAddress(currentItem) && <div className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
+              <MapPin className={`w-5 h-5 ${activeTheme.iconColor}`} />
+              <div>
+                <p className={`text-xs ${activeTheme.textMuted}`}>Address</p>
+                <p className={`text-sm font-medium whitespace-pre-line ${activeTheme.textPrimary}`}>{formatClientAddress(currentItem)}</p>
+              </div>
+            </div>}
+          {currentItem?.vatNumber && <div className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
+              <Building2 className={`w-5 h-5 ${activeTheme.iconColor}`} />
+              <div>
+                <p className={`text-xs ${activeTheme.textMuted}`}>VAT Number</p>
+                <p className={`text-sm font-medium ${activeTheme.textPrimary}`}>{currentItem.vatNumber}</p>
+              </div>
+            </div>}
+          {[currentItem?.extraLine1, currentItem?.extraLine2, currentItem?.extraLine3, currentItem?.extraLine4, currentItem?.extraLine5].filter(Boolean).map((line, index) => <div key={index} className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
+                <Building2 className={`w-5 h-5 ${activeTheme.iconColor}`} />
+                <div>
+                  <p className={`text-xs ${activeTheme.textMuted}`}>Extra Info {index + 1}</p>
+                  <p className={`text-sm font-medium ${activeTheme.textPrimary}`}>{line}</p>
+                </div>
+              </div>)}
+        </div>
+      </div>
+    </div>;
+};
+
+const ClientEdit = ({
+  app
+}) => {
+  const {
+    activeTheme,
+    currentItem,
+    data,
+    save,
+    setView,
+    usePhoneLayout
+  } = app;
+  const [form, setForm] = useState(currentItem || {
+    id: generateId(),
+    name: '',
+    phone: '',
+    email: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    postalCode: '',
+    vatNumber: '',
+    extraLine1: '',
+    extraLine2: '',
+    extraLine3: '',
+    extraLine4: '',
+    extraLine5: '',
+    notes: ''
+  });
+  const handleSave = async () => {
+    const isNew = !data.clients.find(c => c.id === form.id);
+    const updated = isNew ? [...data.clients, form] : data.clients.map(c => c.id === form.id ? form : c);
+    await save('clients', updated);
+    setView('list');
+  };
+  const compactForm = usePhoneLayout;
+  return <CompactFormContext.Provider value={compactForm}>
+        <div className="flex flex-col h-full">
+          <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
+            <button onClick={() => setView(currentItem?.name ? 'view-client' : 'list')} className={`${compactForm ? 'p-1.5' : 'p-2'} ${activeTheme.buttonHover} rounded-xl`}>
+              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{currentItem?.name ? 'Edit Client' : 'New Client'}</h1>
+            <button onClick={handleSave} className={`${compactForm ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} ${activeTheme.accent} rounded-xl`}>
+              Save
+            </button>
+          </div>
+
+          <div className={`flex-1 overflow-auto ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'} phone-dock-scroll-space lg:pb-4`}>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
+              <FormInput label="Client Name" value={form.name} onChange={v => setForm({
+            ...form,
+            name: v
+          })} theme={activeTheme} />
+              <FormInput label="Phone" value={form.phone} onChange={v => setForm({
+            ...form,
+            phone: v
+          })} theme={activeTheme} />
+              <FormInput label="Email" value={form.email} onChange={v => setForm({
+            ...form,
+            email: v
+          })} theme={activeTheme} />
+              <FormInput label="VAT Number" value={form.vatNumber} onChange={v => setForm({
+            ...form,
+            vatNumber: v
+          })} theme={activeTheme} />
+              <FormInput label="Extra Info 1" value={form.extraLine1 || ''} onChange={v => setForm({
+            ...form,
+            extraLine1: v
+          })} theme={activeTheme} />
+              <FormInput label="Extra Info 2" value={form.extraLine2 || ''} onChange={v => setForm({
+            ...form,
+            extraLine2: v
+          })} theme={activeTheme} />
+              <FormInput label="Extra Info 3" value={form.extraLine3 || ''} onChange={v => setForm({
+            ...form,
+            extraLine3: v
+          })} theme={activeTheme} />
+              <FormInput label="Extra Info 4" value={form.extraLine4 || ''} onChange={v => setForm({
+            ...form,
+            extraLine4: v
+          })} theme={activeTheme} />
+              <FormInput label="Extra Info 5" value={form.extraLine5 || ''} onChange={v => setForm({
+            ...form,
+            extraLine5: v
+          })} theme={activeTheme} />
+              <FormInput label="Address Line 1" value={form.addressLine1} onChange={v => setForm({
+            ...form,
+            addressLine1: v
+          })} theme={activeTheme} />
+              <FormInput label="Address Line 2" value={form.addressLine2} onChange={v => setForm({
+            ...form,
+            addressLine2: v
+          })} theme={activeTheme} />
+              <div className={`grid grid-cols-2 ${compactForm ? 'gap-2.5' : 'gap-3'}`}>
+                <FormInput label="City" value={form.city} onChange={v => setForm({
+              ...form,
+              city: v
+            })} theme={activeTheme} />
+                <FormInput label="Postal Code" value={form.postalCode} onChange={v => setForm({
+              ...form,
+              postalCode: v
+            })} theme={activeTheme} />
+              </div>
+              <FormInput label="Notes" value={form.notes} onChange={v => setForm({
+            ...form,
+            notes: v
+          })} multiline theme={activeTheme} />
+            </div>
+          </div>
+        </div>
+      </CompactFormContext.Provider>;
+};
+
+// ============================================================================
+// ITEMS
+// ============================================================================
+
+// ============================================================================
+// ITEMS
+// ============================================================================
+
+const ItemsList = ({
+  app
+}) => {
+  const {
+    activeTheme,
+    data,
+    openNewItem,
+    save,
+    searchTerm,
+    setConfirmAction,
+    setConfirmMessage,
+    setConfirmOpen,
+    setCurrentItem,
+    setSearchTerm,
+    setView,
+    usePhoneLayout
+  } = app;
+  const filtered = data.items.filter(item => {
+    if (!searchTerm) return true;
+    return item.name?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+  return <div className="flex flex-col h-full">
+        {!usePhoneLayout ? <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
+            <div className="flex items-center justify-between">
+              <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Items</h1>
+              <button onClick={openNewItem} className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}>
+                <Plus className="w-3.5 h-3.5" />
+                Add Item
+              </button>
+            </div>
+
+            <div className="relative mt-3 max-w-sm">
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
+              <input type="text" placeholder="Search items..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`} />
+            </div>
+          </div> : null}
+
+        <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
+          {filtered.length === 0 ? <EmptyState icon={Package} title="No items yet" description="Add your products and services" theme={activeTheme} /> : <div className={usePhoneLayout ? 'space-y-2' : 'space-y-2'}>
+              {filtered.map(item => <div key={item.id} className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-xl shadow-[0_1px_6px_rgba(0,0,0,0.06)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}>
+                  {usePhoneLayout ? <div className="px-3 py-2.5">
+                      <div onClick={() => {
+              setCurrentItem(item);
+              setView('edit-item');
+            }} className="flex items-center justify-between mb-0.5 cursor-pointer">
+                        <p className={`text-sm font-bold ${activeTheme.textPrimary} truncate mr-3`}>
+                          {item.name}
+                        </p>
+                        <p className={`text-sm font-bold ${activeTheme.textPrimary} shrink-0`}>
+                          {formatCurrency(item.unitCost || 0)}
+                        </p>
+                      </div>
+
+                      {item.description && <div onClick={() => {
+              setCurrentItem(item);
+              setView('edit-item');
+            }} className="cursor-pointer">
+                          <p className={`text-[11px] leading-tight ${activeTheme.textMuted} mb-1.5`} style={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden'
+              }}>
+                            {item.description}
+                          </p>
+                        </div>}
+
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {item.unit && <span className={`text-[9px] ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-1.5 py-px rounded-full border ${activeTheme.border}`}>
+                              per {item.unit}
+                            </span>}
+                          {item.taxable && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-px rounded-full border border-emerald-200">
+                              Taxable
+                            </span>}
+                          {item.discountAmount > 0 && <span className="text-[9px] text-amber-600 bg-amber-50 px-1.5 py-px rounded-full border border-amber-200">
+                              {item.discountType === 'percentage' ? `${item.discountAmount}% off` : `${formatCurrency(item.discountAmount)} off`}
+                            </span>}
+                        </div>
+                        <button onClick={e => {
+                e.stopPropagation();
+                setConfirmMessage(`Are you sure you want to delete item ${item.name}? This action cannot be undone.`);
+                setConfirmAction(() => async () => {
+                  await save('items', data.items.filter(i => i.id !== item.id));
+                });
+                setConfirmOpen(true);
+              }} className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity shrink-0`}>
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    </div> : <div className="flex items-center gap-2 px-3 py-2.5">
+                      <div onClick={() => {
+              setCurrentItem(item);
+              setView('edit-item');
+            }} className="flex-1 min-w-0 cursor-pointer">
+                        <div className="flex items-baseline gap-2">
+                          <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{item.name}</p>
+                          {item.description && <p className={`text-xs truncate ${activeTheme.textMuted}`}>{item.description}</p>}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {item.unit && <span className={`text-[10px] ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-1.5 py-0.5 rounded`}>per {item.unit}</span>}
+                          {item.taxable && <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded">Taxable</span>}
+                          {item.discountAmount > 0 && <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                              {item.discountType === 'percentage' ? `${item.discountAmount}% off` : `${formatCurrency(item.discountAmount)} off`}
+                            </span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <p className={`text-sm font-bold ${activeTheme.textPrimary}`}>{formatCurrency(item.unitCost || 0)}</p>
+                        <button onClick={e => {
+                e.stopPropagation();
+                setConfirmMessage(`Are you sure you want to delete item ${item.name}? This action cannot be undone.`);
+                setConfirmAction(() => async () => {
+                  await save('items', data.items.filter(i => i.id !== item.id));
+                });
+                setConfirmOpen(true);
+              }} className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}>
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    </div>}
+                </div>)}
+            </div>}
+        </div>
+      </div>;
+};
+
+const ItemEdit = ({
+  app
+}) => {
+  const {
+    activeTheme,
+    currentItem,
+    data,
+    save,
+    setConfirmAction,
+    setConfirmMessage,
+    setConfirmOpen,
+    setView,
+    usePhoneLayout
+  } = app;
+  const [form, setForm] = useState(currentItem || {
+    id: generateId(),
+    name: '',
+    description: '',
+    unitCost: 0,
+    unit: '',
+    quantity: 1,
+    discountType: 'percentage',
+    discountAmount: 0,
+    taxable: false,
+    additionalDetails: ''
+  });
+  const itemTotal = (form.unitCost || 0) * (form.quantity || 1);
+  const discount = form.discountType === 'percentage' ? itemTotal * ((form.discountAmount || 0) / 100) : form.discountAmount || 0;
+  const finalTotal = itemTotal - discount;
+  const handleSave = async () => {
+    const normalizedForm = {
+      ...form,
+      unitCost: Number(form.unitCost) || 0,
+      quantity: form.quantity === '' ? 0 : parseInt(form.quantity, 10) || 0,
+      discountAmount: Number(form.discountAmount) || 0
+    };
+    const isNew = !data.items.find(i => i.id === form.id);
+    const updated = isNew ? [...data.items, normalizedForm] : data.items.map(i => i.id === form.id ? normalizedForm : i);
+    await save('items', updated);
+    setView('list');
+  };
+  const compactForm = usePhoneLayout;
+  return <CompactFormContext.Provider value={compactForm}>
+        <div className="flex flex-col h-full">
+          <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
+            <button onClick={() => setView('list')} className={`${compactForm ? 'p-1.5' : 'p-2'} ${activeTheme.buttonHover} rounded-xl`}>
+              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
+            </button>
+            <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{currentItem?.name ? 'Edit Item' : 'New Item'}</h1>
+            <div className="flex gap-2">
+              {currentItem?.name && <button onClick={() => {
+            setConfirmMessage(`Are you sure you want to delete item ${form.name}? This action cannot be undone.`);
+            setConfirmAction(() => async () => {
+              await save('items', data.items.filter(i => i.id !== form.id));
+              setView('list');
+            });
+            setConfirmOpen(true);
+          }} className={`${compactForm ? 'p-1.5' : 'p-2'} hover:bg-red-50 rounded-xl`}>
+                  <Trash2 className="w-5 h-5 text-red-500" />
+                </button>}
+              <button onClick={handleSave} className={`${compactForm ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} ${activeTheme.accent} rounded-xl`}>
+                Save
+              </button>
+            </div>
+          </div>
+
+          <div className={`flex-1 overflow-auto ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'} phone-dock-scroll-space lg:pb-4`}>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
+              <FormInput label="Item Name" value={form.name} onChange={v => setForm({
+            ...form,
+            name: v
+          })} theme={activeTheme} />
+              <FormInput label="Description" value={form.description} onChange={v => setForm({
+            ...form,
+            description: v
+          })} multiline theme={activeTheme} />
+              <FormInput label="Unit Cost" type="number" value={form.unitCost} onChange={v => setForm({
+            ...form,
+            unitCost: parseFloat(v) || 0
+          })} theme={activeTheme} />
+              <div className={`grid grid-cols-2 ${compactForm ? 'gap-2.5' : 'gap-3'}`}>
+                <FormInput label="Unit" value={form.unit} onChange={v => setForm({
+              ...form,
+              unit: v
+            })} theme={activeTheme} />
+                <FormInput label="Quantity" type="number" value={form.quantity} onChange={v => setForm({
+              ...form,
+              quantity: v === '' ? '' : parseInt(v, 10) || 0
+            })} theme={activeTheme} />
+              </div>
+
+              <div className={`grid grid-cols-2 ${compactForm ? 'gap-2.5' : 'gap-3'}`}>
+                <div className={compactForm ? 'space-y-1' : 'space-y-1'}>
+                  <label className={`${compactForm ? 'text-xs' : 'text-sm'} font-medium ${activeTheme.labelColor}`}>Discount Type</label>
+                  <select value={form.discountType} onChange={e => setForm({
+                ...form,
+                discountType: e.target.value
+              })} className={`w-full ${compactForm ? 'px-3 py-2 rounded-lg text-[13px]' : 'px-3 py-2 rounded-xl text-sm'} border ${activeTheme.inputBorder} ${activeTheme.inputBg} ${activeTheme.textPrimary}`}>
+                    <option value="percentage">Percentage</option>
+                    <option value="flat">Fixed Amount</option>
+                  </select>
+                </div>
+                <FormInput label="Discount Amount" type="number" value={form.discountAmount} onChange={v => setForm({
+              ...form,
+              discountAmount: parseFloat(v) || 0
+            })} theme={activeTheme} />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className={`${compactForm ? 'text-xs' : 'text-sm'} font-medium ${activeTheme.textPrimary}`}>Taxable</span>
+                <button onClick={() => setForm({
+              ...form,
+              taxable: !form.taxable
+            })} className={`relative w-12 h-7 rounded-full ${form.taxable ? activeTheme.accent : activeTheme.toggleInactive}`}>
+                  <span className={`absolute top-1 w-5 h-5 bg-white rounded-full ${form.taxable ? 'left-6' : 'left-1'}`} />
+                </button>
+              </div>
+
+              <div className={`flex justify-between items-center ${compactForm ? 'pt-3' : 'pt-4'} border-t ${activeTheme.border}`}>
+                <span className={`font-semibold ${activeTheme.textPrimary}`}>Total</span>
+                <span className={`${compactForm ? 'text-lg' : 'text-xl'} font-bold ${activeTheme.textPrimary}`}>{formatCurrency(finalTotal)}</span>
+              </div>
+            </div>
+
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3' : 'p-4'}`}>
+              <FormInput label="Additional Details" value={form.additionalDetails} onChange={v => setForm({
+            ...form,
+            additionalDetails: v
+          })} multiline theme={activeTheme} />
+            </div>
+          </div>
+        </div>
+      </CompactFormContext.Provider>;
+};
+
+// ============================================================================
+// REPORTS + SETTINGS
+// ============================================================================
+
+// ============================================================================
+// REPORTS + SETTINGS
+// ============================================================================
+
+const ReportsPage = ({
+  app
+}) => {
+  const {
+    activeTheme,
+    data,
+    usePhoneLayout
+  } = app;
+  const taxRate = data.settings?.taxRate || 15;
+
+  // Current date helpers
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1;
+  const currentYear = currentDate.getFullYear();
+
+  // Filter states
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString());
+  const [selectedYear, setSelectedYear] = useState(currentYear.toString());
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedClient, setSelectedClient] = useState('all');
+  const [reportView, setReportView] = useState('overview');
+
+  // Helper functions
+  const getClientName = clientId => {
+    const client = data.clients.find(c => c.id === clientId);
+    return client?.name || 'No client';
+  };
+  const getMonthYear = dateStr => {
+    const date = new Date(dateStr);
+    return {
+      month: date.getMonth() + 1,
+      year: date.getFullYear(),
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    };
+  };
+  const formatMonthYear = (month, year) => {
+    const date = new Date(year, month - 1);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long'
+    });
+  };
+
+  // Filtered data
+  const filteredInvoices = useMemo(() => {
+    return data.invoices.filter(inv => {
+      const {
+        month,
+        year
+      } = getMonthYear(inv.date);
+      const matchesMonth = selectedMonth === 'all' || month === parseInt(selectedMonth);
+      const matchesYear = selectedYear === 'all' || year === parseInt(selectedYear);
+      const matchesClient = selectedClient === 'all' || inv.clientId === selectedClient;
+      let matchesStatus = true;
+      if (selectedStatus !== 'all') {
+        if (selectedStatus === 'paid') matchesStatus = inv.status === 'paid';else if (selectedStatus === 'outstanding') matchesStatus = inv.status === 'outstanding';else if (selectedStatus === 'estimate') matchesStatus = false; // invoices are not estimates
+        else if (selectedStatus === 'converted') matchesStatus = false; // for now, assume not
+      }
+      return matchesMonth && matchesYear && matchesClient && matchesStatus;
+    });
+  }, [data.invoices, selectedMonth, selectedYear, selectedClient, selectedStatus]);
+  const filteredEstimates = useMemo(() => {
+    return data.estimates.filter(est => {
+      const {
+        month,
+        year
+      } = getMonthYear(est.date);
+      const matchesMonth = selectedMonth === 'all' || month === parseInt(selectedMonth);
+      const matchesYear = selectedYear === 'all' || year === parseInt(selectedYear);
+      const matchesClient = selectedClient === 'all' || est.clientId === selectedClient;
+      let matchesStatus = true;
+      if (selectedStatus !== 'all') {
+        if (selectedStatus === 'estimate') matchesStatus = true;else if (selectedStatus === 'converted') matchesStatus = est.status === 'accepted';else matchesStatus = false; // estimates don't have paid/outstanding
+      }
+      return matchesMonth && matchesYear && matchesClient && matchesStatus;
+    });
+  }, [data.estimates, selectedMonth, selectedYear, selectedClient, selectedStatus]);
+
+  // Summary calculations
+  const summary = useMemo(() => {
+    const totalInvoiced = filteredInvoices.reduce((sum, inv) => sum + calculateDocumentTotal(inv, taxRate), 0);
+    const totalPaid = filteredInvoices.filter(i => i.status === 'paid').reduce((sum, inv) => sum + calculateDocumentTotal(inv, taxRate), 0);
+    const totalOutstanding = filteredInvoices.filter(i => i.status !== 'paid').reduce((sum, inv) => sum + calculateDocumentTotal(inv, taxRate), 0);
+    const totalEstimates = filteredEstimates.reduce((sum, est) => sum + calculateDocumentTotal(est, taxRate), 0);
+    const invoiceCount = filteredInvoices.length;
+    const estimateCount = filteredEstimates.length;
+    const activeClients = new Set([...filteredInvoices.map(i => i.clientId), ...filteredEstimates.map(e => e.clientId)]).size;
+    const conversionRate = estimateCount > 0 ? invoiceCount / estimateCount * 100 : 0;
+    return {
+      totalInvoiced,
+      totalPaid,
+      totalOutstanding,
+      totalEstimates,
+      invoiceCount,
+      estimateCount,
+      activeClients,
+      conversionRate,
+      averageInvoiceValue: invoiceCount > 0 ? totalInvoiced / invoiceCount : 0,
+      averageEstimateValue: estimateCount > 0 ? totalEstimates / estimateCount : 0
+    };
+  }, [filteredInvoices, filteredEstimates, taxRate]);
+
+  // Monthly breakdown
+  const monthlyBreakdown = useMemo(() => {
+    const breakdown = {};
+    const allItems = [...filteredInvoices.map(item => ({
+      ...item,
+      docType: 'invoice'
+    })), ...filteredEstimates.map(item => ({
+      ...item,
+      docType: 'estimate'
+    }))];
+    allItems.forEach(item => {
+      const {
+        key,
+        month,
+        year
+      } = getMonthYear(item.date);
+      if (!breakdown[key]) {
+        breakdown[key] = {
+          period: formatMonthYear(month, year),
+          invoices: 0,
+          paid: 0,
+          outstanding: 0,
+          estimates: 0,
+          totalInvoiced: 0,
+          totalEstimated: 0,
+          clients: new Set()
+        };
+      }
+      const total = calculateDocumentTotal(item, taxRate);
+      if (item.docType === 'invoice') {
+        // invoice
+        breakdown[key].invoices++;
+        breakdown[key].totalInvoiced += total;
+        if (item.status === 'paid') breakdown[key].paid++;else breakdown[key].outstanding++;
+      } else {
+        // estimate
+        breakdown[key].estimates++;
+        breakdown[key].totalEstimated += total;
+      }
+      breakdown[key].clients.add(item.clientId);
+    });
+
+    // Convert clients to count
+    Object.keys(breakdown).forEach(key => {
+      breakdown[key].clients = breakdown[key].clients.size;
+    });
+    return Object.values(breakdown).sort((a, b) => new Date(b.period) - new Date(a.period));
+  }, [filteredInvoices, filteredEstimates, taxRate]);
+
+  // Client reporting
+  const clientReporting = useMemo(() => {
+    const clients = {};
+    data.clients.forEach(client => {
+      clients[client.id] = {
+        name: client.name,
+        invoices: 0,
+        estimates: 0,
+        totalInvoiced: 0,
+        totalPaid: 0,
+        outstanding: 0,
+        lastActivity: null
+      };
+    });
+    filteredInvoices.forEach(inv => {
+      if (clients[inv.clientId]) {
+        clients[inv.clientId].invoices++;
+        const total = calculateDocumentTotal(inv, taxRate);
+        clients[inv.clientId].totalInvoiced += total;
+        if (inv.status === 'paid') clients[inv.clientId].totalPaid += total;else clients[inv.clientId].outstanding += total;
+        const date = new Date(inv.date);
+        if (!clients[inv.clientId].lastActivity || date > clients[inv.clientId].lastActivity) {
+          clients[inv.clientId].lastActivity = date;
+        }
+      }
+    });
+    filteredEstimates.forEach(est => {
+      if (clients[est.clientId]) {
+        clients[est.clientId].estimates++;
+        const date = new Date(est.date);
+        if (!clients[est.clientId].lastActivity || date > clients[est.clientId].lastActivity) {
+          clients[est.clientId].lastActivity = date;
+        }
+      }
+    });
+    return Object.values(clients).filter(c => c.invoices > 0 || c.estimates > 0).sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+  }, [data.clients, filteredInvoices, filteredEstimates, taxRate]);
+
+  // Recent activity
+  const recentActivity = useMemo(() => {
+    const activities = [...filteredInvoices.map(inv => ({
+      ...inv,
+      type: 'Invoice',
+      status: inv.status
+    })), ...filteredEstimates.map(est => ({
+      ...est,
+      type: 'Quote',
+      status: est.status
+    }))].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 20);
+    return activities.map(item => ({
+      ...item,
+      clientName: getClientName(item.clientId),
+      total: calculateDocumentTotal(item, taxRate)
+    }));
+  }, [filteredInvoices, filteredEstimates, taxRate]);
+  const revenueChartData = useMemo(() => {
+    return monthlyBreakdown.slice().reverse().map(row => ({
+      label: row.period,
+      invoiced: row.totalInvoiced,
+      paid: filteredInvoices.filter(inv => {
+        const period = getMonthYear(inv.date);
+        return formatMonthYear(period.month, period.year) === row.period && inv.status === 'paid';
+      }).reduce((sum, inv) => sum + calculateDocumentTotal(inv, taxRate), 0),
+      estimated: row.totalEstimated,
+      total: row.totalInvoiced + row.totalEstimated
+    }));
+  }, [monthlyBreakdown, filteredInvoices, taxRate]);
+  const invoiceStatusChartData = useMemo(() => {
+    const paidCount = filteredInvoices.filter(inv => inv.status === 'paid').length;
+    const outstandingCount = filteredInvoices.filter(inv => inv.status !== 'paid').length;
+    return [{
+      label: 'Paid',
+      value: paidCount,
+      color: '#10B981',
+      detail: `${formatCurrency(summary.totalPaid)} collected`
+    }, {
+      label: 'Outstanding',
+      value: outstandingCount,
+      color: '#F59E0B',
+      detail: `${formatCurrency(summary.totalOutstanding)} open`
+    }];
+  }, [filteredInvoices, summary.totalPaid, summary.totalOutstanding]);
+  const estimateStatusChartData = useMemo(() => {
+    const statuses = [{
+      key: 'pending',
+      label: 'Pending',
+      color: '#F59E0B'
+    }, {
+      key: 'accepted',
+      label: 'Accepted',
+      color: '#10B981'
+    }, {
+      key: 'declined',
+      label: 'Declined',
+      color: '#EF4444'
+    }];
+    return statuses.map(status => ({
+      label: status.label,
+      value: filteredEstimates.filter(estimate => estimate.status === status.key).length,
+      color: status.color
+    }));
+  }, [filteredEstimates]);
+  const clientPerformanceChartData = useMemo(() => {
+    return clientReporting.filter(client => client.totalInvoiced > 0).slice(0, 6).map((client, index) => ({
+      label: client.name,
+      value: client.totalInvoiced,
+      detail: `${client.invoices} invoices`,
+      color: ['linear-gradient(90deg, #8E1020, #D4142A)', 'linear-gradient(90deg, #0F766E, #14B8A6)', 'linear-gradient(90deg, #7C3AED, #A855F7)', 'linear-gradient(90deg, #1D4ED8, #3B82F6)', 'linear-gradient(90deg, #B45309, #F59E0B)', 'linear-gradient(90deg, #BE123C, #FB7185)'][index % 6]
+    }));
+  }, [clientReporting]);
+  const conversionChartData = useMemo(() => {
+    const acceptedEstimates = filteredEstimates.filter(estimate => estimate.status === 'accepted').length;
+    const invoiceCount = filteredInvoices.length;
+    return [{
+      label: 'Accepted Quotes',
+      value: acceptedEstimates,
+      detail: `${acceptedEstimates} accepted`,
+      color: 'linear-gradient(90deg, #0F766E, #14B8A6)'
+    }, {
+      label: 'Invoices Issued',
+      value: invoiceCount,
+      detail: `${summary.conversionRate.toFixed(1)}% quote-to-invoice rate`,
+      color: 'linear-gradient(90deg, #8E1020, #D4142A)'
+    }];
+  }, [filteredEstimates, filteredInvoices, summary.conversionRate]);
+
+  // Filter options
+  const monthOptions = useMemo(() => {
+    return Array.from({
+      length: 12
+    }, (_, i) => i + 1).map(m => ({
+      value: m,
+      label: new Date(2023, m - 1).toLocaleString('default', {
+        month: 'long'
+      })
+    }));
+  }, []);
+  const yearOptions = useMemo(() => {
+    const years = new Set();
+    [...data.invoices, ...data.estimates].forEach(item => {
+      const {
+        year
+      } = getMonthYear(item.date);
+      years.add(year);
+    });
+    years.add(currentYear);
+    return Array.from(years).sort((a, b) => b - a);
+  }, [data.invoices, data.estimates, currentYear]);
+  const statusOptions = [{
+    value: 'all',
+    label: 'All'
+  }, {
+    value: 'paid',
+    label: 'Paid'
+  }, {
+    value: 'outstanding',
+    label: 'Outstanding'
+  }, {
+    value: 'estimate',
+    label: 'Quote'
+  }, {
+    value: 'converted',
+    label: 'Converted'
+  }];
+  const clientOptions = [{
+    value: 'all',
+    label: 'All Clients'
+  }, ...data.clients.map(c => ({
+    value: c.id,
+    label: c.name
+  }))];
+  const resetFilters = () => {
+    setSelectedMonth(currentMonth.toString());
+    setSelectedYear(currentYear.toString());
+    setSelectedStatus('all');
+    setSelectedClient('all');
+  };
+  const topClient = clientReporting[0] || null;
+  const latestPeriod = monthlyBreakdown[0] || null;
+  const paidRatio = summary.totalInvoiced > 0 ? summary.totalPaid / summary.totalInvoiced * 100 : 0;
+  const outstandingRatio = summary.totalInvoiced > 0 ? summary.totalOutstanding / summary.totalInvoiced * 100 : 0;
+  const businessSignals = [{
+    title: 'Collections',
+    value: `${paidRatio.toFixed(1)}%`,
+    detail: `${formatCurrency(summary.totalPaid)} collected from invoiced work`
+  }, {
+    title: 'Exposure',
+    value: `${outstandingRatio.toFixed(1)}%`,
+    detail: `${formatCurrency(summary.totalOutstanding)} still outstanding`
+  }, {
+    title: 'Momentum',
+    value: latestPeriod ? latestPeriod.period : 'No period',
+    detail: latestPeriod ? `${latestPeriod.invoices} invoices and ${latestPeriod.estimates} quotes in the latest period` : 'No activity for the selected filters'
+  }];
+  const analyticsSummaryCards = [{
+    title: 'Total Invoiced',
+    value: formatCurrency(summary.totalInvoiced),
+    detail: `${summary.invoiceCount} invoices issued`,
+    accentClass: 'bg-sky-500'
+  }, {
+    title: 'Total Paid',
+    value: formatCurrency(summary.totalPaid),
+    detail: `${summary.totalInvoiced > 0 ? (summary.totalPaid / summary.totalInvoiced * 100).toFixed(1) : '0.0'}% collected`,
+    accentClass: 'bg-emerald-500'
+  }, {
+    title: 'Outstanding',
+    value: formatCurrency(summary.totalOutstanding),
+    detail: `${summary.totalInvoiced > 0 ? (summary.totalOutstanding / summary.totalInvoiced * 100).toFixed(1) : '0.0'}% still open`,
+    accentClass: 'bg-amber-500'
+  }, {
+    title: 'Total Quotes',
+    value: formatCurrency(summary.totalEstimates),
+    detail: `${summary.estimateCount} quotes created`,
+    accentClass: 'bg-violet-500'
+  }, {
+    title: 'Active Clients',
+    value: `${summary.activeClients}`,
+    detail: 'Clients with filtered activity',
+    accentClass: 'bg-cyan-500'
+  }, {
+    title: 'Conversion Rate',
+    value: `${summary.conversionRate.toFixed(1)}%`,
+    detail: 'Invoices compared with quotes',
+    accentClass: 'bg-rose-500'
+  }, {
+    title: 'Average Invoice Value',
+    value: formatCurrency(summary.averageInvoiceValue),
+    detail: 'Average across filtered invoices',
+    accentClass: 'bg-indigo-500'
+  }, {
+    title: 'Average Quote Value',
+    value: formatCurrency(summary.averageEstimateValue),
+    detail: 'Average across filtered quotes',
+    accentClass: 'bg-fuchsia-500'
+  }];
+  return <div className="flex flex-col h-full">
+        <div className="p-4 lg:p-6 border-b">
+          {!usePhoneLayout ? <>
+              <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Reports</h1>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Detailed business performance overview</p>
+            </> : null}
+          <div className={`${usePhoneLayout ? '' : 'mt-4 '} inline-flex rounded-xl sm:rounded-2xl ${usePhoneLayout ? 'bg-white/80 p-1 shadow-[0_2px_12px_rgba(0,0,0,0.06)] backdrop-blur-xl' : `border ${activeTheme.border} ${activeTheme.subtleBg} p-1`}`}>
+            <button onClick={() => setReportView('overview')} className={`${usePhoneLayout ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm'} rounded-lg sm:rounded-xl transition-all ${reportView === 'overview' ? usePhoneLayout ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm' : activeTheme.accent : usePhoneLayout ? 'bg-zinc-100 text-zinc-600' : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`}`}>
+              {usePhoneLayout ? 'Overview' : 'Reports Overview'}
+            </button>
+            <button onClick={() => setReportView('business')} className={`${usePhoneLayout ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm'} rounded-lg sm:rounded-xl transition-all ${reportView === 'business' ? usePhoneLayout ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm' : activeTheme.accent : usePhoneLayout ? 'bg-zinc-100 text-zinc-600' : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`}`}>
+              {usePhoneLayout ? 'Business' : 'Business View'}
+            </button>
+            <button onClick={() => setReportView('analytics')} className={`${usePhoneLayout ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm'} rounded-lg sm:rounded-xl transition-all ${reportView === 'analytics' ? usePhoneLayout ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm' : activeTheme.accent : usePhoneLayout ? 'bg-zinc-100 text-zinc-600' : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`}`}>
+              Analytics
+            </button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className={`px-3 py-2.5 sm:px-4 sm:py-4 lg:px-6 border-b ${activeTheme.sectionHeaderBg}`}>
+          <div className={`${usePhoneLayout ? 'grid grid-cols-2 gap-2' : 'flex flex-wrap gap-3'} items-center`}>
+            {/* Month */}
+            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-lg sm:rounded-xl overflow-hidden shadow-sm`}>
+              <span className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Month</span>
+              <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none min-w-0`}>
+                <option value="all">All Months</option>
+                {monthOptions.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            </div>
+            {/* Year */}
+            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-lg sm:rounded-xl overflow-hidden shadow-sm`}>
+              <span className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Year</span>
+              <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none min-w-0`}>
+                <option value="all">All Years</option>
+                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            {/* Status */}
+            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-lg sm:rounded-xl overflow-hidden shadow-sm`}>
+              <span className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Status</span>
+              <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none min-w-0`}>
+                {statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+            {/* Client */}
+            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-lg sm:rounded-xl overflow-hidden shadow-sm`}>
+              <span className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Client</span>
+              <select value={selectedClient} onChange={e => setSelectedClient(e.target.value)} className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none min-w-0`}>
+                {clientOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
+            <button onClick={resetFilters} className={`px-3 py-1.5 sm:px-4 sm:py-2 ${activeTheme.accent} ${activeTheme.accentHover} rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium shadow-sm transition-colors ${usePhoneLayout ? 'col-span-2' : ''}`}>
+              Reset Filters
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto px-2.5 pt-2 pb-3 phone-dock-scroll-space sm:p-4 lg:p-6 lg:pb-6 space-y-3 sm:space-y-6">
+          {reportView === 'analytics' ? <>
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">
+                {analyticsSummaryCards.map(card => <SummaryMetricCard key={card.title} {...card} theme={activeTheme} />)}
+              </div>
+
+              <div className="grid xl:grid-cols-[1.5fr_0.9fr] gap-6">
+                <AnalyticsCard title="Revenue Overview" subtitle="Invoiced, paid, and quoted value grouped by period" theme={activeTheme}>
+                  <SimpleMultiBarChart data={revenueChartData} theme={activeTheme} series={[{
+              key: 'invoiced',
+              label: 'Invoiced',
+              color: '#3B82F6'
+            }, {
+              key: 'paid',
+              label: 'Paid',
+              color: '#10B981'
+            }, {
+              key: 'estimated',
+              label: 'Quoted',
+              color: '#A855F7'
+            }]} />
+                </AnalyticsCard>
+
+                <AnalyticsCard title="Invoice Status" subtitle="Paid versus outstanding invoice count" theme={activeTheme}>
+                  <DonutChart data={invoiceStatusChartData} centerLabel="Invoices" centerValue={String(summary.invoiceCount)} theme={activeTheme} />
+                </AnalyticsCard>
+              </div>
+
+              <div className="grid xl:grid-cols-2 gap-6">
+                <AnalyticsCard title="Quote Status" subtitle="Pending, accepted, and declined quotes" theme={activeTheme}>
+                  <DonutChart data={estimateStatusChartData} centerLabel="Quotes" centerValue={String(summary.estimateCount)} theme={activeTheme} />
+                </AnalyticsCard>
+
+                <AnalyticsCard title="Client Performance" subtitle="Top clients ranked by invoiced amount" theme={activeTheme}>
+                  <HorizontalBarChart data={clientPerformanceChartData} theme={activeTheme} formatter={formatCurrency} />
+                </AnalyticsCard>
+              </div>
+
+              <div className="grid xl:grid-cols-[0.95fr_1.05fr] gap-6">
+                <AnalyticsCard title="Conversion View" subtitle="Accepted quotes compared with invoices issued" theme={activeTheme}>
+                  <HorizontalBarChart data={conversionChartData} theme={activeTheme} formatter={value => `${value}`} />
+                </AnalyticsCard>
+
+                <AnalyticsCard title="Recent Activity" subtitle="Latest invoices and quotes in the filtered period" theme={activeTheme}>
+                  <div className={`divide-y ${activeTheme.border}`}>
+                    {recentActivity.slice(0, 8).map((item, idx) => <div key={`${item.id || item.number}-${idx}`} className={`flex items-center justify-between gap-4 py-3 ${activeTheme.tableRowHover}`}>
+                        <div className="min-w-0">
+                          <p className={`truncate text-sm font-medium ${activeTheme.textPrimary}`}>{item.number}</p>
+                          <p className={`truncate text-xs ${activeTheme.textMuted}`}>{item.clientName}</p>
+                          <p className={`mt-1 text-[11px] ${activeTheme.iconColor}`}>{formatDate(item.date)} • {item.type}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</p>
+                          <p className={`text-xs ${activeTheme.textMuted}`}>{item.status}</p>
+                        </div>
+                      </div>)}
+                    {recentActivity.length === 0 && <ChartEmptyState theme={activeTheme} title="No recent activity" description="Create invoices or quotes to populate this panel." />}
+                  </div>
+                </AnalyticsCard>
+              </div>
+
+              <div className="grid gap-6">
+                <AnalyticsCard title="Period Breakdown" subtitle="Revenue and document activity by period" theme={activeTheme}>
+                  <div className="overflow-x-auto -mx-2 sm:mx-0">
+                    <table className="w-full">
+                      <thead className={activeTheme.tableHeaderBg}>
+                        <tr>
+                          <th className={`px-2 py-1.5 text-left text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Period</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Inv</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Paid</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Out</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Qte</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Tot Inv</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Tot Qte</th>
+                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Cli</th>
+                        </tr>
+                      </thead>
+                      <tbody className={`divide-y ${activeTheme.border}`}>
+                        {monthlyBreakdown.map((row, idx) => <tr key={idx} className={activeTheme.tableRowHover}>
+                            <td className={`px-2 py-1.5 text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.period}</td>
+                            <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.invoices}</td>
+                            <td className="px-1.5 py-1.5 text-[10px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{row.paid}</td>
+                            <td className="px-1.5 py-1.5 text-[10px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{row.outstanding}</td>
+                            <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.estimates}</td>
+                            <td className={`px-1.5 py-1.5 text-[10px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalInvoiced)}</td>
+                            <td className={`px-1.5 py-1.5 text-[10px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalEstimated)}</td>
+                            <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.clients}</td>
+                          </tr>)}
+                      </tbody>
+                    </table>
+                  </div>
+                  {monthlyBreakdown.length === 0 && <div className="pt-4">
+                      <ChartEmptyState theme={activeTheme} title="No period data" description="There is no period breakdown for the selected filters." />
+                    </div>}
+                </AnalyticsCard>
+
+                <div className="grid xl:grid-cols-2 gap-6">
+                  <AnalyticsCard title="Client Performance" subtitle="Detailed client-level financial activity" theme={activeTheme}>
+                    <div className="overflow-x-auto -mx-2 sm:mx-0">
+                      <table className="w-full">
+                        <thead className={activeTheme.tableHeaderBg}>
+                          <tr>
+                            <th className={`px-2 py-1.5 text-left text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Client</th>
+                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Inv</th>
+                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Qte</th>
+                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Invoiced</th>
+                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Paid</th>
+                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Owed</th>
+                          </tr>
+                        </thead>
+                        <tbody className={`divide-y ${activeTheme.border}`}>
+                          {clientReporting.map((client, idx) => <tr key={idx} className={activeTheme.tableRowHover}>
+                              <td className={`max-w-[80px] truncate px-2 py-1.5 text-[10px] font-medium sm:max-w-none sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.name}</td>
+                              <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.invoices}</td>
+                              <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.estimates}</td>
+                              <td className={`px-1.5 py-1.5 text-[10px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(client.totalInvoiced)}</td>
+                              <td className="px-1.5 py-1.5 text-[10px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.totalPaid)}</td>
+                              <td className="px-1.5 py-1.5 text-[10px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.outstanding)}</td>
+                            </tr>)}
+                        </tbody>
+                      </table>
+                    </div>
+                    {clientReporting.length === 0 && <div className="pt-4">
+                        <ChartEmptyState theme={activeTheme} title="No client performance data" description="Client metrics will appear here once documents exist." />
+                      </div>}
+                  </AnalyticsCard>
+
+                  <AnalyticsCard title="Recent Activity Log" subtitle="Readable list of the latest documents" theme={activeTheme}>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className={activeTheme.tableHeaderBg}>
+                          <tr>
+                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Document</th>
+                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
+                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Date</th>
+                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Status</th>
+                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className={`divide-y ${activeTheme.border}`}>
+                          {recentActivity.map((item, idx) => <tr key={`${item.id || item.number}-${idx}`} className={activeTheme.tableRowHover}>
+                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{item.number}</td>
+                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{item.clientName}</td>
+                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatDate(item.date)}</td>
+                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{item.status}</td>
+                              <td className={`px-2 py-1.5 text-[11px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</td>
+                            </tr>)}
+                        </tbody>
+                      </table>
+                    </div>
+                    {recentActivity.length === 0 && <div className="pt-4">
+                        <ChartEmptyState theme={activeTheme} title="No recent activity" description="The recent activity log is empty for the current filters." />
+                      </div>}
+                  </AnalyticsCard>
+                </div>
+              </div>
+            </> : reportView === 'business' ? <>
+              <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-3xl p-6 lg:p-8 overflow-hidden relative`}>
+                <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_top_right,rgba(212,20,42,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(92,11,22,0.18),transparent_25%)]" />
+                <div className="relative grid lg:grid-cols-[1.4fr_0.9fr] gap-6 items-start">
+                  <div>
+                    <p className={`text-xs uppercase tracking-[0.25em] ${activeTheme.textMuted}`}>Business View</p>
+                    <h2 className={`mt-3 text-3xl font-bold ${activeTheme.textPrimary}`}>Operational snapshot</h2>
+                    <p className={`mt-3 max-w-2xl text-sm ${activeTheme.textSecondary}`}>
+                      A management-focused summary of revenue, collections, client activity, and recent document flow for the selected filters.
+                    </p>
+                    <div className="grid sm:grid-cols-3 gap-4 mt-6">
+                      <div className={`rounded-2xl border ${activeTheme.border} ${activeTheme.subtleBg} p-4`}>
+                        <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Revenue</p>
+                        <p className={`mt-2 text-2xl font-bold ${activeTheme.textPrimary}`}>{formatCurrency(summary.totalInvoiced)}</p>
+                        <p className={`mt-1 text-xs ${activeTheme.textMuted}`}>{summary.invoiceCount} invoices issued</p>
+                      </div>
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                        <p className="text-xs uppercase tracking-wide text-emerald-600">Collected</p>
+                        <p className="mt-2 text-2xl font-bold text-emerald-700">{formatCurrency(summary.totalPaid)}</p>
+                        <p className="mt-1 text-xs text-emerald-600">{paidRatio.toFixed(1)}% collection rate</p>
+                      </div>
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                        <p className="text-xs uppercase tracking-wide text-amber-600">Outstanding</p>
+                        <p className="mt-2 text-2xl font-bold text-amber-700">{formatCurrency(summary.totalOutstanding)}</p>
+                        <p className="mt-1 text-xs text-amber-600">{summary.activeClients} active clients</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`rounded-3xl border ${activeTheme.border} ${activeTheme.subtleBg} p-5`}>
+                    <p className={`text-xs uppercase tracking-[0.2em] ${activeTheme.textMuted}`}>Top Client</p>
+                    <p className={`mt-3 text-xl font-semibold ${activeTheme.textPrimary}`}>{topClient?.name || 'No client activity'}</p>
+                    <div className="mt-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${activeTheme.textMuted}`}>Invoiced</span>
+                        <span className={`text-sm font-semibold ${activeTheme.textPrimary}`}>{topClient ? formatCurrency(topClient.totalInvoiced) : formatCurrency(0)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${activeTheme.textMuted}`}>Paid</span>
+                        <span className="text-sm font-semibold text-emerald-600">{topClient ? formatCurrency(topClient.totalPaid) : formatCurrency(0)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${activeTheme.textMuted}`}>Outstanding</span>
+                        <span className="text-sm font-semibold text-amber-600">{topClient ? formatCurrency(topClient.outstanding) : formatCurrency(0)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${activeTheme.textMuted}`}>Last Activity</span>
+                        <span className={`text-sm font-semibold ${activeTheme.textPrimary}`}>
+                          {topClient?.lastActivity ? formatDate(topClient.lastActivity.toISOString().split('T')[0]) : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid lg:grid-cols-3 gap-4">
+                {businessSignals.map(signal => <div key={signal.title} className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5`}>
+                    <p className={`text-xs uppercase tracking-[0.18em] ${activeTheme.textMuted}`}>{signal.title}</p>
+                    <p className={`mt-3 text-2xl font-bold ${activeTheme.textPrimary}`}>{signal.value}</p>
+                    <p className={`mt-2 text-sm ${activeTheme.textSecondary}`}>{signal.detail}</p>
+                  </div>)}
+              </div>
+
+              <div className="grid xl:grid-cols-[1.1fr_0.9fr] gap-6">
+                <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
+                  <div className={`p-4 border-b ${activeTheme.border}`}>
+                    <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Best Clients</h2>
+                    <p className={`text-sm ${activeTheme.textMuted}`}>Clients ranked by invoiced value</p>
+                  </div>
+                  <div className={`divide-y ${activeTheme.border}`}>
+                    {clientReporting.slice(0, 5).map(clientItem => <div key={clientItem.name} className={`p-4 ${activeTheme.tableRowHover}`}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className={`font-medium ${activeTheme.textPrimary}`}>{clientItem.name}</p>
+                            <p className={`text-xs ${activeTheme.textMuted} mt-1`}>
+                              {clientItem.invoices} invoices • {clientItem.estimates} quotes
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(clientItem.totalInvoiced)}</p>
+                            <p className="text-xs text-amber-600 mt-1">{formatCurrency(clientItem.outstanding)} outstanding</p>
+                          </div>
+                        </div>
+                      </div>)}
+                    {clientReporting.length === 0 && <div className={`p-8 text-center ${activeTheme.textMuted}`}>No client activity for the selected filters.</div>}
+                  </div>
+                </div>
+
+                <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
+                  <div className={`p-4 border-b ${activeTheme.border}`}>
+                    <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Recent Activity</h2>
+                    <p className={`text-sm ${activeTheme.textMuted}`}>Latest invoices and quotes</p>
+                  </div>
+                  <div className={`divide-y ${activeTheme.border}`}>
+                    {recentActivity.slice(0, 8).map((item, idx) => <div key={`${item.id || item.number}-${idx}`} className={`p-4 ${activeTheme.tableRowHover}`}>
+                        <div className="flex justify-between gap-4">
+                          <div>
+                            <p className={`font-medium ${activeTheme.textPrimary}`}>{item.number}</p>
+                            <p className={`text-sm ${activeTheme.textMuted}`}>{item.clientName}</p>
+                            <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{formatDate(item.date)} • {item.type}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</p>
+                            <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.status}</p>
+                          </div>
+                        </div>
+                      </div>)}
+                    {recentActivity.length === 0 && <div className={`p-8 text-center ${activeTheme.textMuted}`}>No activity for the selected filters.</div>}
+                  </div>
+                </div>
+              </div>
+
+              <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
+                <div className={`p-4 border-b ${activeTheme.border}`}>
+                  <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Period Snapshot</h2>
+                  <p className={`text-sm ${activeTheme.textMuted}`}>Latest period performance at a glance</p>
+                </div>
+                {latestPeriod ? <div className="grid md:grid-cols-4 gap-4 p-4">
+                    <div className={`${activeTheme.subtleBg} rounded-2xl p-4`}>
+                      <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Period</p>
+                      <p className={`mt-2 font-semibold ${activeTheme.textPrimary}`}>{latestPeriod.period}</p>
+                    </div>
+                    <div className={`${activeTheme.subtleBg} rounded-2xl p-4`}>
+                      <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Invoice Value</p>
+                      <p className={`mt-2 font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(latestPeriod.totalInvoiced)}</p>
+                    </div>
+                    <div className={`${activeTheme.subtleBg} rounded-2xl p-4`}>
+                      <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Quote Value</p>
+                      <p className={`mt-2 font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(latestPeriod.totalEstimated)}</p>
+                    </div>
+                    <div className={`${activeTheme.subtleBg} rounded-2xl p-4`}>
+                      <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Clients</p>
+                      <p className={`mt-2 font-semibold ${activeTheme.textPrimary}`}>{latestPeriod.clients}</p>
+                    </div>
+                  </div> : <div className={`p-8 text-center ${activeTheme.textMuted}`}>No period data available for the selected filters.</div>}
+              </div>
+            </> : <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 shadow-sm`}>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Total Invoiced</p>
+              <p className={`text-2xl font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(summary.totalInvoiced)}</p>
+              <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{summary.invoiceCount} invoices</p>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm">
+              <p className="text-sm text-emerald-600">Total Paid</p>
+              <p className="text-2xl font-bold mt-1 text-emerald-700">{formatCurrency(summary.totalPaid)}</p>
+              <p className="text-xs text-emerald-500 mt-1">{summary.totalInvoiced > 0 ? (summary.totalPaid / summary.totalInvoiced * 100).toFixed(1) : 0}% of invoiced</p>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+              <p className="text-sm text-amber-600">Outstanding</p>
+              <p className="text-2xl font-bold mt-1 text-amber-700">{formatCurrency(summary.totalOutstanding)}</p>
+              <p className="text-xs text-amber-500 mt-1">{summary.totalInvoiced > 0 ? (summary.totalOutstanding / summary.totalInvoiced * 100).toFixed(1) : 0}% of invoiced</p>
+            </div>
+            <div className={`${activeTheme.subtleBg} border ${activeTheme.border} rounded-2xl p-4 shadow-sm`}>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Quotes</p>
+              <p className={`text-2xl font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(summary.totalEstimates)}</p>
+              <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{summary.estimateCount} quotes</p>
+            </div>
+          </div>
+
+          {/* Additional Metrics */}
+          <div className={`grid ${usePhoneLayout ? 'grid-cols-3 gap-2' : 'grid-cols-1 md:grid-cols-3 gap-4'}`}>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} flex aspect-square flex-col justify-between rounded-xl p-2.5 shadow-sm sm:aspect-auto sm:rounded-2xl sm:p-4`}>
+              <p className={`text-[10px] leading-tight sm:text-sm ${activeTheme.textMuted}`}>Active Clients</p>
+              <p className={`text-xl font-bold leading-none sm:mt-1 sm:text-xl ${activeTheme.textPrimary}`}>{summary.activeClients}</p>
+            </div>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} flex aspect-square flex-col justify-between rounded-xl p-2.5 shadow-sm sm:aspect-auto sm:rounded-2xl sm:p-4`}>
+              <p className={`text-[10px] leading-tight sm:text-sm ${activeTheme.textMuted}`}>Conversion Rate</p>
+              <p className={`text-xl font-bold leading-none sm:mt-1 sm:text-xl ${activeTheme.textPrimary}`}>{summary.conversionRate.toFixed(1)}%</p>
+              <p className={`text-[10px] leading-tight sm:mt-1 sm:text-xs ${activeTheme.iconColor}`}>Quotes to invoices</p>
+            </div>
+            <div className={`${activeTheme.cardBg} border ${activeTheme.border} flex aspect-square flex-col justify-between rounded-xl p-2.5 shadow-sm sm:aspect-auto sm:rounded-2xl sm:p-4`}>
+              <p className={`text-[10px] leading-tight sm:text-sm ${activeTheme.textMuted}`}>Average Invoice Value</p>
+              <p className={`text-xl font-bold leading-none sm:mt-1 sm:text-xl ${activeTheme.textPrimary}`}>{summary.invoiceCount > 0 ? formatCurrency(summary.totalInvoiced / summary.invoiceCount) : formatCurrency(0)}</p>
+            </div>
+          </div>
+
+          {/* Monthly Breakdown */}
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
+            <div className={`p-4 border-b ${activeTheme.border}`}>
+              <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Period Breakdown</h2>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Revenue and activity by period</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className={activeTheme.tableHeaderBg}>
+                  <tr>
+                    <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Period</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Quotes</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total Invoiced</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total Quoted</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Clients</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${activeTheme.border}`}>
+                  {monthlyBreakdown.map((row, idx) => <tr key={idx} className={activeTheme.tableRowHover}>
+                      <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{row.period}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.invoices}</td>
+                      <td className="px-2 py-1.5 text-[11px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{row.paid}</td>
+                      <td className="px-2 py-1.5 text-[11px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{row.outstanding}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.estimates}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalInvoiced)}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalEstimated)}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.clients}</td>
+                    </tr>)}
+                </tbody>
+              </table>
+            </div>
+            {monthlyBreakdown.length === 0 && <div className={`p-8 text-center ${activeTheme.textMuted}`}>
+                No data available for the selected filters.
+              </div>}
+          </div>
+
+          {/* Client Reporting */}
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
+            <div className={`p-4 border-b ${activeTheme.border}`}>
+              <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Client Performance</h2>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Revenue and activity by client</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className={activeTheme.tableHeaderBg}>
+                  <tr>
+                    <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Quotes</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total Invoiced</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total Paid</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
+                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Last Activity</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${activeTheme.border}`}>
+                  {clientReporting.map((client, idx) => <tr key={idx} className={activeTheme.tableRowHover}>
+                      <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{client.name}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.invoices}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.estimates}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(client.totalInvoiced)}</td>
+                      <td className="px-2 py-1.5 text-[11px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.totalPaid)}</td>
+                      <td className="px-2 py-1.5 text-[11px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.outstanding)}</td>
+                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.lastActivity ? formatDate(client.lastActivity.toISOString().split('T')[0]) : 'N/A'}</td>
+                    </tr>)}
+                </tbody>
+              </table>
+            </div>
+            {clientReporting.length === 0 && <div className={`p-8 text-center ${activeTheme.textMuted}`}>
+                No client data available for the selected filters.
+              </div>}
+          </div>
+
+          {/* Recent Activity */}
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
+            <div className={`p-4 border-b ${activeTheme.border}`}>
+              <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Recent Activity</h2>
+              <p className={`text-sm ${activeTheme.textMuted}`}>Latest invoices and quotes</p>
+            </div>
+            <div className={`divide-y ${activeTheme.border}`}>
+              {recentActivity.map((item, idx) => <div key={idx} className={`p-4 ${activeTheme.tableRowHover}`}>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className={`font-medium ${activeTheme.textPrimary}`}>{item.number}</p>
+                      <p className={`text-sm ${activeTheme.textMuted}`}>{item.clientName} • {formatDate(item.date)} • {item.status}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</p>
+                      <p className={`text-xs ${activeTheme.iconColor}`}>{item.type}</p>
+                    </div>
+                  </div>
+                </div>)}
+              {recentActivity.length === 0 && <div className={`p-8 text-center ${activeTheme.textMuted}`}>
+                  No activity for the selected filters.
+                </div>}
+            </div>
+          </div>
+            </>}
+        </div>
+      </div>;
+};
+
+// ============================================================================
+// RENDER
+// ============================================================================
+
 // APP
 // ============================================================================
 
@@ -1688,7 +4703,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
   const updateNextDocumentSetting = async (type, number) => {
     const currentSettings = { ...SAMPLE_SETTINGS, ...(data.settings || {}) };
     const field = type === 'invoice' ? 'nextInvoiceNumber' : 'nextEstimateNumber';
-    const parsed = parseDocumentNumber(number, type === 'invoice' ? 'INV' : 'EST');
+    const parsed = type === 'invoice' ? parseDocumentNumber(number, 'INV') : parseQuoteNumber(number);
     await save('settings', {
       ...currentSettings,
       [field]: parsed ? String(parsed.number).padStart(parsed.width, '0') : currentSettings[field],
@@ -1697,20 +4712,133 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
   const getClient = (clientId) => data.clients.find((c) => c.id === clientId);
 
+  const sanitizePdfFilenamePart = (value) =>
+    String(value || '')
+      .replace(/[\/\\:]/g, '-')
+      .replace(/[*?"<>|]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const buildPdfFilename = (doc, client) => {
+    const docNumber = sanitizePdfFilenamePart(doc?.number || 'document');
+
+    if (!doc?.clientId || !client) {
+      return `${docNumber}.pdf`;
+    }
+
+    const clientNamePart = sanitizePdfFilenamePart(client.name || '');
+    const clientSocietyNamePart = sanitizePdfFilenamePart(doc?.clientName || '');
+    const filenameParts = [docNumber];
+
+    if (clientNamePart) {
+      filenameParts.push(clientNamePart);
+
+      if (clientSocietyNamePart) {
+        filenameParts.push(clientSocietyNamePart);
+      }
+    }
+
+    return `${filenameParts.join('_')}.pdf`;
+  };
+
+  const generatePDFWithCustomFilename = async (type, doc, client, settings) => {
+    const filename = buildPdfFilename(doc, client);
+    const originalAnchorClick = HTMLAnchorElement.prototype.click;
+
+    try {
+      HTMLAnchorElement.prototype.click = function applyCustomPdfFilename(...args) {
+        this.download = filename;
+        return originalAnchorClick.apply(this, args);
+      };
+
+      return await generatePDF(type, doc, client, settings);
+    } finally {
+      HTMLAnchorElement.prototype.click = originalAnchorClick;
+    }
+  };
+
+  const getPdfClientForDocument = (doc) => {
+    const baseClient = getClient(doc?.clientId);
+    const documentClientName = String(doc?.clientName || '').trim();
+
+    if (!baseClient) {
+      return documentClientName ? { name: documentClientName } : null;
+    }
+
+    const baseClientName = String(baseClient.name || '').trim();
+    if (!documentClientName || documentClientName === baseClientName) {
+      return baseClient;
+    }
+
+    return {
+      ...baseClient,
+      company: documentClientName,
+    };
+  };
+
+  const getMergedPdfSettings = useCallback(() => {
+    const rawSettings = localStorage.getItem('invoiceapp_settings');
+    const parsed = rawSettings ? JSON.parse(rawSettings) : {};
+    // Remove null values so they don't overwrite real data (e.g. logo from Supabase)
+    Object.keys(parsed).forEach((k) => {
+      if (parsed[k] == null) delete parsed[k];
+    });
+    return { ...(data.settings || {}), ...parsed };
+  }, [data.settings]);
+
+  const createPdfPreviewUrl = useCallback(async (type, doc, client) => {
+    let capturedUrl = '';
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    const originalAnchorClick = HTMLAnchorElement.prototype.click;
+
+    try {
+      URL.createObjectURL = (blob) => {
+        capturedUrl = originalCreateObjectURL.call(URL, blob);
+        return capturedUrl;
+      };
+      URL.revokeObjectURL = () => {};
+      HTMLAnchorElement.prototype.click = () => {};
+
+      const mergedSettings = getMergedPdfSettings();
+      const success = await generatePDF(type, doc, client, mergedSettings);
+      return success && capturedUrl ? capturedUrl : '';
+    } catch (error) {
+      console.error('PDF preview action failed', error);
+      if (capturedUrl) {
+        originalRevokeObjectURL.call(URL, capturedUrl);
+      }
+      return '';
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+      HTMLAnchorElement.prototype.click = originalAnchorClick;
+    }
+  }, [getMergedPdfSettings]);
+
   const downloadInvoicePDF = async (invoice) => {
     try {
-      const rawSettings = localStorage.getItem('invoiceapp_settings');
-      const parsed = rawSettings ? JSON.parse(rawSettings) : {};
-      // Remove null values so they don't overwrite real data (e.g. logo from Supabase)
-      Object.keys(parsed).forEach(k => { if (parsed[k] == null) delete parsed[k]; });
-      const mergedSettings = { ...(data.settings || {}), ...parsed };
+      const mergedSettings = getMergedPdfSettings();
 
-      const client = data.clients.find((c) => c.id === invoice.clientId);
-      await generatePDF('invoice', invoice, client, mergedSettings);
+      const client = getPdfClientForDocument(invoice);
+      await generatePDFWithCustomFilename('invoice', invoice, client, mergedSettings);
     } catch (error) {
       console.error('Invoice PDF action failed', error);
     }
   };
+
+  const downloadQuotePDF = async (quote) => {
+    try {
+      const mergedSettings = getMergedPdfSettings();
+
+      const client = getPdfClientForDocument(quote);
+      await generatePDFWithCustomFilename('estimate', quote, client, mergedSettings);
+    } catch (error) {
+      console.error('Quote PDF action failed', error);
+    }
+  };
+
+  
 
   const handlePdfImport = async (importData) => {
     let clientId = importData.clientId;
@@ -1736,6 +4864,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
       id: generateId(),
       number: importData.number || generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
       clientId: clientId || '',
+      clientName: '',
       date: importData.date || new Date().toISOString().split('T')[0],
       dueDate: importData.dueDate || '',
       status: 'outstanding',
@@ -1755,7 +4884,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
 
   const navItems = [
     { id: 'invoices', icon: FileText, label: 'Invoices' },
-    { id: 'estimates', icon: FileSignature, label: 'Estimates' },
+    { id: 'estimates', icon: FileSignature, label: 'Quotes' },
     { id: 'clients', icon: Users, label: 'Clients' },
     { id: 'items', icon: Package, label: 'Items' },
     { id: 'finance', icon: Wallet, label: 'Finance' },
@@ -1764,6 +4893,19 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
   ];
 
   const activeTheme = THEMES[data.settings?.appTheme] || THEMES.default;
+  const isDarkGlassMenuTheme = ['crimson-dusk', 'aurora-teal', 'crimson-glass'].includes(data.settings?.appTheme || 'default');
+  const listContextMenuClass = `fixed z-[9999] min-w-[200px] rounded-2xl border shadow-xl py-1.5 ${
+    isDarkGlassMenuTheme ? 'border-white/10' : 'border-white/30'
+  }`;
+  const listContextMenuStyle = {
+    background: isDarkGlassMenuTheme ? 'rgba(30, 30, 30, 0.75)' : 'rgba(255, 255, 255, 0.72)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+  };
+  const listContextMenuItemClass = `w-full px-4 py-2.5 text-left text-sm font-medium transition-colors ${
+    isDarkGlassMenuTheme ? 'text-zinc-100 hover:bg-white/10 active:bg-white/20' : 'text-zinc-800 hover:bg-white/40 active:bg-white/60'
+  }`;
+  const listContextMenuDividerClass = isDarkGlassMenuTheme ? 'my-1 border-t border-white/10' : 'my-1 border-t border-zinc-200/30';
   const {
     usePhoneLayout,
     useTabletLayout,
@@ -1773,6 +4915,35 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
     panelShellClass,
   } = getInvoiceAppShellLayout({ activeTab, deviceLayout });
   const mobileScrollRootRef = useRef(null);
+  const isEditingDocument = view === 'edit-invoice' || view === 'edit-estimate';
+
+  useEffect(() => {
+    if (!isEditingDocument) return undefined;
+
+    const handleKeyDown = (event) => {
+      const isRefreshShortcut =
+        event.key === 'F5' || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'r');
+
+      if (isRefreshShortcut) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+      return '';
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isEditingDocument]);
 
   const selectAppTab = useCallback((tab) => {
     setActiveTab(tab);
@@ -1788,6 +4959,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
       dueDate: '',
       status: 'outstanding',
       clientId: '',
+      clientName: '',
       items: [],
       amountPaid: 0,
       overallDiscount: 0,
@@ -1805,6 +4977,7 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
       date: new Date().toISOString().split('T')[0],
       status: 'pending',
       clientId: '',
+      clientName: '',
       items: [],
       overallDiscount: 0,
       overallDiscountType: 'percentage',
@@ -1874,3050 +5047,81 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
   // INVOICES
   // ============================================================================
 
-  const InvoicesList = () => {
-    const filtered = data.invoices.filter((inv) => {
-      if (!searchTerm) return true;
-      const client = getClient(inv.clientId);
-      return (
-        inv.number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    });
+  
 
-    const [activeInvoiceMenu, setActiveInvoiceMenu] = useState(null);
-    const [invoiceMenuPosition, setInvoiceMenuPosition] = useState(null);
-    const invoiceMenuRef = useRef(null);
-
-    useEffect(() => {
-      if (!activeInvoiceMenu) return undefined;
-
-      const handleOutsideClick = (event) => {
-        if (invoiceMenuRef.current && !invoiceMenuRef.current.contains(event.target)) {
-          setActiveInvoiceMenu(null);
-          setInvoiceMenuPosition(null);
-        }
-      };
-
-      document.addEventListener('mousedown', handleOutsideClick);
-      document.addEventListener('touchstart', handleOutsideClick);
-
-      return () => {
-        document.removeEventListener('mousedown', handleOutsideClick);
-        document.removeEventListener('touchstart', handleOutsideClick);
-      };
-    }, [activeInvoiceMenu]);
-
-    const closeInvoiceMenu = () => {
-      setActiveInvoiceMenu(null);
-      setInvoiceMenuPosition(null);
-    };
-
-    const handleStatusChange = async (status, invoiceToUpdate) => {
-      if (!invoiceToUpdate) return;
-      const updatedInvoice = { ...invoiceToUpdate, status };
-      const updated = data.invoices.map((inv) => (inv.id === invoiceToUpdate.id ? updatedInvoice : inv));
-      await save('invoices', updated);
-      closeInvoiceMenu();
-    };
-
-    const duplicateInvoice = async (invoice) => {
-      const duplicatedInvoice = {
-        ...invoice,
-        id: generateId(),
-        number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
-        items: (invoice.items || []).map((item) => ({ ...item, id: generateId() })),
-        amountPaid: 0,
-        createdAt: new Date().toISOString().split('T')[0],
-      };
-      await save('invoices', [...data.invoices, duplicatedInvoice]);
-      await updateNextDocumentSetting('invoice', duplicatedInvoice.number);
-      closeInvoiceMenu();
-    };
-
-    return (
-      <div className="flex flex-col h-full">
-        {!usePhoneLayout ? (
-          <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.border}`}>
-            <div className="flex items-center justify-between gap-2">
-              <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Invoices</h1>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={openNewInvoice}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  New Invoice
-                </button>
-              </div>
-            </div>
-
-            <div className="relative mt-3 max-w-sm">
-              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
-              <input
-                type="text"
-                placeholder="Search invoices..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
-              />
-            </div>
-          </div>
-        ) : null}
-
-        <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
-          {filtered.length === 0 ? (
-            <EmptyState
-              icon={FileText}
-              title="No invoices yet"
-              description="Create your first invoice"
-              theme={activeTheme}
-              action={
-                <button className={`px-4 py-2 ${activeTheme.accent} rounded-xl`} onClick={() => setView('edit-invoice')}>
-                  Create Invoice
-                </button>
-              }
-            />
-          ) : (
-            <div className={usePhoneLayout ? 'space-y-1.5' : 'space-y-2'}>
-              {filtered.map((invoice) => {
-                const client = getClient(invoice.clientId);
-                const total = calculateDocumentTotal(invoice, data.settings?.taxRate || 15);
-                return (
-                  <div
-                    key={invoice.id}
-                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_1px_6px_rgba(0,0,0,0.06)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
-                  >
-                    {usePhoneLayout ? (
-                      <div className="px-3 py-2.5">
-                        <div className="mb-1 flex items-center justify-between gap-3">
-                          <div
-                            onClick={() => {
-                              setCurrentItem(invoice);
-                              setView('view-invoice');
-                            }}
-                            className="min-w-0 cursor-pointer"
-                          >
-                            <p className={`text-sm font-bold tracking-tight ${activeTheme.textPrimary}`}>
-                              {invoice.number}
-                            </p>
-                          </div>
-                          <StatusBadge status={invoice.status} theme={activeTheme} />
-                        </div>
-
-                        <div
-                          onClick={() => {
-                            setCurrentItem(invoice);
-                            setView('view-invoice');
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <p className={`mb-1 truncate text-xs ${activeTheme.textMuted}`}>
-                            {client?.name || 'No client'}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <p className={`text-[11px] ${activeTheme.iconColor}`}>
-                            {formatDate(invoice.date)}
-                          </p>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <p className={`text-sm font-bold ${activeTheme.textPrimary}`}>
-                              {formatCurrency(total)}
-                            </p>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const menuHeight = 180;
-                                const spaceBelow = window.innerHeight - rect.bottom;
-                                const openUpward = spaceBelow < menuHeight;
-                                setActiveInvoiceMenu((current) => {
-                                  if (current === invoice.id) {
-                                    setInvoiceMenuPosition(null);
-                                    return null;
-                                  }
-                                  setInvoiceMenuPosition({
-                                    ...(openUpward
-                                      ? { bottom: window.innerHeight - rect.top }
-                                      : { top: rect.bottom + 4 }),
-                                    right: window.innerWidth - rect.right,
-                                  });
-                                  return invoice.id;
-                                });
-                              }}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onTouchStart={(e) => e.stopPropagation()}
-                              className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
-                            >
-                              <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                closeInvoiceMenu();
-                                setConfirmMessage(`Are you sure you want to delete invoice ${invoice.number}? This action cannot be undone.`);
-                                setConfirmAction(() => async () => {
-                                  await save('invoices', data.invoices.filter((inv) => inv.id !== invoice.id));
-                                });
-                                setConfirmOpen(true);
-                              }}
-                              className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
-                            >
-                              <Trash2 className="w-4 h-4 text-red-500" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 px-3 py-2.5">
-                        <div
-                          onClick={() => {
-                            setCurrentItem(invoice);
-                            setView('view-invoice');
-                          }}
-                          className="flex-1 min-w-0 cursor-pointer"
-                        >
-                          <div className="flex items-baseline gap-2">
-                            <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{invoice.number}</p>
-                            <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
-                          </div>
-                          <p className={`text-[11px] ${activeTheme.iconColor} mt-0.5`}>{formatDate(invoice.date)}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <div className="text-right">
-                            <StatusBadge status={invoice.status} theme={activeTheme} />
-                            <p className={`text-sm font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              const menuHeight = 180;
-                              const spaceBelow = window.innerHeight - rect.bottom;
-                              const openUpward = spaceBelow < menuHeight;
-                              setActiveInvoiceMenu((current) => {
-                                if (current === invoice.id) {
-                                  setInvoiceMenuPosition(null);
-                                  return null;
-                                }
-                                setInvoiceMenuPosition({
-                                  ...(openUpward
-                                    ? { bottom: window.innerHeight - rect.top }
-                                    : { top: rect.bottom + 4 }),
-                                  right: window.innerWidth - rect.right,
-                                });
-                                return invoice.id;
-                              });
-                            }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onTouchStart={(e) => e.stopPropagation()}
-                            className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
-                          >
-                            <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              closeInvoiceMenu();
-                              setConfirmMessage(`Are you sure you want to delete invoice ${invoice.number}? This action cannot be undone.`);
-                              setConfirmAction(() => async () => {
-                                await save('invoices', data.invoices.filter((inv) => inv.id !== invoice.id));
-                              });
-                              setConfirmOpen(true);
-                            }}
-                            className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {activeInvoiceMenu && invoiceMenuPosition && ReactDOM.createPortal(
-          <div
-            ref={invoiceMenuRef}
-            className={`fixed z-[9999] min-w-44 rounded-xl border ${activeTheme.border} ${activeTheme.modalBg} shadow-xl`}
-            style={{
-              ...(invoiceMenuPosition.top != null ? { top: `${invoiceMenuPosition.top}px` } : {}),
-              ...(invoiceMenuPosition.bottom != null ? { bottom: `${invoiceMenuPosition.bottom}px` } : {}),
-              right: `${invoiceMenuPosition.right}px`,
-            }}
-          >
-            {(() => {
-              const invoice = data.invoices.find((item) => item.id === activeInvoiceMenu);
-              if (!invoice) return null;
-              return (
-                <>
-                  <button
-                    onClick={async () => {
-                      await handleStatusChange('outstanding', invoice);
-                    }}
-                    className={`w-full px-4 py-3 text-left text-sm ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
-                  >
-                    Mark as Outstanding
-                  </button>
-                  <button
-                    onClick={async () => {
-                      await handleStatusChange('paid', invoice);
-                    }}
-                    className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
-                  >
-                    Mark as Paid
-                  </button>
-                  <button
-                    onClick={() => duplicateInvoice(invoice)}
-                    className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
-                  >
-                    Duplicate
-                  </button>
-                  <button
-                    onClick={async () => {
-                      await downloadInvoicePDF(invoice);
-                    }}
-                    className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
-                  >
-                    Download PDF
-                  </button>
-                </>
-              );
-            })()}
-          </div>,
-          document.body
-        )}
-      </div>
-    );
-  };
-
-  const InvoiceView = () => {
-    const [itemModalOpen, setItemModalOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState(null);
-    const client = getClient(currentItem?.clientId);
-    const taxRate = data.settings?.taxRate || 15;
-    const taxLabel = data.settings?.taxLabel || 'VAT';
-    const totals = calculateDocumentTotals(currentItem, taxRate);
-    const total = totals.total;
-
-    const saveInvoice = async (updatedInvoice) => {
-      const updated = data.invoices.map((inv) => (inv.id === updatedInvoice.id ? updatedInvoice : inv));
-      await save('invoices', updated);
-      setCurrentItem(updatedInvoice);
-    };
-
-    const handleSaveItem = async (updatedItem) => {
-      const updatedInvoice = {
-        ...currentItem,
-        items: currentItem.items.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
-      };
-      await saveInvoice(updatedInvoice);
-    };
-
-    return (
-      <div className="flex flex-col h-full">
-        <div className="p-4 lg:p-6 border-b flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setView('list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
-              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-            </button>
-            <h1 className={`font-bold text-xl ${activeTheme.textPrimary}`}>{currentItem.number}</h1>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => downloadInvoicePDF(currentItem)}
-              className={`p-2 ${activeTheme.buttonHover} rounded-xl`}
-              title="Download Invoice PDF"
-            >
-              <Printer className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-            </button>
-            <button onClick={() => setView('edit-invoice')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
-              <Edit className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-            </button>
-            <button
-              onClick={() => {
-                setConfirmMessage(`Are you sure you want to delete invoice ${currentItem.number}? This action cannot be undone.`);
-                setConfirmAction(() => async () => {
-                  await save('invoices', data.invoices.filter((inv) => inv.id !== currentItem.id));
-                  setView('list');
-                });
-                setConfirmOpen(true);
-              }}
-              className="p-2 hover:bg-red-50 rounded-xl"
-            >
-              <Trash2 className="w-5 h-5 text-red-500" />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:p-6 lg:pb-6 space-y-4">
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
-            <div className="flex justify-between items-start">
-              <div>
-                <p className={`text-sm ${activeTheme.textMuted}`}>Invoice</p>
-                <p className={`text-2xl font-bold ${activeTheme.textPrimary}`}>{currentItem.number}</p>
-              </div>
-              <StatusBadge status={currentItem.status} />
-            </div>
-            <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
-              <div>
-                <p className={activeTheme.textMuted}>Date</p>
-                <p className={activeTheme.textPrimary}>{formatDate(currentItem.date)}</p>
-              </div>
-              <div>
-                <p className={activeTheme.textMuted}>Due Date</p>
-                <p className={activeTheme.textPrimary}>{formatDate(currentItem.dueDate)}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
-            <p className={`text-sm ${activeTheme.textMuted} mb-2`}>Bill To</p>
-            <p className={`font-semibold ${activeTheme.textPrimary}`}>{client?.name || 'No client selected'}</p>
-            {formatClientAddress(client) && <p className={`text-sm ${activeTheme.textSecondary} whitespace-pre-line mt-1`}>{formatClientAddress(client)}</p>}
-          </div>
-
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
-            <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
-              <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
-              <span className={`text-xs ${activeTheme.iconColor}`}>Tap to edit</span>
-            </div>
-            <div
-              className={`${
-                usePhoneLayout ? 'hidden' : 'grid'
-              } grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] gap-4 px-4 py-3 border-b ${activeTheme.border} ${activeTheme.tableHeaderBg}`}
-            >
-              <span className={`text-xs font-semibold uppercase tracking-wide ${activeTheme.textMuted}`}>Description</span>
-              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Discount</span>
-              <span className={`text-xs font-semibold uppercase tracking-wide text-center ${activeTheme.textMuted}`}>Qty</span>
-              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Rate</span>
-              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Amount</span>
-            </div>
-            <div className="divide-y">
-              {currentItem.items.map((item) => (
-                <div
-                  key={item.id}
-                  className={`p-4 ${activeTheme.tableRowHover} cursor-pointer`}
-                  onClick={() => {
-                    setEditingItem(item);
-                    setItemModalOpen(true);
-                  }}
-                >
-                  <div
-                    className={`grid gap-3 ${
-                      usePhoneLayout ? '' : 'grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] items-start'
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
-                      <div className={`${usePhoneLayout ? 'block' : 'hidden'} text-xs ${activeTheme.textMuted} mt-1 space-y-1`}>
-                        <p>{`${item.qty || 0} x ${formatCurrency(item.rate || 0)}`}</p>
-                        {item.discountAmount > 0 && (
-                          <p>
-                            {item.discountType === 'percentage'
-                              ? `${item.discountAmount}% discount`
-                              : `${formatCurrency(item.discountAmount)} discount`}
-                          </p>
-                        )}
-                      </div>
-                      {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1 whitespace-pre-line`}>{item.notes}</p>}
-                    </div>
-                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-right ${activeTheme.textPrimary}`}>
-                      {item.discountAmount > 0
-                        ? item.discountType === 'percentage'
-                          ? `${item.discountAmount}%`
-                          : formatCurrency(item.discountAmount)
-                        : '—'}
-                    </p>
-                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-center ${activeTheme.textPrimary}`}>
-                      {item.qty || 0}
-                    </p>
-                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-right ${activeTheme.textPrimary}`}>
-                      {formatCurrency(item.rate || 0)}
-                    </p>
-                    <p className={`font-semibold ${usePhoneLayout ? '' : 'text-right'} ${activeTheme.textPrimary}`}>
-                      {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: totals.taxEnabled }).total)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className={`p-4 ${activeTheme.tableHeaderBg} border-t ${activeTheme.border}`}>
-              <div className="flex justify-between">
-                <span className={`font-semibold ${activeTheme.textPrimary}`}>Total</span>
-                <span className={`font-bold ${activeTheme.textPrimary}`}>{formatCurrency(total)}</span>
-              </div>
-            </div>
-          </div>
-
-          <DocumentTotalsSummary
-            doc={currentItem}
-            taxRate={taxRate}
-            taxLabel={taxLabel}
-            theme={activeTheme}
-            showPayments
-          />
-
-          <div className="flex gap-2">
-            <button
-              onClick={async () => {
-                const newEstimate = {
-                  id: generateId(),
-                  number: generateDocumentNumber('estimate', data.invoices, data.estimates, data.settings),
-                  clientId: currentItem.clientId,
-                  date: new Date().toISOString().split('T')[0],
-                  status: 'pending',
-                  items: currentItem.items.map((item) => ({ ...item, id: generateId() })),
-                  overallDiscount: currentItem.overallDiscount || 0,
-                  overallDiscountType: currentItem.overallDiscountType || 'percentage',
-                  taxEnabled: currentItem.taxEnabled !== false,
-                  notes: currentItem.notes,
-                  createdAt: new Date().toISOString().split('T')[0],
-                };
-                await save('estimates', [...data.estimates, newEstimate]);
-                await updateNextDocumentSetting('estimate', newEstimate.number);
-                setActiveTab('estimates');
-                setCurrentItem(newEstimate);
-                setView('view-estimate');
-              }}
-              className={`w-full py-3 ${activeTheme.subtleBg} ${activeTheme.labelColor} rounded-xl flex items-center justify-center gap-2`}
-            >
-              <ArrowRightLeft className="w-4 h-4" />
-              Convert
-            </button>
-          </div>
-        </div>
-
-        <LineItemModal
-          isOpen={itemModalOpen}
-          onClose={() => setItemModalOpen(false)}
-          onSave={handleSaveItem}
-          item={editingItem}
-          savedItems={data.items}
-          taxRate={taxRate}
-          applyDocumentTax={totals.taxEnabled}
-          theme={activeTheme}
-        />
-      </div>
-    );
-  };
+  
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const InvoiceEdit = () => {
-    const [form, setForm] = useState(
-      currentItem || {
-        id: generateId(),
-        number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
-        date: new Date().toISOString().split('T')[0],
-        dueDate: '',
-        status: 'outstanding',
-        clientId: '',
-        items: [],
-        amountPaid: 0,
-        overallDiscount: 0,
-        overallDiscountType: 'percentage',
-        taxEnabled: true,
-        notes: '',
-      },
-    );
-    const [itemModalOpen, setItemModalOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState(null);
-    const taxRate = data.settings?.taxRate || 15;
-    const taxLabel = data.settings?.taxLabel || 'VAT';
-    const taxEnabled = isDocumentTaxEnabled(form);
-    const compactForm = usePhoneLayout;
-
-    const isExistingInvoice = data.invoices.some((inv) => inv.id === form.id);
-
-    const handleSave = async () => {
-      const isNew = !data.invoices.find((i) => i.id === form.id);
-      const updated = isNew
-        ? [...data.invoices, { ...form, createdAt: new Date().toISOString().split('T')[0] }]
-        : data.invoices.map((inv) => (inv.id === form.id ? form : inv));
-      await save('invoices', updated);
-      if (isNew) {
-        await updateNextDocumentSetting('invoice', form.number);
-      }
-      setView('list');
-    };
-
-    const handleSaveItem = (item) => {
-      if (editingItem) {
-        setForm({ ...form, items: form.items.map((i) => (i.id === item.id ? item : i)) });
-      } else {
-        setForm({ ...form, items: [...form.items, item] });
-      }
-    };
-
-    const handleAddClient = async (newClientData) => {
-      const newClient = { id: generateId(), ...newClientData, createdAt: new Date().toISOString().split('T')[0] };
-      await save('clients', [...data.clients, newClient]);
-      return newClient.id;
-    };
-
-    return (
-      <CompactFormContext.Provider value={compactForm}>
-        <div className="flex flex-col h-full">
-          <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
-            <button onClick={() => setView(isExistingInvoice ? 'view-invoice' : 'list')} className={`${compactForm ? 'p-1.5' : 'p-2'} ${activeTheme.buttonHover} rounded-xl`}>
-              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-            </button>
-            <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{isExistingInvoice ? 'Edit Invoice' : 'New Invoice'}</h1>
-            <button onClick={handleSave} className={`${compactForm ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} ${activeTheme.accent} rounded-xl`}>
-              Save
-            </button>
-          </div>
-
-          <div className={`flex-1 overflow-auto ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'} phone-dock-scroll-space lg:pb-4`}>
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
-              <FormInput label="Invoice Number" value={form.number} onChange={(v) => setForm({ ...form, number: v })} theme={activeTheme} />
-              <div className={`grid grid-cols-2 ${compactForm ? 'gap-2.5' : 'gap-3'}`}>
-                <FormInput label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} theme={activeTheme} />
-                <FormInput label="Due Date" type="date" value={form.dueDate} onChange={(v) => setForm({ ...form, dueDate: v })} theme={activeTheme} />
-              </div>
-              <ClientSelect
-                label="Client"
-                value={form.clientId}
-                onChange={(v) => setForm({ ...form, clientId: v })}
-                clients={data.clients}
-                onAddNew={handleAddClient}
-                theme={activeTheme}
-              />
-            </div>
-
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
-              <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
-                <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
-                <button
-                  onClick={() => {
-                    setEditingItem(null);
-                    setItemModalOpen(true);
-                  }}
-                  className={`${compactForm ? 'px-2.5 py-1.5 text-[13px]' : 'px-3 py-1.5 text-sm'} ${activeTheme.accent} rounded-lg flex items-center gap-1`}
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Item
-                </button>
-              </div>
-
-              {form.items.length === 0 ? (
-                <div className={`${compactForm ? 'p-5 text-sm' : 'p-8'} text-center ${activeTheme.textMuted}`}>No items added yet</div>
-              ) : (
-                <div className="divide-y">
-                  {form.items.map((item, idx) => (
-                    <div
-                      key={item.id}
-                      className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} ${activeTheme.tableRowHover} cursor-pointer`}
-                      onClick={() => {
-                        setEditingItem(item);
-                        setItemModalOpen(true);
-                      }}
-                    >
-                      <div className="flex justify-between items-start gap-3">
-                        <div>
-                          <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
-                          {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.notes}</p>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <p className={`font-semibold ${activeTheme.textPrimary}`}>
-                            {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: taxEnabled }).total)}
-                          </p>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const itemLabel = item.description?.trim() || `line item ${idx + 1}`;
-                              requestDeleteConfirmation(`Are you sure you want to delete ${itemLabel}? This action cannot be undone.`, async () => {
-                                setForm((current) => ({
-                                  ...current,
-                                  items: current.items.filter((_, i) => i !== idx),
-                                }));
-                              });
-                            }}
-                            className="p-1.5 hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <DocumentTotalsEditor
-              form={form}
-              setForm={setForm}
-              taxRate={taxRate}
-              taxLabel={taxLabel}
-              theme={activeTheme}
-              showPayments
-            />
-
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3' : 'p-4'}`}>
-              <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
-            </div>
-          </div>
-
-          <LineItemModal
-            isOpen={itemModalOpen}
-            onClose={() => setItemModalOpen(false)}
-            onSave={handleSaveItem}
-            item={editingItem}
-            savedItems={data.items}
-            taxRate={taxRate}
-            applyDocumentTax={taxEnabled}
-            theme={activeTheme}
-          />
-        </div>
-      </CompactFormContext.Provider>
-    );
-  };
+  
 
   // ============================================================================
-  // ESTIMATES
+  // QUOTES
   // ============================================================================
 
-  const EstimatesList = () => {
-    const filtered = data.estimates.filter((est) => {
-      if (!searchTerm) return true;
-      const client = getClient(est.clientId);
-      return (
-        est.number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    });
+  
 
-    const [activeEstimateMenu, setActiveEstimateMenu] = useState(null);
-    const [estimateMenuPosition, setEstimateMenuPosition] = useState(null);
-    const estimateMenuRef = useRef(null);
+  
 
-    useEffect(() => {
-      if (!activeEstimateMenu) return undefined;
-
-      const handleOutsideClick = (event) => {
-        if (estimateMenuRef.current && !estimateMenuRef.current.contains(event.target)) {
-          setActiveEstimateMenu(null);
-          setEstimateMenuPosition(null);
-        }
-      };
-
-      document.addEventListener('mousedown', handleOutsideClick);
-      document.addEventListener('touchstart', handleOutsideClick);
-
-      return () => {
-        document.removeEventListener('mousedown', handleOutsideClick);
-        document.removeEventListener('touchstart', handleOutsideClick);
-      };
-    }, [activeEstimateMenu]);
-
-    const closeEstimateMenu = () => {
-      setActiveEstimateMenu(null);
-      setEstimateMenuPosition(null);
-    };
-
-    const handleStatusChange = async (status, estimateToUpdate) => {
-      if (!estimateToUpdate) return;
-      const updatedEstimate = { ...estimateToUpdate, status };
-      const updated = data.estimates.map((est) => (est.id === estimateToUpdate.id ? updatedEstimate : est));
-      await save('estimates', updated);
-      closeEstimateMenu();
-    };
-
-    const duplicateEstimate = async (estimate) => {
-      const duplicatedEstimate = {
-        ...estimate,
-        id: generateId(),
-        number: generateDocumentNumber('estimate', data.invoices, data.estimates, data.settings),
-        items: (estimate.items || []).map((item) => ({ ...item, id: generateId() })),
-        createdAt: new Date().toISOString().split('T')[0],
-      };
-      await save('estimates', [...data.estimates, duplicatedEstimate]);
-      await updateNextDocumentSetting('estimate', duplicatedEstimate.number);
-      closeEstimateMenu();
-    };
-
-    return (
-      <div className="flex flex-col h-full">
-        {!usePhoneLayout ? (
-          <div className={`shrink-0 px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b ${activeTheme.border}`}>
-            <div className="flex items-center justify-between">
-              <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Estimates</h1>
-              <button
-                onClick={openNewEstimate}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                New Estimate
-              </button>
-            </div>
-
-            <div className="relative mt-3 max-w-sm">
-              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
-              <input
-                type="text"
-                placeholder="Search estimates..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
-              />
-            </div>
-          </div>
-        ) : null}
-
-        <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
-          {filtered.length === 0 ? (
-            <EmptyState icon={FileSignature} title="No estimates yet" description="Create your first estimate" theme={activeTheme} />
-          ) : (
-            <div className={usePhoneLayout ? 'space-y-1.5' : 'space-y-2'}>
-              {filtered.map((estimate) => {
-                const client = getClient(estimate.clientId);
-                const total = calculateDocumentTotal(estimate, data.settings?.taxRate || 15);
-                return (
-                  <div
-                    key={estimate.id}
-                    className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_1px_6px_rgba(0,0,0,0.06)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
-                  >
-                    {usePhoneLayout ? (
-                      <div className="px-3 py-2.5">
-                        <div className="mb-1 flex items-center justify-between gap-3">
-                          <div
-                            onClick={() => {
-                              setCurrentItem(estimate);
-                              setView('view-estimate');
-                            }}
-                            className="min-w-0 cursor-pointer"
-                          >
-                            <p className={`text-sm font-bold tracking-tight ${activeTheme.textPrimary}`}>
-                              {estimate.number}
-                            </p>
-                          </div>
-                          <StatusBadge status={estimate.status} theme={activeTheme} />
-                        </div>
-
-                        <div
-                          onClick={() => {
-                            setCurrentItem(estimate);
-                            setView('view-estimate');
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <p className={`mb-1 truncate text-xs ${activeTheme.textMuted}`}>
-                            {client?.name || 'No client'}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <p className={`text-[11px] ${activeTheme.iconColor}`}>
-                            {formatDate(estimate.date)}
-                          </p>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <p className={`text-sm font-bold ${activeTheme.textPrimary}`}>
-                              {formatCurrency(total)}
-                            </p>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const menuHeight = 180;
-                                const spaceBelow = window.innerHeight - rect.bottom;
-                                const openUpward = spaceBelow < menuHeight;
-                                setActiveEstimateMenu((current) => {
-                                  if (current === estimate.id) {
-                                    setEstimateMenuPosition(null);
-                                    return null;
-                                  }
-                                  setEstimateMenuPosition({
-                                    ...(openUpward
-                                      ? { bottom: window.innerHeight - rect.top }
-                                      : { top: rect.bottom + 4 }),
-                                    right: window.innerWidth - rect.right,
-                                  });
-                                  return estimate.id;
-                                });
-                              }}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onTouchStart={(e) => e.stopPropagation()}
-                              className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
-                            >
-                              <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                closeEstimateMenu();
-                                setConfirmMessage(`Are you sure you want to delete estimate ${estimate.number}? This action cannot be undone.`);
-                                setConfirmAction(() => async () => {
-                                  await save('estimates', data.estimates.filter((est) => est.id !== estimate.id));
-                                });
-                                setConfirmOpen(true);
-                              }}
-                              className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
-                            >
-                              <Trash2 className="w-4 h-4 text-red-500" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 px-3 py-2.5">
-                        <div
-                          onClick={() => {
-                            setCurrentItem(estimate);
-                            setView('view-estimate');
-                          }}
-                          className="flex-1 min-w-0 cursor-pointer"
-                        >
-                          <div className="flex items-baseline gap-2">
-                            <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{estimate.number}</p>
-                            <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client?.name || 'No client'}</p>
-                          </div>
-                          <p className={`text-[11px] ${activeTheme.iconColor} mt-0.5`}>{formatDate(estimate.date)}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <div className="text-right">
-                            <StatusBadge status={estimate.status} theme={activeTheme} />
-                            <p className={`text-sm font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(total)}</p>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              const menuHeight = 180;
-                              const spaceBelow = window.innerHeight - rect.bottom;
-                              const openUpward = spaceBelow < menuHeight;
-                              setActiveEstimateMenu((current) => {
-                                if (current === estimate.id) {
-                                  setEstimateMenuPosition(null);
-                                  return null;
-                                }
-                                setEstimateMenuPosition({
-                                  ...(openUpward
-                                    ? { bottom: window.innerHeight - rect.top }
-                                    : { top: rect.bottom + 4 }),
-                                  right: window.innerWidth - rect.right,
-                                });
-                                return estimate.id;
-                              });
-                            }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onTouchStart={(e) => e.stopPropagation()}
-                            className={`p-1.5 ${activeTheme.buttonHover} rounded-lg ${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}
-                          >
-                            <MoreVertical className={`w-4 h-4 ${activeTheme.textSecondary}`} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              closeEstimateMenu();
-                              setConfirmMessage(`Are you sure you want to delete estimate ${estimate.number}? This action cannot be undone.`);
-                              setConfirmAction(() => async () => {
-                                await save('estimates', data.estimates.filter((est) => est.id !== estimate.id));
-                              });
-                              setConfirmOpen(true);
-                            }}
-                            className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {activeEstimateMenu && estimateMenuPosition && ReactDOM.createPortal(
-          <div
-            ref={estimateMenuRef}
-            className={`fixed z-[9999] min-w-44 rounded-xl border ${activeTheme.border} ${activeTheme.modalBg} shadow-xl`}
-            style={{
-              ...(estimateMenuPosition.top != null ? { top: `${estimateMenuPosition.top}px` } : {}),
-              ...(estimateMenuPosition.bottom != null ? { bottom: `${estimateMenuPosition.bottom}px` } : {}),
-              right: `${estimateMenuPosition.right}px`,
-            }}
-          >
-            {(() => {
-              const estimate = data.estimates.find((item) => item.id === activeEstimateMenu);
-              if (!estimate) return null;
-              return (
-                <>
-                  <button
-                    onClick={async () => {
-                      await handleStatusChange('pending', estimate);
-                    }}
-                    className={`w-full px-4 py-3 text-left text-sm ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
-                  >
-                    Mark as Pending
-                  </button>
-                  <button
-                    onClick={async () => {
-                      await handleStatusChange('accepted', estimate);
-                    }}
-                    className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
-                  >
-                    Mark as Approved
-                  </button>
-                  <button
-                    onClick={async () => {
-                      await handleStatusChange('declined', estimate);
-                    }}
-                    className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
-                  >
-                    Mark as Declined
-                  </button>
-                  <button
-                    onClick={() => duplicateEstimate(estimate)}
-                    className={`w-full px-4 py-3 text-left text-sm border-t ${activeTheme.border} ${activeTheme.textPrimary} ${activeTheme.cardHover}`}
-                  >
-                    Duplicate
-                  </button>
-                </>
-              );
-            })()}
-          </div>,
-          document.body
-        )}
-      </div>
-    );
-  };
-
-  const EstimateView = () => {
-    const [itemModalOpen, setItemModalOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState(null);
-    const client = getClient(currentItem?.clientId);
-    const taxRate = data.settings?.taxRate || 15;
-    const taxLabel = data.settings?.taxLabel || 'VAT';
-    const totals = calculateDocumentTotals(currentItem, taxRate);
-    const total = totals.total;
-
-    const saveEstimate = async (updatedEstimate) => {
-      const updated = data.estimates.map((est) => (est.id === updatedEstimate.id ? updatedEstimate : est));
-      await save('estimates', updated);
-      setCurrentItem(updatedEstimate);
-    };
-
-    const handleSaveItem = async (updatedItem) => {
-      const updatedEstimate = {
-        ...currentItem,
-        items: currentItem.items.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
-      };
-      await saveEstimate(updatedEstimate);
-    };
-
-    return (
-      <div className="flex flex-col h-full">
-        <div className="p-4 lg:p-6 border-b flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setView('list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
-              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-            </button>
-            <h1 className={`font-bold text-xl ${activeTheme.textPrimary}`}>{currentItem.number}</h1>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => generatePDF('estimate', currentItem, client, data.settings)}
-              className={`p-2 ${activeTheme.buttonHover} rounded-xl`}
-              title="Download PDF"
-            >
-              <Printer className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-            </button>
-            <button onClick={() => setView('edit-estimate')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
-              <Edit className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-            </button>
-            <button
-              onClick={() => {
-                setConfirmMessage(`Are you sure you want to delete estimate ${currentItem.number}? This action cannot be undone.`);
-                setConfirmAction(() => async () => {
-                  await save('estimates', data.estimates.filter((est) => est.id !== currentItem.id));
-                  setView('list');
-                });
-                setConfirmOpen(true);
-              }}
-              className="p-2 hover:bg-red-50 rounded-xl"
-            >
-              <Trash2 className="w-5 h-5 text-red-500" />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:p-6 lg:pb-6 space-y-4">
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
-            <div className="flex justify-between items-start">
-              <div>
-                <p className={`text-sm ${activeTheme.textMuted}`}>Estimate</p>
-                <p className={`text-2xl font-bold ${activeTheme.textPrimary}`}>{currentItem.number}</p>
-              </div>
-              <StatusBadge status={currentItem.status} theme={activeTheme} />
-            </div>
-          </div>
-
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
-            <p className={`text-sm ${activeTheme.textMuted} mb-2`}>Prepared For</p>
-            <p className={`font-semibold ${activeTheme.textPrimary}`}>{client?.name || 'No client selected'}</p>
-            {formatClientAddress(client) && <p className={`text-sm ${activeTheme.textSecondary} whitespace-pre-line mt-1`}>{formatClientAddress(client)}</p>}
-          </div>
-
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
-            <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
-              <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
-              <span className={`text-xs ${activeTheme.iconColor}`}>Tap to edit</span>
-            </div>
-            <div
-              className={`${
-                usePhoneLayout ? 'hidden' : 'grid'
-              } grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] gap-4 px-4 py-3 border-b ${activeTheme.border} ${activeTheme.tableHeaderBg}`}
-            >
-              <span className={`text-xs font-semibold uppercase tracking-wide ${activeTheme.textMuted}`}>Description</span>
-              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Discount</span>
-              <span className={`text-xs font-semibold uppercase tracking-wide text-center ${activeTheme.textMuted}`}>Qty</span>
-              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Rate</span>
-              <span className={`text-xs font-semibold uppercase tracking-wide text-right ${activeTheme.textMuted}`}>Amount</span>
-            </div>
-            <div className="divide-y">
-              {currentItem.items.map((item) => (
-                <div
-                  key={item.id}
-                  className={`p-4 ${activeTheme.tableRowHover} cursor-pointer`}
-                  onClick={() => {
-                    setEditingItem(item);
-                    setItemModalOpen(true);
-                  }}
-                >
-                  <div
-                    className={`grid gap-3 ${
-                      usePhoneLayout ? '' : 'grid-cols-[minmax(0,1fr)_140px_90px_140px_140px] items-start'
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
-                      <div className={`${usePhoneLayout ? 'block' : 'hidden'} text-xs ${activeTheme.textMuted} mt-1 space-y-1`}>
-                        <p>{`${item.qty || 0} x ${formatCurrency(item.rate || 0)}`}</p>
-                        {item.discountAmount > 0 && (
-                          <p>
-                            {item.discountType === 'percentage'
-                              ? `${item.discountAmount}% discount`
-                              : `${formatCurrency(item.discountAmount)} discount`}
-                          </p>
-                        )}
-                      </div>
-                      {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1 whitespace-pre-line`}>{item.notes}</p>}
-                    </div>
-                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-right ${activeTheme.textPrimary}`}>
-                      {item.discountAmount > 0
-                        ? item.discountType === 'percentage'
-                          ? `${item.discountAmount}%`
-                          : formatCurrency(item.discountAmount)
-                        : '—'}
-                    </p>
-                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-center ${activeTheme.textPrimary}`}>
-                      {item.qty || 0}
-                    </p>
-                    <p className={`${usePhoneLayout ? 'hidden' : 'block'} text-sm text-right ${activeTheme.textPrimary}`}>
-                      {formatCurrency(item.rate || 0)}
-                    </p>
-                    <p className={`font-semibold ${usePhoneLayout ? '' : 'text-right'} ${activeTheme.textPrimary}`}>
-                      {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: totals.taxEnabled }).total)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className={`p-4 ${activeTheme.tableHeaderBg} border-t ${activeTheme.border}`}>
-              <div className="flex justify-between">
-                <span className={`font-semibold ${activeTheme.textPrimary}`}>Total</span>
-                <span className={`font-bold ${activeTheme.textPrimary}`}>{formatCurrency(total)}</span>
-              </div>
-            </div>
-          </div>
-
-          <DocumentTotalsSummary
-            doc={currentItem}
-            taxRate={taxRate}
-            taxLabel={taxLabel}
-            theme={activeTheme}
-          />
-
-          <div className="flex gap-2">
-            <button
-              onClick={async () => {
-                const newInvoice = {
-                  id: generateId(),
-                  number: generateDocumentNumber('invoice', data.invoices, data.estimates, data.settings),
-                  clientId: currentItem.clientId,
-                  date: new Date().toISOString().split('T')[0],
-                  dueDate: '',
-                  status: 'outstanding',
-                  items: currentItem.items.map((item) => ({ ...item, id: generateId() })),
-                  amountPaid: 0,
-                  overallDiscount: currentItem.overallDiscount || 0,
-                  overallDiscountType: currentItem.overallDiscountType || 'percentage',
-                  taxEnabled: currentItem.taxEnabled !== false,
-                  notes: currentItem.notes,
-                  createdAt: new Date().toISOString().split('T')[0],
-                };
-                await save('invoices', [...data.invoices, newInvoice]);
-                await updateNextDocumentSetting('invoice', newInvoice.number);
-                setActiveTab('invoices');
-                setCurrentItem(newInvoice);
-                setView('view-invoice');
-              }}
-              className={`w-full py-3 ${activeTheme.subtleBg} ${activeTheme.labelColor} rounded-xl flex items-center justify-center gap-2`}
-            >
-              <ArrowRightLeft className="w-4 h-4" />
-              Convert
-            </button>
-          </div>
-        </div>
-
-        <LineItemModal
-          isOpen={itemModalOpen}
-          onClose={() => setItemModalOpen(false)}
-          onSave={handleSaveItem}
-          item={editingItem}
-          savedItems={data.items}
-          taxRate={taxRate}
-          applyDocumentTax={totals.taxEnabled}
-          theme={activeTheme}
-        />
-      </div>
-    );
-  };
-
-  const EstimateEdit = () => {
-    const [form, setForm] = useState(
-      currentItem || {
-        id: generateId(),
-        number: generateDocumentNumber('estimate', data.invoices, data.estimates, data.settings),
-        date: new Date().toISOString().split('T')[0],
-        status: 'pending',
-        clientId: '',
-        items: [],
-        overallDiscount: 0,
-        overallDiscountType: 'percentage',
-        taxEnabled: true,
-        notes: '',
-      },
-    );
-    const [itemModalOpen, setItemModalOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState(null);
-    const taxRate = data.settings?.taxRate || 15;
-    const taxLabel = data.settings?.taxLabel || 'VAT';
-    const taxEnabled = isDocumentTaxEnabled(form);
-    const compactForm = usePhoneLayout;
-
-    const isExistingEstimate = data.estimates.some((est) => est.id === form.id);
-
-    const handleSave = async () => {
-      const isNew = !data.estimates.find((e) => e.id === form.id);
-      const updated = isNew
-        ? [...data.estimates, { ...form, createdAt: new Date().toISOString().split('T')[0] }]
-        : data.estimates.map((est) => (est.id === form.id ? form : est));
-      await save('estimates', updated);
-      if (isNew) {
-        await updateNextDocumentSetting('estimate', form.number);
-      }
-      setView('list');
-    };
-
-    const handleSaveItem = (item) => {
-      if (editingItem) {
-        setForm({ ...form, items: form.items.map((i) => (i.id === item.id ? item : i)) });
-      } else {
-        setForm({ ...form, items: [...form.items, item] });
-      }
-    };
-
-    const handleAddClient = async (newClientData) => {
-      const newClient = { id: generateId(), ...newClientData, createdAt: new Date().toISOString().split('T')[0] };
-      await save('clients', [...data.clients, newClient]);
-      return newClient.id;
-    };
-
-    return (
-      <CompactFormContext.Provider value={compactForm}>
-        <div className="flex flex-col h-full">
-          <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
-            <button onClick={() => setView(isExistingEstimate ? 'view-estimate' : 'list')} className={`${compactForm ? 'p-1.5' : 'p-2'} ${activeTheme.buttonHover} rounded-xl`}>
-              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-            </button>
-            <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{isExistingEstimate ? 'Edit Estimate' : 'New Estimate'}</h1>
-            <button onClick={handleSave} className={`${compactForm ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} ${activeTheme.accent} rounded-xl`}>
-              Save
-            </button>
-          </div>
-
-          <div className={`flex-1 overflow-auto ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'} phone-dock-scroll-space lg:pb-4`}>
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
-              <FormInput label="Estimate Number" value={form.number} onChange={(v) => setForm({ ...form, number: v })} theme={activeTheme} />
-              <FormInput label="Date" type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} theme={activeTheme} />
-              <ClientSelect
-                label="Client"
-                value={form.clientId}
-                onChange={(v) => setForm({ ...form, clientId: v })}
-                clients={data.clients}
-                onAddNew={handleAddClient}
-                theme={activeTheme}
-              />
-            </div>
-
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden`}>
-              <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
-                <p className={`font-semibold ${activeTheme.textPrimary}`}>Line Items</p>
-                <button
-                  onClick={() => {
-                    setEditingItem(null);
-                    setItemModalOpen(true);
-                  }}
-                  className={`${compactForm ? 'px-2.5 py-1.5 text-[13px]' : 'px-3 py-1.5 text-sm'} ${activeTheme.accent} rounded-lg flex items-center gap-1`}
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Item
-                </button>
-              </div>
-
-              {form.items.length === 0 ? (
-                <div className={`${compactForm ? 'p-5 text-sm' : 'p-8'} text-center ${activeTheme.textMuted}`}>No items added yet</div>
-              ) : (
-                <div className="divide-y">
-                  {form.items.map((item, idx) => (
-                    <div
-                      key={item.id}
-                      className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} ${activeTheme.tableRowHover} cursor-pointer`}
-                      onClick={() => {
-                        setEditingItem(item);
-                        setItemModalOpen(true);
-                      }}
-                    >
-                      <div className="flex justify-between items-start gap-3">
-                        <div>
-                          <p className={`font-medium ${activeTheme.textPrimary}`}>{item.description}</p>
-                          {item.notes && <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.notes}</p>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <p className={`font-semibold ${activeTheme.textPrimary}`}>
-                            {formatCurrency(calculateItemTotal(item, taxRate, { applyTax: taxEnabled }).total)}
-                          </p>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const itemLabel = item.description?.trim() || `line item ${idx + 1}`;
-                              requestDeleteConfirmation(`Are you sure you want to delete ${itemLabel}? This action cannot be undone.`, async () => {
-                                setForm((current) => ({
-                                  ...current,
-                                  items: current.items.filter((_, i) => i !== idx),
-                                }));
-                              });
-                            }}
-                            className="p-1.5 hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <DocumentTotalsEditor
-              form={form}
-              setForm={setForm}
-              taxRate={taxRate}
-              taxLabel={taxLabel}
-              theme={activeTheme}
-            />
-
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3' : 'p-4'}`}>
-              <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
-            </div>
-          </div>
-
-          <LineItemModal
-            isOpen={itemModalOpen}
-            onClose={() => setItemModalOpen(false)}
-            onSave={handleSaveItem}
-            item={editingItem}
-            savedItems={data.items}
-            taxRate={taxRate}
-            applyDocumentTax={taxEnabled}
-            theme={activeTheme}
-          />
-        </div>
-      </CompactFormContext.Provider>
-    );
-  };
+  
 
   // ============================================================================
   // CLIENTS
   // ============================================================================
 
-  const ClientsList = () => {
-    const filtered = data.clients.filter((client) => {
-      if (!searchTerm) return true;
-      return (
-        client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.email?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    });
+  
 
-    return (
-      <div className="flex flex-col h-full">
-        {!usePhoneLayout ? (
-          <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
-            <div className="flex items-center justify-between">
-              <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Clients</h1>
-              <button
-                onClick={openNewClient}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Client
-              </button>
-            </div>
+  
 
-            <div className="relative mt-3 max-w-sm">
-              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
-              <input
-                type="text"
-                placeholder="Search clients..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
-              />
-            </div>
-          </div>
-        ) : null}
-
-        <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
-          {filtered.length === 0 ? (
-            <EmptyState icon={Users} title="No clients yet" description="Add your first client" theme={activeTheme} />
-          ) : (
-            <div className={usePhoneLayout ? 'space-y-1.5' : 'space-y-2'}>
-              {filtered.map((client) => (
-                <div
-                  key={client.id}
-                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-2xl shadow-[0_1px_6px_rgba(0,0,0,0.06)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
-                >
-                  {usePhoneLayout ? (
-                    <div className="flex items-center gap-2.5 px-3 py-2.5">
-                      <div
-                        onClick={() => {
-                          setCurrentItem(client);
-                          setView('view-client');
-                        }}
-                        className={`w-10 h-10 rounded-full ${activeTheme.subtleBg} border ${activeTheme.border} flex items-center justify-center shrink-0 cursor-pointer`}
-                      >
-                        <span className={`text-xs font-bold ${activeTheme.textSecondary}`}>
-                          {(client.name || '')
-                            .split(/\s+/)
-                            .filter(Boolean)
-                            .slice(0, 2)
-                            .map((word) => word.charAt(0))
-                            .join('')
-                            .toUpperCase() || '?'}
-                        </span>
-                      </div>
-                      <div
-                        onClick={() => {
-                          setCurrentItem(client);
-                          setView('view-client');
-                        }}
-                        className="flex-1 min-w-0 cursor-pointer"
-                      >
-                        <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{client.name}</p>
-                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                          {client.email && (
-                            <span className={`text-[11px] ${activeTheme.textMuted} truncate max-w-[160px]`}>
-                              {client.email}
-                            </span>
-                          )}
-                          {client.email && client.phone && (
-                            <span className={`text-[11px] ${activeTheme.textMuted}`}>·</span>
-                          )}
-                          {client.phone && (
-                            <span className={`text-[11px] ${activeTheme.textMuted}`}>{client.phone}</span>
-                          )}
-                        </div>
-                        {client.city && (
-                          <p className={`text-[10px] ${activeTheme.iconColor} mt-0.5`}>{client.city}</p>
-                        )}
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmMessage(`Are you sure you want to delete client ${client.name}? This action cannot be undone.`);
-                          setConfirmAction(() => async () => {
-                            await save('clients', data.clients.filter((c) => c.id !== client.id));
-                          });
-                          setConfirmOpen(true);
-                        }}
-                        className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity shrink-0`}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 px-3 py-2.5">
-                      <div
-                        onClick={() => {
-                          setCurrentItem(client);
-                          setView('view-client');
-                        }}
-                        className="flex-1 min-w-0 cursor-pointer"
-                      >
-                        <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{client.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {client.email && <p className={`text-xs truncate ${activeTheme.textMuted}`}>{client.email}</p>}
-                          {client.email && client.phone && <span className={`text-xs ${activeTheme.textMuted}`}>·</span>}
-                          {client.phone && <p className={`text-xs ${activeTheme.textMuted}`}>{client.phone}</p>}
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmMessage(`Are you sure you want to delete client ${client.name}? This action cannot be undone.`);
-                          setConfirmAction(() => async () => {
-                            await save('clients', data.clients.filter((c) => c.id !== client.id));
-                          });
-                          setConfirmOpen(true);
-                        }}
-                        className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity shrink-0`}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const ClientView = () => (
-    <div className="flex flex-col h-full">
-      <div className={`p-4 border-b ${activeTheme.border} flex items-center justify-between`}>
-        <button onClick={() => setView('list')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
-          <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-        </button>
-        <h1 className={`font-semibold ${activeTheme.textPrimary}`}>Client Details</h1>
-        <div className="flex gap-2">
-          <button onClick={() => setView('edit-client')} className={`p-2 ${activeTheme.buttonHover} rounded-xl`}>
-            <Edit className={`w-5 h-5 ${activeTheme.textSecondary}`} />
-          </button>
-          <button
-            onClick={() => {
-              setConfirmMessage(`Are you sure you want to delete client ${currentItem.name}? This action cannot be undone.`);
-              setConfirmAction(() => async () => {
-                await save('clients', data.clients.filter((c) => c.id !== currentItem.id));
-                setView('list');
-              });
-              setConfirmOpen(true);
-            }}
-            className="p-2 hover:bg-red-50 rounded-xl"
-          >
-            <Trash2 className="w-5 h-5 text-red-500" />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto p-4 phone-dock-scroll-space lg:pb-4">
-        <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4`}>
-          <h2 className={`text-xl font-bold mb-4 ${activeTheme.textPrimary}`}>{currentItem?.name}</h2>
-          {currentItem?.phone && (
-            <div className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
-              <Phone className={`w-5 h-5 ${activeTheme.iconColor}`} />
-              <div>
-                <p className={`text-xs ${activeTheme.textMuted}`}>Phone</p>
-                <p className={`text-sm font-medium ${activeTheme.textPrimary}`}>{currentItem.phone}</p>
-              </div>
-            </div>
-          )}
-          {currentItem?.email && (
-            <div className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
-              <Mail className={`w-5 h-5 ${activeTheme.iconColor}`} />
-              <div>
-                <p className={`text-xs ${activeTheme.textMuted}`}>Email</p>
-                <p className={`text-sm font-medium ${activeTheme.textPrimary}`}>{currentItem.email}</p>
-              </div>
-            </div>
-          )}
-          {formatClientAddress(currentItem) && (
-            <div className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
-              <MapPin className={`w-5 h-5 ${activeTheme.iconColor}`} />
-              <div>
-                <p className={`text-xs ${activeTheme.textMuted}`}>Address</p>
-                <p className={`text-sm font-medium whitespace-pre-line ${activeTheme.textPrimary}`}>{formatClientAddress(currentItem)}</p>
-              </div>
-            </div>
-          )}
-          {currentItem?.vatNumber && (
-            <div className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
-              <Building2 className={`w-5 h-5 ${activeTheme.iconColor}`} />
-              <div>
-                <p className={`text-xs ${activeTheme.textMuted}`}>VAT Number</p>
-                <p className={`text-sm font-medium ${activeTheme.textPrimary}`}>{currentItem.vatNumber}</p>
-              </div>
-            </div>
-          )}
-          {[currentItem?.extraLine1, currentItem?.extraLine2, currentItem?.extraLine3, currentItem?.extraLine4, currentItem?.extraLine5]
-            .filter(Boolean)
-            .map((line, index) => (
-              <div key={index} className={`flex items-center gap-3 py-3 border-t ${activeTheme.border}`}>
-                <Building2 className={`w-5 h-5 ${activeTheme.iconColor}`} />
-                <div>
-                  <p className={`text-xs ${activeTheme.textMuted}`}>Extra Info {index + 1}</p>
-                  <p className={`text-sm font-medium ${activeTheme.textPrimary}`}>{line}</p>
-                </div>
-              </div>
-            ))}
-        </div>
-      </div>
-    </div>
-  );
-
-  const ClientEdit = () => {
-    const [form, setForm] = useState(
-      currentItem || {
-        id: generateId(),
-        name: '',
-        phone: '',
-        email: '',
-        addressLine1: '',
-        addressLine2: '',
-        city: '',
-        postalCode: '',
-        vatNumber: '',
-        extraLine1: '',
-        extraLine2: '',
-        extraLine3: '',
-        extraLine4: '',
-        extraLine5: '',
-        notes: '',
-      },
-    );
-
-    const handleSave = async () => {
-      const isNew = !data.clients.find((c) => c.id === form.id);
-      const updated = isNew ? [...data.clients, form] : data.clients.map((c) => (c.id === form.id ? form : c));
-      await save('clients', updated);
-      setView('list');
-    };
-
-    const compactForm = usePhoneLayout;
-
-    return (
-      <CompactFormContext.Provider value={compactForm}>
-        <div className="flex flex-col h-full">
-          <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
-            <button onClick={() => setView(currentItem?.name ? 'view-client' : 'list')} className={`${compactForm ? 'p-1.5' : 'p-2'} ${activeTheme.buttonHover} rounded-xl`}>
-              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-            </button>
-            <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{currentItem?.name ? 'Edit Client' : 'New Client'}</h1>
-            <button onClick={handleSave} className={`${compactForm ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} ${activeTheme.accent} rounded-xl`}>
-              Save
-            </button>
-          </div>
-
-          <div className={`flex-1 overflow-auto ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'} phone-dock-scroll-space lg:pb-4`}>
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
-              <FormInput label="Client Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} theme={activeTheme} />
-              <FormInput label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} theme={activeTheme} />
-              <FormInput label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} theme={activeTheme} />
-              <FormInput label="VAT Number" value={form.vatNumber} onChange={(v) => setForm({ ...form, vatNumber: v })} theme={activeTheme} />
-              <FormInput label="Extra Info 1" value={form.extraLine1 || ''} onChange={(v) => setForm({ ...form, extraLine1: v })} theme={activeTheme} />
-              <FormInput label="Extra Info 2" value={form.extraLine2 || ''} onChange={(v) => setForm({ ...form, extraLine2: v })} theme={activeTheme} />
-              <FormInput label="Extra Info 3" value={form.extraLine3 || ''} onChange={(v) => setForm({ ...form, extraLine3: v })} theme={activeTheme} />
-              <FormInput label="Extra Info 4" value={form.extraLine4 || ''} onChange={(v) => setForm({ ...form, extraLine4: v })} theme={activeTheme} />
-              <FormInput label="Extra Info 5" value={form.extraLine5 || ''} onChange={(v) => setForm({ ...form, extraLine5: v })} theme={activeTheme} />
-              <FormInput label="Address Line 1" value={form.addressLine1} onChange={(v) => setForm({ ...form, addressLine1: v })} theme={activeTheme} />
-              <FormInput label="Address Line 2" value={form.addressLine2} onChange={(v) => setForm({ ...form, addressLine2: v })} theme={activeTheme} />
-              <div className={`grid grid-cols-2 ${compactForm ? 'gap-2.5' : 'gap-3'}`}>
-                <FormInput label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} theme={activeTheme} />
-                <FormInput label="Postal Code" value={form.postalCode} onChange={(v) => setForm({ ...form, postalCode: v })} theme={activeTheme} />
-              </div>
-              <FormInput label="Notes" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} multiline theme={activeTheme} />
-            </div>
-          </div>
-        </div>
-      </CompactFormContext.Provider>
-    );
-  };
+  
 
   // ============================================================================
   // ITEMS
   // ============================================================================
 
-  const ItemsList = () => {
-    const filtered = data.items.filter((item) => {
-      if (!searchTerm) return true;
-      return item.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    });
+  
 
-    return (
-      <div className="flex flex-col h-full">
-        {!usePhoneLayout ? (
-          <div className="px-4 pt-3 pb-3 lg:px-6 lg:pt-4 lg:pb-4 border-b">
-            <div className="flex items-center justify-between">
-              <h1 className={`text-xl font-bold ${activeTheme.textPrimary}`}>Items</h1>
-              <button
-                onClick={openNewItem}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${activeTheme.accent} rounded-xl font-medium shadow-sm`}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Item
-              </button>
-            </div>
-
-            <div className="relative mt-3 max-w-sm">
-              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${activeTheme.iconColor}`} />
-              <input
-                type="text"
-                placeholder="Search items..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2 border ${activeTheme.inputBorder} rounded-xl text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
-              />
-            </div>
-          </div>
-        ) : null}
-
-        <div className="flex-1 overflow-auto px-3 pt-3 phone-dock-scroll-space lg:px-5 lg:pt-4 lg:pb-4">
-          {filtered.length === 0 ? (
-            <EmptyState icon={Package} title="No items yet" description="Add your products and services" theme={activeTheme} />
-          ) : (
-            <div className={usePhoneLayout ? 'space-y-2' : 'space-y-2'}>
-              {filtered.map((item) => (
-                <div
-                  key={item.id}
-                  className={`${activeTheme.cardBg} border ${usePhoneLayout ? `${activeTheme.border} rounded-xl shadow-[0_1px_6px_rgba(0,0,0,0.06)] active:scale-[0.98]` : `${activeTheme.border} rounded-xl`} ${activeTheme.cardHover} group transition-all duration-150`}
-                >
-                  {usePhoneLayout ? (
-                    <div className="px-3 py-2.5">
-                      <div
-                        onClick={() => {
-                          setCurrentItem(item);
-                          setView('edit-item');
-                        }}
-                        className="flex items-center justify-between mb-0.5 cursor-pointer"
-                      >
-                        <p className={`text-sm font-bold ${activeTheme.textPrimary} truncate mr-3`}>
-                          {item.name}
-                        </p>
-                        <p className={`text-sm font-bold ${activeTheme.textPrimary} shrink-0`}>
-                          {formatCurrency(item.unitCost || 0)}
-                        </p>
-                      </div>
-
-                      {item.description && (
-                        <div
-                          onClick={() => {
-                            setCurrentItem(item);
-                            setView('edit-item');
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <p
-                            className={`text-[11px] leading-tight ${activeTheme.textMuted} mb-1.5`}
-                            style={{
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {item.description}
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {item.unit && (
-                            <span className={`text-[9px] ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-1.5 py-px rounded-full border ${activeTheme.border}`}>
-                              per {item.unit}
-                            </span>
-                          )}
-                          {item.taxable && (
-                            <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-px rounded-full border border-emerald-200">
-                              Taxable
-                            </span>
-                          )}
-                          {item.discountAmount > 0 && (
-                            <span className="text-[9px] text-amber-600 bg-amber-50 px-1.5 py-px rounded-full border border-amber-200">
-                              {item.discountType === 'percentage'
-                                ? `${item.discountAmount}% off`
-                                : `${formatCurrency(item.discountAmount)} off`}
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmMessage(`Are you sure you want to delete item ${item.name}? This action cannot be undone.`);
-                            setConfirmAction(() => async () => {
-                              await save('items', data.items.filter((i) => i.id !== item.id));
-                            });
-                            setConfirmOpen(true);
-                          }}
-                          className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity shrink-0`}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 px-3 py-2.5">
-                      <div
-                        onClick={() => {
-                          setCurrentItem(item);
-                          setView('edit-item');
-                        }}
-                        className="flex-1 min-w-0 cursor-pointer"
-                      >
-                        <div className="flex items-baseline gap-2">
-                          <p className={`text-sm font-semibold leading-tight ${activeTheme.textPrimary}`}>{item.name}</p>
-                          {item.description && (
-                            <p className={`text-xs truncate ${activeTheme.textMuted}`}>{item.description}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                          {item.unit && <span className={`text-[10px] ${activeTheme.subtleBg} ${activeTheme.textSecondary} px-1.5 py-0.5 rounded`}>per {item.unit}</span>}
-                          {item.taxable && <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded">Taxable</span>}
-                          {item.discountAmount > 0 && (
-                            <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                              {item.discountType === 'percentage'
-                                ? `${item.discountAmount}% off`
-                                : `${formatCurrency(item.discountAmount)} off`}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <p className={`text-sm font-bold ${activeTheme.textPrimary}`}>{formatCurrency(item.unitCost || 0)}</p>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmMessage(`Are you sure you want to delete item ${item.name}? This action cannot be undone.`);
-                            setConfirmAction(() => async () => {
-                              await save('items', data.items.filter((i) => i.id !== item.id));
-                            });
-                            setConfirmOpen(true);
-                          }}
-                          className={`${usePhoneLayout ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-1.5 hover:bg-red-50 rounded-lg transition-opacity`}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const ItemEdit = () => {
-    const [form, setForm] = useState(
-      currentItem || {
-        id: generateId(),
-        name: '',
-        description: '',
-        unitCost: 0,
-        unit: '',
-        quantity: 1,
-        discountType: 'percentage',
-        discountAmount: 0,
-        taxable: false,
-        additionalDetails: '',
-      },
-    );
-
-    const itemTotal = (form.unitCost || 0) * (form.quantity || 1);
-    const discount =
-      form.discountType === 'percentage'
-        ? itemTotal * ((form.discountAmount || 0) / 100)
-        : form.discountAmount || 0;
-    const finalTotal = itemTotal - discount;
-
-    const handleSave = async () => {
-      const normalizedForm = {
-        ...form,
-        unitCost: Number(form.unitCost) || 0,
-        quantity: form.quantity === '' ? 0 : parseInt(form.quantity, 10) || 0,
-        discountAmount: Number(form.discountAmount) || 0,
-      };
-      const isNew = !data.items.find((i) => i.id === form.id);
-      const updated = isNew
-        ? [...data.items, normalizedForm]
-        : data.items.map((i) => (i.id === form.id ? normalizedForm : i));
-      await save('items', updated);
-      setView('list');
-    };
-
-    const compactForm = usePhoneLayout;
-
-    return (
-      <CompactFormContext.Provider value={compactForm}>
-        <div className="flex flex-col h-full">
-          <div className={`${compactForm ? 'px-3 py-2.5' : 'p-4'} border-b ${activeTheme.border} flex items-center justify-between`}>
-            <button onClick={() => setView('list')} className={`${compactForm ? 'p-1.5' : 'p-2'} ${activeTheme.buttonHover} rounded-xl`}>
-              <ChevronLeft className={`w-5 h-5 ${activeTheme.textPrimary}`} />
-            </button>
-            <h1 className={`font-semibold ${activeTheme.textPrimary}`}>{currentItem?.name ? 'Edit Item' : 'New Item'}</h1>
-            <div className="flex gap-2">
-              {currentItem?.name && (
-                <button
-                  onClick={() => {
-                    setConfirmMessage(`Are you sure you want to delete item ${form.name}? This action cannot be undone.`);
-                    setConfirmAction(() => async () => {
-                      await save('items', data.items.filter((i) => i.id !== form.id));
-                      setView('list');
-                    });
-                    setConfirmOpen(true);
-                  }}
-                  className={`${compactForm ? 'p-1.5' : 'p-2'} hover:bg-red-50 rounded-xl`}
-                >
-                  <Trash2 className="w-5 h-5 text-red-500" />
-                </button>
-              )}
-              <button onClick={handleSave} className={`${compactForm ? 'px-3 py-1.5 text-sm' : 'px-4 py-2'} ${activeTheme.accent} rounded-xl`}>
-                Save
-              </button>
-            </div>
-          </div>
-
-          <div className={`flex-1 overflow-auto ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'} phone-dock-scroll-space lg:pb-4`}>
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3 space-y-3' : 'p-4 space-y-4'}`}>
-              <FormInput label="Item Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} theme={activeTheme} />
-              <FormInput label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} multiline theme={activeTheme} />
-              <FormInput
-                label="Unit Cost"
-                type="number"
-                value={form.unitCost}
-                onChange={(v) => setForm({ ...form, unitCost: parseFloat(v) || 0 })}
-                theme={activeTheme}
-              />
-              <div className={`grid grid-cols-2 ${compactForm ? 'gap-2.5' : 'gap-3'}`}>
-                <FormInput label="Unit" value={form.unit} onChange={(v) => setForm({ ...form, unit: v })} theme={activeTheme} />
-                <FormInput
-                  label="Quantity"
-                  type="number"
-                  value={form.quantity}
-                  onChange={(v) => setForm({ ...form, quantity: v === '' ? '' : parseInt(v, 10) || 0 })}
-                  theme={activeTheme}
-                />
-              </div>
-
-              <div className={`grid grid-cols-2 ${compactForm ? 'gap-2.5' : 'gap-3'}`}>
-                <div className={compactForm ? 'space-y-1' : 'space-y-1'}>
-                  <label className={`${compactForm ? 'text-xs' : 'text-sm'} font-medium ${activeTheme.labelColor}`}>Discount Type</label>
-                  <select
-                    value={form.discountType}
-                    onChange={(e) => setForm({ ...form, discountType: e.target.value })}
-                    className={`w-full ${compactForm ? 'px-3 py-2 rounded-lg text-[13px]' : 'px-3 py-2 rounded-xl text-sm'} border ${activeTheme.inputBorder} ${activeTheme.inputBg} ${activeTheme.textPrimary}`}
-                  >
-                    <option value="percentage">Percentage</option>
-                    <option value="flat">Fixed Amount</option>
-                  </select>
-                </div>
-                <FormInput
-                  label="Discount Amount"
-                  type="number"
-                  value={form.discountAmount}
-                  onChange={(v) => setForm({ ...form, discountAmount: parseFloat(v) || 0 })}
-                  theme={activeTheme}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className={`${compactForm ? 'text-xs' : 'text-sm'} font-medium ${activeTheme.textPrimary}`}>Taxable</span>
-                <button
-                  onClick={() => setForm({ ...form, taxable: !form.taxable })}
-                  className={`relative w-12 h-7 rounded-full ${form.taxable ? activeTheme.accent : activeTheme.toggleInactive}`}
-                >
-                  <span className={`absolute top-1 w-5 h-5 bg-white rounded-full ${form.taxable ? 'left-6' : 'left-1'}`} />
-                </button>
-              </div>
-
-              <div className={`flex justify-between items-center ${compactForm ? 'pt-3' : 'pt-4'} border-t ${activeTheme.border}`}>
-                <span className={`font-semibold ${activeTheme.textPrimary}`}>Total</span>
-                <span className={`${compactForm ? 'text-lg' : 'text-xl'} font-bold ${activeTheme.textPrimary}`}>{formatCurrency(finalTotal)}</span>
-              </div>
-            </div>
-
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl ${compactForm ? 'p-3' : 'p-4'}`}>
-              <FormInput
-                label="Additional Details"
-                value={form.additionalDetails}
-                onChange={(v) => setForm({ ...form, additionalDetails: v })}
-                multiline
-                theme={activeTheme}
-              />
-            </div>
-          </div>
-        </div>
-      </CompactFormContext.Provider>
-    );
-  };
+  
 
   // ============================================================================
   // REPORTS + SETTINGS
   // ============================================================================
 
-  const ReportsPage = () => {
-    const taxRate = data.settings?.taxRate || 15;
-
-    // Current date helpers
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
-
-    // Filter states
-    const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString());
-    const [selectedYear, setSelectedYear] = useState(currentYear.toString());
-    const [selectedStatus, setSelectedStatus] = useState('all');
-    const [selectedClient, setSelectedClient] = useState('all');
-    const [reportView, setReportView] = useState('overview');
-
-    // Helper functions
-    const getClientName = (clientId) => {
-      const client = data.clients.find(c => c.id === clientId);
-      return client?.name || 'No client';
-    };
-
-    const getMonthYear = (dateStr) => {
-      const date = new Date(dateStr);
-      return {
-        month: date.getMonth() + 1,
-        year: date.getFullYear(),
-        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      };
-    };
-
-    const formatMonthYear = (month, year) => {
-      const date = new Date(year, month - 1);
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-    };
-
-    // Filtered data
-    const filteredInvoices = useMemo(() => {
-      return data.invoices.filter(inv => {
-        const { month, year } = getMonthYear(inv.date);
-        const matchesMonth = selectedMonth === 'all' || month === parseInt(selectedMonth);
-        const matchesYear = selectedYear === 'all' || year === parseInt(selectedYear);
-        const matchesClient = selectedClient === 'all' || inv.clientId === selectedClient;
-        let matchesStatus = true;
-        if (selectedStatus !== 'all') {
-          if (selectedStatus === 'paid') matchesStatus = inv.status === 'paid';
-          else if (selectedStatus === 'outstanding') matchesStatus = inv.status === 'outstanding';
-          else if (selectedStatus === 'estimate') matchesStatus = false; // invoices are not estimates
-          else if (selectedStatus === 'converted') matchesStatus = false; // for now, assume not
-        }
-        return matchesMonth && matchesYear && matchesClient && matchesStatus;
-      });
-    }, [data.invoices, selectedMonth, selectedYear, selectedClient, selectedStatus]);
-
-    const filteredEstimates = useMemo(() => {
-      return data.estimates.filter(est => {
-        const { month, year } = getMonthYear(est.date);
-        const matchesMonth = selectedMonth === 'all' || month === parseInt(selectedMonth);
-        const matchesYear = selectedYear === 'all' || year === parseInt(selectedYear);
-        const matchesClient = selectedClient === 'all' || est.clientId === selectedClient;
-        let matchesStatus = true;
-        if (selectedStatus !== 'all') {
-          if (selectedStatus === 'estimate') matchesStatus = true;
-          else if (selectedStatus === 'converted') matchesStatus = est.status === 'accepted';
-          else matchesStatus = false; // estimates don't have paid/outstanding
-        }
-        return matchesMonth && matchesYear && matchesClient && matchesStatus;
-      });
-    }, [data.estimates, selectedMonth, selectedYear, selectedClient, selectedStatus]);
-
-    // Summary calculations
-    const summary = useMemo(() => {
-      const totalInvoiced = filteredInvoices.reduce((sum, inv) => sum + calculateDocumentTotal(inv, taxRate), 0);
-      const totalPaid = filteredInvoices.filter(i => i.status === 'paid').reduce((sum, inv) => sum + calculateDocumentTotal(inv, taxRate), 0);
-      const totalOutstanding = filteredInvoices.filter(i => i.status !== 'paid').reduce((sum, inv) => sum + calculateDocumentTotal(inv, taxRate), 0);
-      const totalEstimates = filteredEstimates.reduce((sum, est) => sum + calculateDocumentTotal(est, taxRate), 0);
-      const invoiceCount = filteredInvoices.length;
-      const estimateCount = filteredEstimates.length;
-      const activeClients = new Set([...filteredInvoices.map(i => i.clientId), ...filteredEstimates.map(e => e.clientId)]).size;
-      const conversionRate = estimateCount > 0 ? (invoiceCount / estimateCount) * 100 : 0;
-
-      return {
-        totalInvoiced,
-        totalPaid,
-        totalOutstanding,
-        totalEstimates,
-        invoiceCount,
-        estimateCount,
-        activeClients,
-        conversionRate,
-        averageInvoiceValue: invoiceCount > 0 ? totalInvoiced / invoiceCount : 0,
-        averageEstimateValue: estimateCount > 0 ? totalEstimates / estimateCount : 0,
-      };
-    }, [filteredInvoices, filteredEstimates, taxRate]);
-
-    // Monthly breakdown
-    const monthlyBreakdown = useMemo(() => {
-      const breakdown = {};
-      const allItems = [
-        ...filteredInvoices.map(item => ({ ...item, docType: 'invoice' })),
-        ...filteredEstimates.map(item => ({ ...item, docType: 'estimate' }))
-      ];
-      allItems.forEach(item => {
-        const { key, month, year } = getMonthYear(item.date);
-        if (!breakdown[key]) {
-          breakdown[key] = {
-            period: formatMonthYear(month, year),
-            invoices: 0,
-            paid: 0,
-            outstanding: 0,
-            estimates: 0,
-            totalInvoiced: 0,
-            totalEstimated: 0,
-            clients: new Set()
-          };
-        }
-        const total = calculateDocumentTotal(item, taxRate);
-        if (item.docType === 'invoice') { // invoice
-          breakdown[key].invoices++;
-          breakdown[key].totalInvoiced += total;
-          if (item.status === 'paid') breakdown[key].paid++;
-          else breakdown[key].outstanding++;
-        } else { // estimate
-          breakdown[key].estimates++;
-          breakdown[key].totalEstimated += total;
-        }
-        breakdown[key].clients.add(item.clientId);
-      });
-
-      // Convert clients to count
-      Object.keys(breakdown).forEach(key => {
-        breakdown[key].clients = breakdown[key].clients.size;
-      });
-
-      return Object.values(breakdown).sort((a, b) => new Date(b.period) - new Date(a.period));
-    }, [filteredInvoices, filteredEstimates, taxRate]);
-
-    // Client reporting
-    const clientReporting = useMemo(() => {
-      const clients = {};
-      data.clients.forEach(client => {
-        clients[client.id] = {
-          name: client.name,
-          invoices: 0,
-          estimates: 0,
-          totalInvoiced: 0,
-          totalPaid: 0,
-          outstanding: 0,
-          lastActivity: null
-        };
-      });
-
-      filteredInvoices.forEach(inv => {
-        if (clients[inv.clientId]) {
-          clients[inv.clientId].invoices++;
-          const total = calculateDocumentTotal(inv, taxRate);
-          clients[inv.clientId].totalInvoiced += total;
-          if (inv.status === 'paid') clients[inv.clientId].totalPaid += total;
-          else clients[inv.clientId].outstanding += total;
-          const date = new Date(inv.date);
-          if (!clients[inv.clientId].lastActivity || date > clients[inv.clientId].lastActivity) {
-            clients[inv.clientId].lastActivity = date;
-          }
-        }
-      });
-
-      filteredEstimates.forEach(est => {
-        if (clients[est.clientId]) {
-          clients[est.clientId].estimates++;
-          const date = new Date(est.date);
-          if (!clients[est.clientId].lastActivity || date > clients[est.clientId].lastActivity) {
-            clients[est.clientId].lastActivity = date;
-          }
-        }
-      });
-
-      return Object.values(clients).filter(c => c.invoices > 0 || c.estimates > 0).sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
-    }, [data.clients, filteredInvoices, filteredEstimates, taxRate]);
-
-    // Recent activity
-    const recentActivity = useMemo(() => {
-      const activities = [
-        ...filteredInvoices.map(inv => ({ ...inv, type: 'Invoice', status: inv.status })),
-        ...filteredEstimates.map(est => ({ ...est, type: 'Estimate', status: est.status }))
-      ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 20);
-
-      return activities.map(item => ({
-        ...item,
-        clientName: getClientName(item.clientId),
-        total: calculateDocumentTotal(item, taxRate)
-      }));
-    }, [filteredInvoices, filteredEstimates, taxRate]);
-
-    const revenueChartData = useMemo(() => {
-      return monthlyBreakdown
-        .slice()
-        .reverse()
-        .map((row) => ({
-          label: row.period,
-          invoiced: row.totalInvoiced,
-          paid: filteredInvoices
-            .filter((inv) => {
-              const period = getMonthYear(inv.date);
-              return formatMonthYear(period.month, period.year) === row.period && inv.status === 'paid';
-            })
-            .reduce((sum, inv) => sum + calculateDocumentTotal(inv, taxRate), 0),
-          estimated: row.totalEstimated,
-          total: row.totalInvoiced + row.totalEstimated,
-        }));
-    }, [monthlyBreakdown, filteredInvoices, taxRate]);
-
-    const invoiceStatusChartData = useMemo(() => {
-      const paidCount = filteredInvoices.filter((inv) => inv.status === 'paid').length;
-      const outstandingCount = filteredInvoices.filter((inv) => inv.status !== 'paid').length;
-      return [
-        { label: 'Paid', value: paidCount, color: '#10B981', detail: `${formatCurrency(summary.totalPaid)} collected` },
-        { label: 'Outstanding', value: outstandingCount, color: '#F59E0B', detail: `${formatCurrency(summary.totalOutstanding)} open` },
-      ];
-    }, [filteredInvoices, summary.totalPaid, summary.totalOutstanding]);
-
-    const estimateStatusChartData = useMemo(() => {
-      const statuses = [
-        { key: 'pending', label: 'Pending', color: '#F59E0B' },
-        { key: 'accepted', label: 'Accepted', color: '#10B981' },
-        { key: 'declined', label: 'Declined', color: '#EF4444' },
-      ];
-
-      return statuses.map((status) => ({
-        label: status.label,
-        value: filteredEstimates.filter((estimate) => estimate.status === status.key).length,
-        color: status.color,
-      }));
-    }, [filteredEstimates]);
-
-    const clientPerformanceChartData = useMemo(() => {
-      return clientReporting
-        .filter((client) => client.totalInvoiced > 0)
-        .slice(0, 6)
-        .map((client, index) => ({
-          label: client.name,
-          value: client.totalInvoiced,
-          detail: `${client.invoices} invoices`,
-          color: [
-            'linear-gradient(90deg, #8E1020, #D4142A)',
-            'linear-gradient(90deg, #0F766E, #14B8A6)',
-            'linear-gradient(90deg, #7C3AED, #A855F7)',
-            'linear-gradient(90deg, #1D4ED8, #3B82F6)',
-            'linear-gradient(90deg, #B45309, #F59E0B)',
-            'linear-gradient(90deg, #BE123C, #FB7185)',
-          ][index % 6],
-        }));
-    }, [clientReporting]);
-
-    const conversionChartData = useMemo(() => {
-      const acceptedEstimates = filteredEstimates.filter((estimate) => estimate.status === 'accepted').length;
-      const invoiceCount = filteredInvoices.length;
-      return [
-        {
-          label: 'Accepted Estimates',
-          value: acceptedEstimates,
-          detail: `${acceptedEstimates} accepted`,
-          color: 'linear-gradient(90deg, #0F766E, #14B8A6)',
-        },
-        {
-          label: 'Invoices Issued',
-          value: invoiceCount,
-          detail: `${summary.conversionRate.toFixed(1)}% estimate-to-invoice rate`,
-          color: 'linear-gradient(90deg, #8E1020, #D4142A)',
-        },
-      ];
-    }, [filteredEstimates, filteredInvoices, summary.conversionRate]);
-
-    // Filter options
-    const monthOptions = useMemo(() => {
-      return Array.from({ length: 12 }, (_, i) => i + 1).map(m => ({ value: m, label: new Date(2023, m - 1).toLocaleString('default', { month: 'long' }) }));
-    }, []);
-
-    const yearOptions = useMemo(() => {
-      const years = new Set();
-      [...data.invoices, ...data.estimates].forEach(item => {
-        const { year } = getMonthYear(item.date);
-        years.add(year);
-      });
-      years.add(currentYear);
-      return Array.from(years).sort((a, b) => b - a);
-    }, [data.invoices, data.estimates, currentYear]);
-
-    const statusOptions = [
-      { value: 'all', label: 'All' },
-      { value: 'paid', label: 'Paid' },
-      { value: 'outstanding', label: 'Outstanding' },
-      { value: 'estimate', label: 'Estimate' },
-      { value: 'converted', label: 'Converted' }
-    ];
-
-    const clientOptions = [
-      { value: 'all', label: 'All Clients' },
-      ...data.clients.map(c => ({ value: c.id, label: c.name }))
-    ];
-
-    const resetFilters = () => {
-      setSelectedMonth(currentMonth.toString());
-      setSelectedYear(currentYear.toString());
-      setSelectedStatus('all');
-      setSelectedClient('all');
-    };
-
-    const topClient = clientReporting[0] || null;
-    const latestPeriod = monthlyBreakdown[0] || null;
-    const paidRatio = summary.totalInvoiced > 0 ? (summary.totalPaid / summary.totalInvoiced) * 100 : 0;
-    const outstandingRatio = summary.totalInvoiced > 0 ? (summary.totalOutstanding / summary.totalInvoiced) * 100 : 0;
-    const businessSignals = [
-      {
-        title: 'Collections',
-        value: `${paidRatio.toFixed(1)}%`,
-        detail: `${formatCurrency(summary.totalPaid)} collected from invoiced work`,
-      },
-      {
-        title: 'Exposure',
-        value: `${outstandingRatio.toFixed(1)}%`,
-        detail: `${formatCurrency(summary.totalOutstanding)} still outstanding`,
-      },
-      {
-        title: 'Momentum',
-        value: latestPeriod ? latestPeriod.period : 'No period',
-        detail: latestPeriod
-          ? `${latestPeriod.invoices} invoices and ${latestPeriod.estimates} estimates in the latest period`
-          : 'No activity for the selected filters',
-      },
-    ];
-
-    const analyticsSummaryCards = [
-      {
-        title: 'Total Invoiced',
-        value: formatCurrency(summary.totalInvoiced),
-        detail: `${summary.invoiceCount} invoices issued`,
-        accentClass: 'bg-sky-500',
-      },
-      {
-        title: 'Total Paid',
-        value: formatCurrency(summary.totalPaid),
-        detail: `${summary.totalInvoiced > 0 ? ((summary.totalPaid / summary.totalInvoiced) * 100).toFixed(1) : '0.0'}% collected`,
-        accentClass: 'bg-emerald-500',
-      },
-      {
-        title: 'Outstanding',
-        value: formatCurrency(summary.totalOutstanding),
-        detail: `${summary.totalInvoiced > 0 ? ((summary.totalOutstanding / summary.totalInvoiced) * 100).toFixed(1) : '0.0'}% still open`,
-        accentClass: 'bg-amber-500',
-      },
-      {
-        title: 'Total Estimates',
-        value: formatCurrency(summary.totalEstimates),
-        detail: `${summary.estimateCount} estimates created`,
-        accentClass: 'bg-violet-500',
-      },
-      {
-        title: 'Active Clients',
-        value: `${summary.activeClients}`,
-        detail: 'Clients with filtered activity',
-        accentClass: 'bg-cyan-500',
-      },
-      {
-        title: 'Conversion Rate',
-        value: `${summary.conversionRate.toFixed(1)}%`,
-        detail: 'Invoices compared with estimates',
-        accentClass: 'bg-rose-500',
-      },
-      {
-        title: 'Average Invoice Value',
-        value: formatCurrency(summary.averageInvoiceValue),
-        detail: 'Average across filtered invoices',
-        accentClass: 'bg-indigo-500',
-      },
-      {
-        title: 'Average Estimate Value',
-        value: formatCurrency(summary.averageEstimateValue),
-        detail: 'Average across filtered estimates',
-        accentClass: 'bg-fuchsia-500',
-      },
-    ];
-
-    return (
-      <div className="flex flex-col h-full">
-        <div className="p-4 lg:p-6 border-b">
-          {!usePhoneLayout ? (
-            <>
-              <h1 className={`text-2xl font-bold ${activeTheme.textPrimary}`}>Reports</h1>
-              <p className={`text-sm ${activeTheme.textMuted}`}>Detailed business performance overview</p>
-            </>
-          ) : null}
-          <div
-            className={`${usePhoneLayout ? '' : 'mt-4 '} inline-flex rounded-xl sm:rounded-2xl ${
-              usePhoneLayout
-                ? 'bg-white/80 p-1 shadow-[0_2px_12px_rgba(0,0,0,0.06)] backdrop-blur-xl'
-                : `border ${activeTheme.border} ${activeTheme.subtleBg} p-1`
-            }`}
-          >
-            <button
-              onClick={() => setReportView('overview')}
-              className={`${usePhoneLayout ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm'} rounded-lg sm:rounded-xl transition-all ${
-                reportView === 'overview'
-                  ? usePhoneLayout
-                    ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
-                    : activeTheme.accent
-                  : usePhoneLayout
-                    ? 'bg-zinc-100 text-zinc-600'
-                    : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
-              }`}
-            >
-              {usePhoneLayout ? 'Overview' : 'Reports Overview'}
-            </button>
-            <button
-              onClick={() => setReportView('business')}
-              className={`${usePhoneLayout ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm'} rounded-lg sm:rounded-xl transition-all ${
-                reportView === 'business'
-                  ? usePhoneLayout
-                    ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
-                    : activeTheme.accent
-                  : usePhoneLayout
-                    ? 'bg-zinc-100 text-zinc-600'
-                    : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
-              }`}
-            >
-              {usePhoneLayout ? 'Business' : 'Business View'}
-            </button>
-            <button
-              onClick={() => setReportView('analytics')}
-              className={`${usePhoneLayout ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm'} rounded-lg sm:rounded-xl transition-all ${
-                reportView === 'analytics'
-                  ? usePhoneLayout
-                    ? 'bg-gradient-to-r from-zinc-900 to-black text-white shadow-sm'
-                    : activeTheme.accent
-                  : usePhoneLayout
-                    ? 'bg-zinc-100 text-zinc-600'
-                    : `${activeTheme.textSecondary} ${activeTheme.buttonHover}`
-              }`}
-            >
-              Analytics
-            </button>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className={`px-3 py-2.5 sm:px-4 sm:py-4 lg:px-6 border-b ${activeTheme.sectionHeaderBg}`}>
-          <div className={`${usePhoneLayout ? 'grid grid-cols-2 gap-2' : 'flex flex-wrap gap-3'} items-center`}>
-            {/* Month */}
-            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-lg sm:rounded-xl overflow-hidden shadow-sm`}>
-              <span className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Month</span>
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none min-w-0`}
-              >
-                <option value="all">All Months</option>
-                {monthOptions.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-            </div>
-            {/* Year */}
-            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-lg sm:rounded-xl overflow-hidden shadow-sm`}>
-              <span className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Year</span>
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none min-w-0`}
-              >
-                <option value="all">All Years</option>
-                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
-            {/* Status */}
-            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-lg sm:rounded-xl overflow-hidden shadow-sm`}>
-              <span className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Status</span>
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none min-w-0`}
-              >
-                {statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
-            {/* Client */}
-            <div className={`flex items-center gap-0 border ${activeTheme.inputBorder} rounded-lg sm:rounded-xl overflow-hidden shadow-sm`}>
-              <span className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm font-medium ${activeTheme.labelColor} ${activeTheme.subtleBg} border-r ${activeTheme.inputBorder} whitespace-nowrap`}>Client</span>
-              <select
-                value={selectedClient}
-                onChange={(e) => setSelectedClient(e.target.value)}
-                className={`px-2 py-1.5 text-xs sm:px-3 sm:py-2 sm:text-sm ${activeTheme.inputBg} ${activeTheme.textPrimary} focus:outline-none min-w-0`}
-              >
-                {clientOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </select>
-            </div>
-            <button
-              onClick={resetFilters}
-              className={`px-3 py-1.5 sm:px-4 sm:py-2 ${activeTheme.accent} ${activeTheme.accentHover} rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium shadow-sm transition-colors ${usePhoneLayout ? 'col-span-2' : ''}`}
-            >
-              Reset Filters
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-auto px-2.5 pt-2 pb-3 phone-dock-scroll-space sm:p-4 lg:p-6 lg:pb-6 space-y-3 sm:space-y-6">
-          {reportView === 'analytics' ? (
-            <>
-              <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">
-                {analyticsSummaryCards.map((card) => (
-                  <SummaryMetricCard key={card.title} {...card} theme={activeTheme} />
-                ))}
-              </div>
-
-              <div className="grid xl:grid-cols-[1.5fr_0.9fr] gap-6">
-                <AnalyticsCard
-                  title="Revenue Overview"
-                  subtitle="Invoiced, paid, and estimated value grouped by period"
-                  theme={activeTheme}
-                >
-                  <SimpleMultiBarChart
-                    data={revenueChartData}
-                    theme={activeTheme}
-                    series={[
-                      { key: 'invoiced', label: 'Invoiced', color: '#3B82F6' },
-                      { key: 'paid', label: 'Paid', color: '#10B981' },
-                      { key: 'estimated', label: 'Estimated', color: '#A855F7' },
-                    ]}
-                  />
-                </AnalyticsCard>
-
-                <AnalyticsCard
-                  title="Invoice Status"
-                  subtitle="Paid versus outstanding invoice count"
-                  theme={activeTheme}
-                >
-                  <DonutChart
-                    data={invoiceStatusChartData}
-                    centerLabel="Invoices"
-                    centerValue={String(summary.invoiceCount)}
-                    theme={activeTheme}
-                  />
-                </AnalyticsCard>
-              </div>
-
-              <div className="grid xl:grid-cols-2 gap-6">
-                <AnalyticsCard
-                  title="Estimate Status"
-                  subtitle="Pending, accepted, and declined estimates"
-                  theme={activeTheme}
-                >
-                  <DonutChart
-                    data={estimateStatusChartData}
-                    centerLabel="Estimates"
-                    centerValue={String(summary.estimateCount)}
-                    theme={activeTheme}
-                  />
-                </AnalyticsCard>
-
-                <AnalyticsCard
-                  title="Client Performance"
-                  subtitle="Top clients ranked by invoiced amount"
-                  theme={activeTheme}
-                >
-                  <HorizontalBarChart data={clientPerformanceChartData} theme={activeTheme} formatter={formatCurrency} />
-                </AnalyticsCard>
-              </div>
-
-              <div className="grid xl:grid-cols-[0.95fr_1.05fr] gap-6">
-                <AnalyticsCard
-                  title="Conversion View"
-                  subtitle="Accepted estimates compared with invoices issued"
-                  theme={activeTheme}
-                >
-                  <HorizontalBarChart data={conversionChartData} theme={activeTheme} formatter={(value) => `${value}`} />
-                </AnalyticsCard>
-
-                <AnalyticsCard
-                  title="Recent Activity"
-                  subtitle="Latest invoices and estimates in the filtered period"
-                  theme={activeTheme}
-                >
-                  <div className={`divide-y ${activeTheme.border}`}>
-                    {recentActivity.slice(0, 8).map((item, idx) => (
-                      <div key={`${item.id || item.number}-${idx}`} className={`flex items-center justify-between gap-4 py-3 ${activeTheme.tableRowHover}`}>
-                        <div className="min-w-0">
-                          <p className={`truncate text-sm font-medium ${activeTheme.textPrimary}`}>{item.number}</p>
-                          <p className={`truncate text-xs ${activeTheme.textMuted}`}>{item.clientName}</p>
-                          <p className={`mt-1 text-[11px] ${activeTheme.iconColor}`}>{formatDate(item.date)} • {item.type}</p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</p>
-                          <p className={`text-xs ${activeTheme.textMuted}`}>{item.status}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {recentActivity.length === 0 && (
-                      <ChartEmptyState
-                        theme={activeTheme}
-                        title="No recent activity"
-                        description="Create invoices or estimates to populate this panel."
-                      />
-                    )}
-                  </div>
-                </AnalyticsCard>
-              </div>
-
-              <div className="grid gap-6">
-                <AnalyticsCard
-                  title="Period Breakdown"
-                  subtitle="Revenue and document activity by period"
-                  theme={activeTheme}
-                >
-                  <div className="overflow-x-auto -mx-2 sm:mx-0">
-                    <table className="w-full">
-                      <thead className={activeTheme.tableHeaderBg}>
-                        <tr>
-                          <th className={`px-2 py-1.5 text-left text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Period</th>
-                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Inv</th>
-                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Paid</th>
-                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Out</th>
-                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Est</th>
-                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Tot Inv</th>
-                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Tot Est</th>
-                          <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Cli</th>
-                        </tr>
-                      </thead>
-                      <tbody className={`divide-y ${activeTheme.border}`}>
-                        {monthlyBreakdown.map((row, idx) => (
-                          <tr key={idx} className={activeTheme.tableRowHover}>
-                            <td className={`px-2 py-1.5 text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.period}</td>
-                            <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.invoices}</td>
-                            <td className="px-1.5 py-1.5 text-[10px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{row.paid}</td>
-                            <td className="px-1.5 py-1.5 text-[10px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{row.outstanding}</td>
-                            <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.estimates}</td>
-                            <td className={`px-1.5 py-1.5 text-[10px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalInvoiced)}</td>
-                            <td className={`px-1.5 py-1.5 text-[10px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalEstimated)}</td>
-                            <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.clients}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {monthlyBreakdown.length === 0 && (
-                    <div className="pt-4">
-                      <ChartEmptyState theme={activeTheme} title="No period data" description="There is no period breakdown for the selected filters." />
-                    </div>
-                  )}
-                </AnalyticsCard>
-
-                <div className="grid xl:grid-cols-2 gap-6">
-                  <AnalyticsCard
-                    title="Client Performance"
-                    subtitle="Detailed client-level financial activity"
-                    theme={activeTheme}
-                  >
-                    <div className="overflow-x-auto -mx-2 sm:mx-0">
-                      <table className="w-full">
-                        <thead className={activeTheme.tableHeaderBg}>
-                          <tr>
-                            <th className={`px-2 py-1.5 text-left text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Client</th>
-                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Inv</th>
-                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Est</th>
-                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Invoiced</th>
-                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Paid</th>
-                            <th className={`px-1.5 py-1.5 text-right text-[10px] font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.labelColor}`}>Owed</th>
-                          </tr>
-                        </thead>
-                        <tbody className={`divide-y ${activeTheme.border}`}>
-                          {clientReporting.map((client, idx) => (
-                            <tr key={idx} className={activeTheme.tableRowHover}>
-                              <td className={`max-w-[80px] truncate px-2 py-1.5 text-[10px] font-medium sm:max-w-none sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.name}</td>
-                              <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.invoices}</td>
-                              <td className={`px-1.5 py-1.5 text-[10px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.estimates}</td>
-                              <td className={`px-1.5 py-1.5 text-[10px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(client.totalInvoiced)}</td>
-                              <td className="px-1.5 py-1.5 text-[10px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.totalPaid)}</td>
-                              <td className="px-1.5 py-1.5 text-[10px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.outstanding)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {clientReporting.length === 0 && (
-                      <div className="pt-4">
-                        <ChartEmptyState theme={activeTheme} title="No client performance data" description="Client metrics will appear here once documents exist." />
-                      </div>
-                    )}
-                  </AnalyticsCard>
-
-                  <AnalyticsCard
-                    title="Recent Activity Log"
-                    subtitle="Readable list of the latest documents"
-                    theme={activeTheme}
-                  >
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className={activeTheme.tableHeaderBg}>
-                          <tr>
-                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Document</th>
-                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
-                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Date</th>
-                            <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Status</th>
-                            <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total</th>
-                          </tr>
-                        </thead>
-                        <tbody className={`divide-y ${activeTheme.border}`}>
-                          {recentActivity.map((item, idx) => (
-                            <tr key={`${item.id || item.number}-${idx}`} className={activeTheme.tableRowHover}>
-                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{item.number}</td>
-                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{item.clientName}</td>
-                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatDate(item.date)}</td>
-                              <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{item.status}</td>
-                              <td className={`px-2 py-1.5 text-[11px] text-right font-semibold sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {recentActivity.length === 0 && (
-                      <div className="pt-4">
-                        <ChartEmptyState theme={activeTheme} title="No recent activity" description="The recent activity log is empty for the current filters." />
-                      </div>
-                    )}
-                  </AnalyticsCard>
-                </div>
-              </div>
-            </>
-          ) : reportView === 'business' ? (
-            <>
-              <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-3xl p-6 lg:p-8 overflow-hidden relative`}>
-                <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_top_right,rgba(212,20,42,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(92,11,22,0.18),transparent_25%)]" />
-                <div className="relative grid lg:grid-cols-[1.4fr_0.9fr] gap-6 items-start">
-                  <div>
-                    <p className={`text-xs uppercase tracking-[0.25em] ${activeTheme.textMuted}`}>Business View</p>
-                    <h2 className={`mt-3 text-3xl font-bold ${activeTheme.textPrimary}`}>Operational snapshot</h2>
-                    <p className={`mt-3 max-w-2xl text-sm ${activeTheme.textSecondary}`}>
-                      A management-focused summary of revenue, collections, client activity, and recent document flow for the selected filters.
-                    </p>
-                    <div className="grid sm:grid-cols-3 gap-4 mt-6">
-                      <div className={`rounded-2xl border ${activeTheme.border} ${activeTheme.subtleBg} p-4`}>
-                        <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Revenue</p>
-                        <p className={`mt-2 text-2xl font-bold ${activeTheme.textPrimary}`}>{formatCurrency(summary.totalInvoiced)}</p>
-                        <p className={`mt-1 text-xs ${activeTheme.textMuted}`}>{summary.invoiceCount} invoices issued</p>
-                      </div>
-                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                        <p className="text-xs uppercase tracking-wide text-emerald-600">Collected</p>
-                        <p className="mt-2 text-2xl font-bold text-emerald-700">{formatCurrency(summary.totalPaid)}</p>
-                        <p className="mt-1 text-xs text-emerald-600">{paidRatio.toFixed(1)}% collection rate</p>
-                      </div>
-                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                        <p className="text-xs uppercase tracking-wide text-amber-600">Outstanding</p>
-                        <p className="mt-2 text-2xl font-bold text-amber-700">{formatCurrency(summary.totalOutstanding)}</p>
-                        <p className="mt-1 text-xs text-amber-600">{summary.activeClients} active clients</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className={`rounded-3xl border ${activeTheme.border} ${activeTheme.subtleBg} p-5`}>
-                    <p className={`text-xs uppercase tracking-[0.2em] ${activeTheme.textMuted}`}>Top Client</p>
-                    <p className={`mt-3 text-xl font-semibold ${activeTheme.textPrimary}`}>{topClient?.name || 'No client activity'}</p>
-                    <div className="mt-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className={`text-sm ${activeTheme.textMuted}`}>Invoiced</span>
-                        <span className={`text-sm font-semibold ${activeTheme.textPrimary}`}>{topClient ? formatCurrency(topClient.totalInvoiced) : formatCurrency(0)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-sm ${activeTheme.textMuted}`}>Paid</span>
-                        <span className="text-sm font-semibold text-emerald-600">{topClient ? formatCurrency(topClient.totalPaid) : formatCurrency(0)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-sm ${activeTheme.textMuted}`}>Outstanding</span>
-                        <span className="text-sm font-semibold text-amber-600">{topClient ? formatCurrency(topClient.outstanding) : formatCurrency(0)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-sm ${activeTheme.textMuted}`}>Last Activity</span>
-                        <span className={`text-sm font-semibold ${activeTheme.textPrimary}`}>
-                          {topClient?.lastActivity ? formatDate(topClient.lastActivity.toISOString().split('T')[0]) : 'N/A'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid lg:grid-cols-3 gap-4">
-                {businessSignals.map((signal) => (
-                  <div key={signal.title} className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-5`}>
-                    <p className={`text-xs uppercase tracking-[0.18em] ${activeTheme.textMuted}`}>{signal.title}</p>
-                    <p className={`mt-3 text-2xl font-bold ${activeTheme.textPrimary}`}>{signal.value}</p>
-                    <p className={`mt-2 text-sm ${activeTheme.textSecondary}`}>{signal.detail}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid xl:grid-cols-[1.1fr_0.9fr] gap-6">
-                <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
-                  <div className={`p-4 border-b ${activeTheme.border}`}>
-                    <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Best Clients</h2>
-                    <p className={`text-sm ${activeTheme.textMuted}`}>Clients ranked by invoiced value</p>
-                  </div>
-                  <div className={`divide-y ${activeTheme.border}`}>
-                    {clientReporting.slice(0, 5).map((clientItem) => (
-                      <div key={clientItem.name} className={`p-4 ${activeTheme.tableRowHover}`}>
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className={`font-medium ${activeTheme.textPrimary}`}>{clientItem.name}</p>
-                            <p className={`text-xs ${activeTheme.textMuted} mt-1`}>
-                              {clientItem.invoices} invoices • {clientItem.estimates} estimates
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(clientItem.totalInvoiced)}</p>
-                            <p className="text-xs text-amber-600 mt-1">{formatCurrency(clientItem.outstanding)} outstanding</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {clientReporting.length === 0 && (
-                      <div className={`p-8 text-center ${activeTheme.textMuted}`}>No client activity for the selected filters.</div>
-                    )}
-                  </div>
-                </div>
-
-                <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
-                  <div className={`p-4 border-b ${activeTheme.border}`}>
-                    <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Recent Activity</h2>
-                    <p className={`text-sm ${activeTheme.textMuted}`}>Latest invoices and estimates</p>
-                  </div>
-                  <div className={`divide-y ${activeTheme.border}`}>
-                    {recentActivity.slice(0, 8).map((item, idx) => (
-                      <div key={`${item.id || item.number}-${idx}`} className={`p-4 ${activeTheme.tableRowHover}`}>
-                        <div className="flex justify-between gap-4">
-                          <div>
-                            <p className={`font-medium ${activeTheme.textPrimary}`}>{item.number}</p>
-                            <p className={`text-sm ${activeTheme.textMuted}`}>{item.clientName}</p>
-                            <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{formatDate(item.date)} • {item.type}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</p>
-                            <p className={`text-xs ${activeTheme.textMuted} mt-1`}>{item.status}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {recentActivity.length === 0 && (
-                      <div className={`p-8 text-center ${activeTheme.textMuted}`}>No activity for the selected filters.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
-                <div className={`p-4 border-b ${activeTheme.border}`}>
-                  <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Period Snapshot</h2>
-                  <p className={`text-sm ${activeTheme.textMuted}`}>Latest period performance at a glance</p>
-                </div>
-                {latestPeriod ? (
-                  <div className="grid md:grid-cols-4 gap-4 p-4">
-                    <div className={`${activeTheme.subtleBg} rounded-2xl p-4`}>
-                      <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Period</p>
-                      <p className={`mt-2 font-semibold ${activeTheme.textPrimary}`}>{latestPeriod.period}</p>
-                    </div>
-                    <div className={`${activeTheme.subtleBg} rounded-2xl p-4`}>
-                      <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Invoice Value</p>
-                      <p className={`mt-2 font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(latestPeriod.totalInvoiced)}</p>
-                    </div>
-                    <div className={`${activeTheme.subtleBg} rounded-2xl p-4`}>
-                      <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Estimate Value</p>
-                      <p className={`mt-2 font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(latestPeriod.totalEstimated)}</p>
-                    </div>
-                    <div className={`${activeTheme.subtleBg} rounded-2xl p-4`}>
-                      <p className={`text-xs uppercase tracking-wide ${activeTheme.textMuted}`}>Clients</p>
-                      <p className={`mt-2 font-semibold ${activeTheme.textPrimary}`}>{latestPeriod.clients}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className={`p-8 text-center ${activeTheme.textMuted}`}>No period data available for the selected filters.</div>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 shadow-sm`}>
-              <p className={`text-sm ${activeTheme.textMuted}`}>Total Invoiced</p>
-              <p className={`text-2xl font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(summary.totalInvoiced)}</p>
-              <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{summary.invoiceCount} invoices</p>
-            </div>
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm">
-              <p className="text-sm text-emerald-600">Total Paid</p>
-              <p className="text-2xl font-bold mt-1 text-emerald-700">{formatCurrency(summary.totalPaid)}</p>
-              <p className="text-xs text-emerald-500 mt-1">{summary.totalInvoiced > 0 ? ((summary.totalPaid / summary.totalInvoiced) * 100).toFixed(1) : 0}% of invoiced</p>
-            </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
-              <p className="text-sm text-amber-600">Outstanding</p>
-              <p className="text-2xl font-bold mt-1 text-amber-700">{formatCurrency(summary.totalOutstanding)}</p>
-              <p className="text-xs text-amber-500 mt-1">{summary.totalInvoiced > 0 ? ((summary.totalOutstanding / summary.totalInvoiced) * 100).toFixed(1) : 0}% of invoiced</p>
-            </div>
-            <div className={`${activeTheme.subtleBg} border ${activeTheme.border} rounded-2xl p-4 shadow-sm`}>
-              <p className={`text-sm ${activeTheme.textMuted}`}>Estimates</p>
-              <p className={`text-2xl font-bold mt-1 ${activeTheme.textPrimary}`}>{formatCurrency(summary.totalEstimates)}</p>
-              <p className={`text-xs ${activeTheme.iconColor} mt-1`}>{summary.estimateCount} estimates</p>
-            </div>
-          </div>
-
-          {/* Additional Metrics */}
-          <div className={`grid ${usePhoneLayout ? 'grid-cols-3 gap-2' : 'grid-cols-1 md:grid-cols-3 gap-4'}`}>
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} flex aspect-square flex-col justify-between rounded-xl p-2.5 shadow-sm sm:aspect-auto sm:rounded-2xl sm:p-4`}>
-              <p className={`text-[10px] leading-tight sm:text-sm ${activeTheme.textMuted}`}>Active Clients</p>
-              <p className={`text-xl font-bold leading-none sm:mt-1 sm:text-xl ${activeTheme.textPrimary}`}>{summary.activeClients}</p>
-            </div>
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} flex aspect-square flex-col justify-between rounded-xl p-2.5 shadow-sm sm:aspect-auto sm:rounded-2xl sm:p-4`}>
-              <p className={`text-[10px] leading-tight sm:text-sm ${activeTheme.textMuted}`}>Conversion Rate</p>
-              <p className={`text-xl font-bold leading-none sm:mt-1 sm:text-xl ${activeTheme.textPrimary}`}>{summary.conversionRate.toFixed(1)}%</p>
-              <p className={`text-[10px] leading-tight sm:mt-1 sm:text-xs ${activeTheme.iconColor}`}>Estimates to invoices</p>
-            </div>
-            <div className={`${activeTheme.cardBg} border ${activeTheme.border} flex aspect-square flex-col justify-between rounded-xl p-2.5 shadow-sm sm:aspect-auto sm:rounded-2xl sm:p-4`}>
-              <p className={`text-[10px] leading-tight sm:text-sm ${activeTheme.textMuted}`}>Average Invoice Value</p>
-              <p className={`text-xl font-bold leading-none sm:mt-1 sm:text-xl ${activeTheme.textPrimary}`}>{summary.invoiceCount > 0 ? formatCurrency(summary.totalInvoiced / summary.invoiceCount) : formatCurrency(0)}</p>
-            </div>
-          </div>
-
-          {/* Monthly Breakdown */}
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
-            <div className={`p-4 border-b ${activeTheme.border}`}>
-              <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Period Breakdown</h2>
-              <p className={`text-sm ${activeTheme.textMuted}`}>Revenue and activity by period</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className={activeTheme.tableHeaderBg}>
-                  <tr>
-                    <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Period</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Paid</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total Invoiced</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total Estimated</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Clients</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y ${activeTheme.border}`}>
-                  {monthlyBreakdown.map((row, idx) => (
-                    <tr key={idx} className={activeTheme.tableRowHover}>
-                      <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{row.period}</td>
-                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.invoices}</td>
-                      <td className="px-2 py-1.5 text-[11px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{row.paid}</td>
-                      <td className="px-2 py-1.5 text-[11px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{row.outstanding}</td>
-                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.estimates}</td>
-                      <td className={`px-2 py-1.5 text-[11px] text-right font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalInvoiced)}</td>
-                      <td className={`px-2 py-1.5 text-[11px] text-right font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(row.totalEstimated)}</td>
-                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{row.clients}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {monthlyBreakdown.length === 0 && (
-              <div className={`p-8 text-center ${activeTheme.textMuted}`}>
-                No data available for the selected filters.
-              </div>
-            )}
-          </div>
-
-          {/* Client Reporting */}
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
-            <div className={`p-4 border-b ${activeTheme.border}`}>
-              <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Client Performance</h2>
-              <p className={`text-sm ${activeTheme.textMuted}`}>Revenue and activity by client</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className={activeTheme.tableHeaderBg}>
-                  <tr>
-                    <th className={`px-2 py-1.5 text-left text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Client</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Invoices</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Estimates</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total Invoiced</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Total Paid</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Outstanding</th>
-                    <th className={`px-2 py-1.5 text-right text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.labelColor}`}>Last Activity</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y ${activeTheme.border}`}>
-                  {clientReporting.map((client, idx) => (
-                    <tr key={idx} className={activeTheme.tableRowHover}>
-                      <td className={`px-2 py-1.5 text-[11px] sm:px-4 sm:py-3 sm:text-sm font-medium ${activeTheme.textPrimary}`}>{client.name}</td>
-                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.invoices}</td>
-                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.estimates}</td>
-                      <td className={`px-2 py-1.5 text-[11px] text-right font-medium sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{formatCurrency(client.totalInvoiced)}</td>
-                      <td className="px-2 py-1.5 text-[11px] text-right text-emerald-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.totalPaid)}</td>
-                      <td className="px-2 py-1.5 text-[11px] text-right text-amber-600 sm:px-4 sm:py-3 sm:text-sm">{formatCurrency(client.outstanding)}</td>
-                      <td className={`px-2 py-1.5 text-[11px] text-right sm:px-4 sm:py-3 sm:text-sm ${activeTheme.textPrimary}`}>{client.lastActivity ? formatDate(client.lastActivity.toISOString().split('T')[0]) : 'N/A'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {clientReporting.length === 0 && (
-              <div className={`p-8 text-center ${activeTheme.textMuted}`}>
-                No client data available for the selected filters.
-              </div>
-            )}
-          </div>
-
-          {/* Recent Activity */}
-          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl overflow-hidden shadow-sm`}>
-            <div className={`p-4 border-b ${activeTheme.border}`}>
-              <h2 className={`text-lg font-semibold ${activeTheme.textPrimary}`}>Recent Activity</h2>
-              <p className={`text-sm ${activeTheme.textMuted}`}>Latest invoices and estimates</p>
-            </div>
-            <div className={`divide-y ${activeTheme.border}`}>
-              {recentActivity.map((item, idx) => (
-                <div key={idx} className={`p-4 ${activeTheme.tableRowHover}`}>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className={`font-medium ${activeTheme.textPrimary}`}>{item.number}</p>
-                      <p className={`text-sm ${activeTheme.textMuted}`}>{item.clientName} • {formatDate(item.date)} • {item.status}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`font-semibold ${activeTheme.textPrimary}`}>{formatCurrency(item.total)}</p>
-                      <p className={`text-xs ${activeTheme.iconColor}`}>{item.type}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {recentActivity.length === 0 && (
-                <div className={`p-8 text-center ${activeTheme.textMuted}`}>
-                  No activity for the selected filters.
-                </div>
-              )}
-            </div>
-          </div>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
+  
 
   // ============================================================================
   // RENDER
   // ============================================================================
 
+  const appCtx = {
+    activeTheme,
+    createPdfPreviewUrl,
+    currentItem,
+    data,
+    downloadInvoicePDF,
+    downloadQuotePDF,
+    getClient,
+    getPdfClientForDocument,
+    listContextMenuClass,
+    listContextMenuDividerClass,
+    listContextMenuItemClass,
+    listContextMenuStyle,
+    openNewClient,
+    openNewEstimate,
+    openNewInvoice,
+    openNewItem,
+    requestDeleteConfirmation,
+    save,
+    searchTerm,
+    setActiveTab,
+    setConfirmAction,
+    setConfirmMessage,
+    setConfirmOpen,
+    setCurrentItem,
+    setSearchTerm,
+    setView,
+    updateNextDocumentSetting,
+    usePhoneLayout,
+  };
   if (loading) {
     return (
       <div className={`min-h-screen ${activeTheme.appBg} flex items-center justify-center`}>
@@ -4929,39 +5133,39 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
   const renderContent = () => {
     switch (view) {
       case 'view-invoice':
-        return <InvoiceView />;
+        return <InvoiceView key={currentItem?.id || 'view-invoice'} app={appCtx} />;
       case 'edit-invoice':
-        return <InvoiceEdit />;
+        return <InvoiceEdit key={currentItem?.id || 'edit-invoice-new'} app={appCtx} />;
       case 'view-estimate':
-        return <EstimateView />;
+        return <EstimateView key={currentItem?.id || 'view-estimate'} app={appCtx} />;
       case 'edit-estimate':
-        return <EstimateEdit />;
+        return <EstimateEdit key={currentItem?.id || 'edit-estimate-new'} app={appCtx} />;
       case 'view-client':
-        return <ClientView />;
+        return <ClientView key={currentItem?.id || 'view-client'} app={appCtx} />;
       case 'edit-client':
-        return <ClientEdit />;
+        return <ClientEdit key={currentItem?.id || 'edit-client-new'} app={appCtx} />;
       case 'edit-item':
-        return <ItemEdit />;
+        return <ItemEdit key={currentItem?.id || 'edit-item-new'} app={appCtx} />;
       default:
         switch (activeTab) {
           case 'invoices':
-            return <InvoicesList />;
+            return <InvoicesList app={appCtx} />;
           case 'estimates':
-            return <EstimatesList />;
+            return <EstimatesList app={appCtx} />;
           case 'clients':
-            return <ClientsList />;
+            return <ClientsList app={appCtx} />;
           case 'items':
-            return <ItemsList />;
+            return <ItemsList app={appCtx} />;
           case 'finance':
             return <FinancePage data={data} save={save} theme={activeTheme} />;
           case 'staff-events':
             return <StaffEventPage data={data} save={save} theme={activeTheme} />;
           case 'reports':
-            return <ReportsPage />;
+            return <ReportsPage app={appCtx} />;
           case 'settings':
             return <SettingsPage save={save} saveTheme={saveTheme} activeTheme={activeTheme} uploadLogo={uploadLogo ?? null} />;
           default:
-            return <InvoicesList />;
+            return <InvoicesList app={appCtx} />;
         }
     }
   };

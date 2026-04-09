@@ -1,9 +1,35 @@
 import React from 'react';
 import {
-  Document, Page, View, Text, Image, StyleSheet, pdf,
+  Document, Page, View, Text, Image, StyleSheet, pdf, Font,
   Svg, Rect,
 } from '@react-pdf/renderer';
 import { calculateItemTotal, calculateDocumentTotals } from './calculations';
+
+const GOTHAM_BOLD_FAMILY = 'Gotham-Bold';
+const GOTHAM_BOLD_SRC = '/fonts/Gotham-Bold.ttf';
+let gothamCheckComplete = false;
+let gothamBoldAvailable = false;
+
+const ensureGothamBoldFont = async () => {
+  if (gothamCheckComplete) return gothamBoldAvailable;
+
+  gothamCheckComplete = true;
+
+  try {
+    const probe = await fetch(GOTHAM_BOLD_SRC, { method: 'HEAD' });
+    if (!probe.ok) {
+      gothamBoldAvailable = false;
+      return gothamBoldAvailable;
+    }
+
+    Font.register({ family: GOTHAM_BOLD_FAMILY, src: GOTHAM_BOLD_SRC, fontWeight: 700 });
+    gothamBoldAvailable = true;
+  } catch {
+    gothamBoldAvailable = false;
+  }
+
+  return gothamBoldAvailable;
+};
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -44,21 +70,21 @@ const S = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 6,
   },
-  headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingRight: 20 },
+  headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14, paddingRight: 20 },
   headerRight: { alignItems: 'flex-end' },
-  logoImg: { width: 72, height: 72, objectFit: 'contain', borderRadius: 10 },
-  bizDetails: { flex: 1, paddingTop: 2 },
+  logoImg: { width: 100, height: 70, objectFit: 'contain', borderRadius: 10 },
+  bizDetails: { flex: 1, paddingTop: 0 },
   bizName: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Helvetica-Bold',
     color: C.dark,
-    letterSpacing: 1.5,
+    letterSpacing: 3,
     textTransform: 'uppercase',
     marginBottom: 3,
   },
   bizSub: { fontSize: 8, color: C.textLt, letterSpacing: 0.5, marginBottom: 0 },
   titleText: {
-    fontSize: 32,
+    fontSize: 24,
     fontFamily: 'Helvetica-Bold',
     color: C.dark,
     letterSpacing: 2,
@@ -213,10 +239,10 @@ const S = StyleSheet.create({
     marginBottom: 20,
     marginTop: 4,
   },
-  sigBlock: { width: 200, alignItems: 'flex-start' },
-  sigLine: { borderBottomWidth: 0.5, borderBottomColor: C.charcoal, width: '100%', marginBottom: 6, marginTop: 28 },
-  sigFieldLabel: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: C.textLt, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 2 },
-  sigFieldLine: { borderBottomWidth: 0.5, borderBottomColor: C.borderLt, width: '100%', marginBottom: 10, marginTop: 14 },
+  sigBlock: { width: 230, alignItems: 'flex-start' },
+  sigLine: { borderBottomWidth: 0.5, borderBottomColor: C.charcoal, width: '100%', marginBottom: 10, marginTop: 8 },
+  sigDateLabel: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: C.textLt, letterSpacing: 0.3, marginBottom: 3 },
+  sigDateLine: { borderBottomWidth: 0.5, borderBottomColor: C.borderLt, width: '100%', marginBottom: 0, marginTop: 2 },
 
   // ── Footer ──
   footer: {
@@ -228,12 +254,15 @@ const S = StyleSheet.create({
     borderTopColor: C.border,
     paddingVertical: 12,
     paddingHorizontal: 40,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
+    alignItems: 'center',
   },
-  footerText: { fontSize: 7, color: C.textLt, letterSpacing: 0.3 },
-  footerSep: { fontSize: 7, color: C.borderLt },
+  footerTagline: {
+    fontSize: 8,
+    color: C.textLt,
+    letterSpacing: 0.3,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
 });
 
 // ── Money formatter ───────────────────────────────────────────────────────────
@@ -244,9 +273,9 @@ const fmtMoney = (v) =>
   }).format(Number(v || 0));
 
 // ── PDF component ─────────────────────────────────────────────────────────────
-const InvoicePDF = ({ type, doc, client, settings, totals }) => {
+const InvoicePDF = ({ type, doc, client, settings, totals, businessNameFontFamily }) => {
   const isInvoice = type === 'invoice';
-  const title     = isInvoice ? 'INVOICE' : 'ESTIMATE';
+  const title     = isInvoice ? 'INVOICE' : 'QUOTE';
   const taxRate   = settings?.taxRate  || 15;
   const taxLabel  = settings?.taxLabel || 'VAT';
 
@@ -267,12 +296,12 @@ const InvoicePDF = ({ type, doc, client, settings, totals }) => {
 
   const hasBank  = isInvoice && bankFields.length > 0;
 
-  const docNotes     = String(doc.notes || '').trim();
-  const defaultNotes = isInvoice
+  const documentNotes = String(doc.notes || '').trim();
+  const termsAndConditions = isInvoice
     ? String(settings?.defaultInvoiceNotes  || '').trim()
     : String(settings?.defaultEstimateNotes || '').trim();
-  const finalNotes = docNotes || defaultNotes;
-  const hasNotes   = finalNotes.length > 0;
+  const hasDocumentNotes = documentNotes.length > 0;
+  const hasTermsAndConditions = termsAndConditions.length > 0;
 
   const bizAddrLines = String(settings?.address || '').split('\n').filter(Boolean);
 
@@ -284,6 +313,16 @@ const InvoicePDF = ({ type, doc, client, settings, totals }) => {
   if (clientAddrLines.length === 0 && client?.address) {
     clientAddrLines.push(...String(client.address).split('\n').filter(Boolean));
   }
+  const clientExtraLines = [
+    client?.extraLine1,
+    client?.extraLine2,
+    client?.extraLine3,
+    client?.extraLine4,
+    client?.extraLine5,
+  ]
+    .map((line) => String(line || '').trim())
+    .filter(Boolean);
+  const clientNotes = String(client?.notes || '').trim();
 
   // Column widths
   const numW   = 22;
@@ -292,13 +331,6 @@ const InvoicePDF = ({ type, doc, client, settings, totals }) => {
   const qtyW   = 32;
   const discW  = 58;
   const amtW   = 70;
-
-  // Footer items
-  const footerParts = [
-    settings?.phone,
-    settings?.email,
-    ...(bizAddrLines.length > 0 ? [bizAddrLines.join(', ')] : []),
-  ].filter(Boolean);
 
   return (
     <Document>
@@ -311,7 +343,7 @@ const InvoicePDF = ({ type, doc, client, settings, totals }) => {
               <Image src={settings.logo} style={S.logoImg} />
             ) : null}
             <View style={S.bizDetails}>
-              <Text style={S.bizName}>{settings?.businessName || ''}</Text>
+              <Text style={[S.bizName, { fontFamily: businessNameFontFamily }]}>{settings?.businessName || ''}</Text>
               {settings?.businessNumber ? (
                 <Text style={S.bizSub}>Reg. {settings.businessNumber}</Text>
               ) : null}
@@ -322,7 +354,7 @@ const InvoicePDF = ({ type, doc, client, settings, totals }) => {
           </View>
           <View style={S.headerRight}>
             <Text style={S.titleText}>{title}</Text>
-            <Text style={S.metaLabel}>{isInvoice ? 'Invoice No.' : 'Estimate No.'}</Text>
+            <Text style={S.metaLabel}>{isInvoice ? 'Invoice No.' : 'Quote No.'}</Text>
             <Text style={S.metaValue}>{doc.number || ''}</Text>
             <Text style={S.metaLabel}>Date</Text>
             <Text style={S.metaValue}>{doc.date || ''}</Text>
@@ -353,6 +385,8 @@ const InvoicePDF = ({ type, doc, client, settings, totals }) => {
             {client?.phone ? <Text style={S.infoLine}>{client.phone}</Text> : null}
             {client?.email ? <Text style={S.infoLine}>{client.email}</Text> : null}
             {client?.vatNumber ? <Text style={S.infoLine}>VAT: {client.vatNumber}</Text> : null}
+            {clientExtraLines.map((line, i) => <Text key={`extra-${i}`} style={S.infoLine}>{line}</Text>)}
+            {clientNotes ? <Text style={S.infoLine}>{clientNotes}</Text> : null}
           </View>
           {hasBank ? (
             <View style={S.infoCol}>
@@ -443,10 +477,12 @@ const InvoicePDF = ({ type, doc, client, settings, totals }) => {
                 <Text style={S.sumValue}>-{fmtMoney(overallDiscountAmount)}</Text>
               </View>
             ) : null}
-            <View style={S.sumRow}>
-              <Text style={S.sumLabel}>{taxLabel} ({taxEnabled ? `${taxRate}%` : 'Off'})</Text>
-              <Text style={S.sumValue}>{fmtMoney(totalTax)}</Text>
-            </View>
+            {taxEnabled ? (
+              <View style={S.sumRow}>
+                <Text style={S.sumLabel}>{taxLabel} ({taxRate}%)</Text>
+                <Text style={S.sumValue}>{fmtMoney(totalTax)}</Text>
+              </View>
+            ) : null}
 
             {/* Total bar */}
             <View style={S.totalBar}>
@@ -471,11 +507,19 @@ const InvoicePDF = ({ type, doc, client, settings, totals }) => {
 
         <Rule color={C.borderLt} mb={16} />
 
-        {/* ── Terms & Notes ── */}
-        {hasNotes ? (
+        {/* ── Notes ── */}
+        {hasDocumentNotes ? (
+          <View style={S.notesWrap} wrap={false}>
+            <Text style={S.sectionLabel}>Notes</Text>
+            <Text style={S.notesBody}>{documentNotes}</Text>
+          </View>
+        ) : null}
+
+        {/* ── Terms & Conditions ── */}
+        {hasTermsAndConditions ? (
           <View style={S.notesWrap} wrap={false}>
             <Text style={S.sectionLabel}>Terms & Conditions</Text>
-            <Text style={S.notesBody}>{finalNotes}</Text>
+            <Text style={S.notesBody}>{termsAndConditions}</Text>
           </View>
         ) : null}
 
@@ -484,22 +528,14 @@ const InvoicePDF = ({ type, doc, client, settings, totals }) => {
           <View style={S.sigBlock}>
             <Text style={S.sectionLabel}>Client Signature</Text>
             <View style={S.sigLine} />
-            <Text style={S.sigFieldLabel}>Signature</Text>
-            <View style={S.sigFieldLine} />
-            <Text style={S.sigFieldLabel}>Name</Text>
-            <View style={S.sigFieldLine} />
-            <Text style={S.sigFieldLabel}>Date</Text>
+            <Text style={S.sigDateLabel}>Date (DD/MM/YYYY)</Text>
+            <View style={S.sigDateLine} />
           </View>
         </View>
 
         {/* ── Footer ── */}
         <View style={S.footer} fixed>
-          {footerParts.map((part, i) => (
-            <React.Fragment key={i}>
-              {i > 0 ? <Text style={S.footerSep}>|</Text> : null}
-              <Text style={S.footerText}>{part}</Text>
-            </React.Fragment>
-          ))}
+          <Text style={S.footerTagline}>Let's turn your moments into memories.</Text>
         </View>
 
       </Page>
@@ -510,14 +546,23 @@ const InvoicePDF = ({ type, doc, client, settings, totals }) => {
 // ── Public API ────────────────────────────────────────────────────────────────
 export const generatePDF = async (type, doc, client, settings) => {
   const isInvoice     = type === 'invoice';
-  const documentLabel = isInvoice ? 'Invoice' : 'Estimate';
+  const documentLabel = isInvoice ? 'Invoice' : 'Quote';
   const taxRate       = settings?.taxRate || 15;
   const totals        = calculateDocumentTotals(doc, taxRate);
   const safeNumber    = String(doc?.number || documentLabel).replace(/[\\/:*?"<>|]+/g, '_');
+  const useGothamBold = await ensureGothamBoldFont();
+  const businessNameFontFamily = useGothamBold ? GOTHAM_BOLD_FAMILY : 'Helvetica-Bold';
 
   try {
     const blob = await pdf(
-      <InvoicePDF type={type} doc={doc} client={client} settings={settings} totals={totals} />
+      <InvoicePDF
+        type={type}
+        doc={doc}
+        client={client}
+        settings={settings}
+        totals={totals}
+        businessNameFontFamily={businessNameFontFamily}
+      />
     ).toBlob();
 
     const url = URL.createObjectURL(blob);

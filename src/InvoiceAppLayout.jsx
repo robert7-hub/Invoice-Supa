@@ -76,7 +76,20 @@ export const useDeviceLayout = () => {
     }
 
     const updateLayout = () => {
-      setLayout(getDeviceLayout());
+      const nextLayout = getDeviceLayout();
+      setLayout((prevLayout) => {
+        // Ignore no-op resize updates (e.g. mobile keyboard focus) to avoid remounting active edit screens.
+        if (
+          prevLayout.kind === nextLayout.kind
+          && prevLayout.isPhone === nextLayout.isPhone
+          && prevLayout.isTablet === nextLayout.isTablet
+          && prevLayout.isDesktop === nextLayout.isDesktop
+          && prevLayout.hasTouch === nextLayout.hasTouch
+        ) {
+          return prevLayout;
+        }
+        return nextLayout;
+      });
     };
     const mediaQueries = ['(pointer: coarse)', '(pointer: fine)', '(hover: hover)'].map((query) =>
       window.matchMedia(query)
@@ -299,7 +312,7 @@ export const QuickCreateSheet = ({
 }) => {
   const createActions = [
     { id: 'invoices', label: 'New Invoice', subtitle: 'Start a fresh invoice', icon: FileText },
-    { id: 'estimates', label: 'New Estimate', subtitle: 'Create a quote quickly', icon: FileSignature },
+    { id: 'estimates', label: 'New Quote', subtitle: 'Create a quote quickly', icon: FileSignature },
     { id: 'clients', label: 'New Client', subtitle: 'Add a new client profile', icon: Users },
   ];
 
@@ -599,7 +612,7 @@ export const MobileLayout = ({
   const headerTitle =
     {
       invoices: 'Invoices',
-      estimates: 'Estimates',
+      estimates: 'Quotes',
       clients: 'Clients',
       items: 'Items',
       finance: 'Finance',

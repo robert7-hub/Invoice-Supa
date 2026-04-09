@@ -849,10 +849,10 @@ export default function StaffEventPage({ data, save, theme }) {
           <button onClick={startNew} className={`flex items-center gap-1.5 px-3 py-1.5 sm:gap-2 sm:px-5 sm:py-2.5 ${theme.accent} rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold ${theme.accentHover}`}><Plus size={14} className="sm:hidden" /><Plus size={18} className="hidden sm:block" /> New Event</button>
         </div>
 
-        {/* Convert accepted estimates */}
+        {/* Convert accepted quotes */}
         {convertableEstimates.length > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg sm:rounded-2xl p-3 sm:p-5">
-            <p className="text-xs sm:text-base font-semibold text-blue-800 mb-2 sm:mb-3">Accepted Estimates Ready to Convert</p>
+            <p className="text-xs sm:text-base font-semibold text-blue-800 mb-2 sm:mb-3">Accepted Quotes Ready to Convert</p>
             <div className="space-y-1.5 sm:space-y-2.5">
               {convertableEstimates.map(est => {
                 const client = getClient(est.clientId);
@@ -904,7 +904,7 @@ export default function StaffEventPage({ data, save, theme }) {
                       <div className="flex-1 min-w-0 pr-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className={`text-xs sm:text-base font-bold ${theme.textPrimary} truncate`}>{evt.title}</p>
-                          {evt.estimateId && <span className="text-[9px] sm:text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium shrink-0">Estimate</span>}
+                          {evt.estimateId && <span className="text-[9px] sm:text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium shrink-0">Quote</span>}
                         </div>
                         <p className={`text-[10px] sm:text-sm ${theme.textMuted} mt-0.5 sm:mt-1 truncate`}>
                           {client?.name || '—'} {evt.venue ? `• ${evt.venue}` : ''}

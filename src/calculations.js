@@ -98,12 +98,17 @@ export const parseDocumentNumber = (value, prefix, allowPlain = false) => {
 export const formatDocumentNumber = (prefix, number, width = 5) => `${prefix}${String(number).padStart(width, '0')}`;
 
 export const generateDocumentNumber = (type, existingInvoices, existingEstimates, settings) => {
-  const prefix = type === 'invoice' ? 'INV' : 'EST';
-  const items = type === 'invoice' ? existingInvoices : existingEstimates;
-  const settingKey = type === 'invoice' ? 'nextInvoiceNumber' : 'nextEstimateNumber';
-  const configured = parseDocumentNumber(settings?.[settingKey], prefix, true);
+  const isInvoice = type === 'invoice';
+  const prefix = isInvoice ? 'INV' : 'QTE';
+  const items = isInvoice ? existingInvoices : existingEstimates;
+  const settingKey = isInvoice ? 'nextInvoiceNumber' : 'nextEstimateNumber';
+  const parseWithPrefix = (value, allowPlain = false) =>
+    parseDocumentNumber(value, prefix, allowPlain)
+    || (!isInvoice ? parseDocumentNumber(value, 'EST', allowPlain) : null);
+
+  const configured = parseWithPrefix(settings?.[settingKey], true);
   const parsedItems = items
-    .map((item) => parseDocumentNumber(item.number, prefix))
+    .map((item) => parseWithPrefix(item.number))
     .filter(Boolean);
   const maxExisting = Math.max(0, ...parsedItems.map((item) => item.number));
   const width = parsedItems.length > 0

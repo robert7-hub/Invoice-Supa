@@ -27,8 +27,8 @@ export const generatePDF = async (type, doc, client, settings) => {
   const isInvoice = type === 'invoice';
   const taxRate = settings?.taxRate || 15;
   const taxLabel = settings?.taxLabel || 'VAT';
-  const documentLabel = isInvoice ? 'Invoice' : 'Estimate';
-  const title = isInvoice ? 'INVOICE' : 'ESTIMATE';
+  const documentLabel = isInvoice ? 'Invoice' : 'Quote';
+  const title = isInvoice ? 'INVOICE' : 'QUOTE';
   const escapeHtml = (value = '') =>
     String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -171,12 +171,12 @@ export const generatePDF = async (type, doc, client, settings) => {
   <!-- ===== INFO CARDS ROW ===== -->
   <div style="padding:0 16px;page-break-inside:avoid;">
     <table style="width:100%;border-collapse:separate;border-spacing:8px;"><tr>
-      <!-- Invoice/Estimate Details Card -->
+      <!-- Invoice/Quote Details Card -->
       <td style="width:50%;vertical-align:top;${cardStyle}">
-        <div style="${secLabel}">${isInvoice ? 'Invoice Details' : 'Estimate Details'}</div>
+        <div style="${secLabel}">${isInvoice ? 'Invoice Details' : 'Quote Details'}</div>
         <table style="width:100%;border-collapse:collapse;">
           <tr>
-            <td style="padding:6px 0;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${P.textLt};width:42%;">${isInvoice ? 'Invoice No' : 'Estimate No'}</td>
+            <td style="padding:6px 0;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${P.textLt};width:42%;">${isInvoice ? 'Invoice No' : 'Quote No'}</td>
             <td style="padding:6px 0;font-size:12px;font-weight:700;color:${P.dark};text-align:right;">${escapeHtml(doc.number || '')}</td>
           </tr>
           <tr>
@@ -279,7 +279,7 @@ export const generatePDF = async (type, doc, client, settings) => {
   ${hasNotes ? `
   <div style="padding:0 16px;page-break-inside:avoid;">
     <div style="margin-top:10px;margin-bottom:8px;${cardStyle}page-break-inside:avoid;">
-      <div style="${secLabel}">${isInvoice ? 'Invoice Notes' : 'Estimate Notes'}</div>
+      <div style="${secLabel}">${isInvoice ? 'Invoice Notes' : 'Quote Notes'}</div>
       <div style="font-size:11px;line-height:1.65;color:${P.textMd};white-space:pre-line;">${toHtmlLines(finalNotes)}</div>
     </div>
   </div>
@@ -288,7 +288,7 @@ export const generatePDF = async (type, doc, client, settings) => {
   <!-- ===== FOOTER ===== -->
   
   <div style="padding:14px 24px 18px;text-align:center;font-size:10px;color:#9ca3af;">
-    ${isInvoice ? 'Thank you for your business.' : 'This estimate is issued for review and approval.'}
+    ${isInvoice ? 'Thank you for your business.' : 'This quote is issued for review and approval.'}
   </div>
 
 </div>

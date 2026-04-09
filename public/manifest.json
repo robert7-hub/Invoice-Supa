@@ -9,10 +9,16 @@
   "theme_color": "#2563eb",
   "icons": [
     {
-      "src": "/Invoice-Supa/icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/Invoice-Supa/icons/snell-invoice-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/Invoice-Supa/icons/snell-invoice-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
