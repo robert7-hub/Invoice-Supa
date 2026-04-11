@@ -1387,7 +1387,14 @@ const LineItemModal = ({
 // SETTINGS PAGE (top-level component — must not be nested inside App)
 // ============================================================================
 
-const SettingsPage = ({ save, saveTheme, activeTheme, uploadLogo }) => {
+const SettingsPage = ({
+  save,
+  saveTheme,
+  activeTheme,
+  uploadLogo,
+  cloudSync = null,
+  isPhoneLayout = false,
+}) => {
   const [form, setForm] = useState(() => {
     try {
       const raw = localStorage.getItem(DB_KEYS.settings);
@@ -1422,6 +1429,9 @@ const SettingsPage = ({ save, saveTheme, activeTheme, uploadLogo }) => {
     setTimeout(() => setSavedState(false), 1500);
   };
   const businessMonogram = getBusinessMonogram(form.businessName);
+  const showMobileCloudSync = Boolean(
+    isPhoneLayout && cloudSync && typeof cloudSync.onPull === 'function' && typeof cloudSync.onPush === 'function'
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -1436,6 +1446,46 @@ const SettingsPage = ({ save, saveTheme, activeTheme, uploadLogo }) => {
         className="flex-1 overflow-y-auto px-4 py-4 lg:px-8 lg:py-8 space-y-4"
         style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
       >
+        {showMobileCloudSync ? (
+          <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-3`}>
+            <div className={`flex items-center gap-2 pb-1 border-b ${activeTheme.border}`}>
+              <ArrowRightLeft className={`w-4 h-4 ${activeTheme.iconColor}`} />
+              <p className={`text-sm font-semibold ${activeTheme.textPrimary}`}>Cloud Sync</p>
+            </div>
+            <p className={`text-xs ${activeTheme.textSecondary}`}>
+              {cloudSync?.email || 'Connected account'}
+            </p>
+            <p className={`text-xs ${activeTheme.textMuted}`}>
+              {cloudSync?.syncStatus || 'Not synced yet'}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={cloudSync.onPull}
+                className={`rounded-xl border ${activeTheme.inputBorder} ${activeTheme.subtleBg} px-3 py-2 text-xs font-semibold ${activeTheme.textPrimary} ${activeTheme.buttonHover}`}
+              >
+                Pull Cloud
+              </button>
+              <button
+                type="button"
+                onClick={cloudSync.onPush}
+                className={`rounded-xl px-3 py-2 text-xs font-semibold ${activeTheme.accent} ${activeTheme.accentHover}`}
+              >
+                Push Local
+              </button>
+            </div>
+            {typeof cloudSync?.onSignOut === 'function' ? (
+              <button
+                type="button"
+                onClick={cloudSync.onSignOut}
+                className={`w-full rounded-xl border ${activeTheme.inputBorder} px-3 py-2 text-xs font-medium ${activeTheme.textSecondary} ${activeTheme.buttonHover}`}
+              >
+                Sign Out
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className={`${activeTheme.cardBg} border ${activeTheme.border} rounded-2xl p-4 space-y-4`}>
           <div className={`flex items-center gap-2 pb-1 border-b ${activeTheme.border}`}>
             <Building2 className={`w-4 h-4 ${activeTheme.iconColor}`} />
@@ -5163,7 +5213,16 @@ export function InvoiceApp({ cloudToolbarProps = null, renderCloudToolbar = null
           case 'reports':
             return <ReportsPage app={appCtx} />;
           case 'settings':
-            return <SettingsPage save={save} saveTheme={saveTheme} activeTheme={activeTheme} uploadLogo={uploadLogo ?? null} />;
+            return (
+              <SettingsPage
+                save={save}
+                saveTheme={saveTheme}
+                activeTheme={activeTheme}
+                uploadLogo={uploadLogo ?? null}
+                cloudSync={cloudToolbarProps}
+                isPhoneLayout={usePhoneLayout}
+              />
+            );
           default:
             return <InvoicesList app={appCtx} />;
         }
